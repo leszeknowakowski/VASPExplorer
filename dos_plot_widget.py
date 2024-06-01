@@ -1,6 +1,8 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter
 from PyQt5 import QtCore
 import pyqtgraph as pg
+import re
+import numpy as np
 
 class DosPlotWidget(QWidget):
     def __init__(self, data):
@@ -19,7 +21,7 @@ class DosPlotWidget(QWidget):
 
         plot_splitter.addWidget(self.full_range_plot)
         plot_splitter.addWidget(self.bounded_plot)
-        plot_splitter.setStretchFactor(0, 3)
+        plot_splitter.setStretchFactor(0, 2)
         plot_splitter.setStretchFactor(1, 3)
 
         self.layout.addWidget(plot_splitter)
@@ -88,3 +90,79 @@ class DosPlotWidget(QWidget):
 
         self.full_range_plot.plot([-x for x in datasetdown], nrg, pen=pg.mkPen('b'))
         self.bounded_plot.plot([-x for x in datasetdown], nrg, pen=pg.mkPen('b'))
+
+    def create_label(self, orbital_up, orbital_down, atom_no_up, atom_no_down):
+        def number_range(lst):
+            '''returns a string representing a range of numbers, eg. 1-4,5,10-11'''
+            result = []
+            i = 0
+            while i < len(lst):
+                start = lst[i]
+                end = start
+                while i + 1 < len(lst) and lst[i + 1] - lst[i] == 1:
+                    end = lst[i + 1]
+                    i += 1
+                if start == end:
+                    result.append(str(start))
+                else:
+                    result.append(f"{start}-{end}")
+                i += 1
+            string_result = ",".join(result) + ","
+            return " many atoms!," if len(string_result) > 20 else string_result
+
+        orblst = sorted(set(orbital_down + orbital_up))
+        atomlst = sorted(set(atom_no_down + atom_no_up), key=lambda x: (
+        re.match(r'\D+', x).group(), int(re.match(r'\d+', x[len(re.match(r'\D+', x).group()):]).group())))
+        lst = [orblst, atomlst]
+
+        count_orb_in_label = [lst[0].count(o) for o in ['s', 'p', 'd', 'f']]
+
+        orblbl = []
+        if count_orb_in_label[0] == 1:
+            orblbl.append('s')
+        if count_orb_in_label[1] == 3:
+            orblbl.append('p')
+        else:
+            orblbl.extend([orb for orb in lst[0] if orb.startswith('p')])
+        if count_orb_in_label[2] == 5:
+            orblbl.append('d')
+        else:
+            orblbl.extend([orb for orb in lst[0] if orb.startswith('d')])
+        if count_orb_in_label[3] == 7:
+            orblbl.append('f')
+        else:
+            orblbl.extend([orb for orb in lst[0] if orb.startswith('f')])
+
+        atomlst_group = {}
+        for atom in lst[1]:
+            key = re.match(r'\D+', atom).group()
+            if key in atomlst_group:
+                atomlst_group[key].append(int(re.match(r'\d+', atom[len(key):]).group()))
+            else:
+                atomlst_group[key] = [int(re.match(r'\d+', atom[len(key):]).group())]
+
+        atomlbl = [f"{key}{number_range(sorted(values))}" for key, values in atomlst_group.items()]
+
+        merged_label = atomlbl + orblbl
+        return " ".join(merged_label)
+
+    def sum_data_to_merge(self, selected_atoms, selected_orbitals):
+        dataset_up = np.array(self.data.data_up)
+        dataset_down = np.array(self.data.data_down)
+        dataset_up =  dataset_up[np.ix_(selected_atoms,selected_orbitals,range(self.data.nedos))]
+        dataset_down =  dataset_down[np.ix_(selected_atoms,selected_orbitals,range(self.data.nedos))]
+        merged_data_up = np.sum(dataset_up, axis=(1,0))
+        merged_data_down = np.sum(dataset_down, axis=(1,0))
+        return merged_data_up, merged_data_down
+
+    def plot_merged(self, selected_atoms, selected_orbitals, nrg):
+        merged_data_up, merged_data_down = self.sum_data_to_merge(selected_atoms,
+                                                                              selected_orbitals)
+
+        self.clear_plot_data(self.full_range_plot)
+        self.clear_plot_data(self.bounded_plot)
+        self.full_range_plot.plot(merged_data_up, nrg, pen=pg.mkPen('b'))
+        self.bounded_plot.plot(merged_data_up, nrg, pen=pg.mkPen('b'))
+
+        self.full_range_plot.plot([-x for x in merged_data_down], nrg, pen=pg.mkPen('b'))
+        self.bounded_plot.plot([-x for x in merged_data_down], nrg, pen=pg.mkPen('b'))

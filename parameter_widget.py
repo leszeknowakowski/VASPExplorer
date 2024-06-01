@@ -9,6 +9,7 @@ class ParameterWidget(QWidget):
         super().__init__()
         self.data = data
         self.plot_widget = plot_widget
+        self.saved_plots = []
         self.initUI()
 
     def initUI(self):
@@ -212,7 +213,7 @@ class ParameterWidget(QWidget):
         self.update_indexes()
         self.update_plot()
         self.orbital_up = [checkbox.text() for checkbox in self.orbital_checkboxes if checkbox.isChecked()]
-        self.atoms_up = [checkbox for checkbox in self.atom_checkboxes if checkbox.isChecked()]
+        self.atoms_up = [checkbox.text() for checkbox in self.atom_checkboxes if checkbox.isChecked()]
 
     def parameter_changed(self, param, changes):
         for param, change, data in changes:
@@ -227,9 +228,19 @@ class ParameterWidget(QWidget):
         self.plot_widget.update_plot(self.data, self.selected_atoms, self.selected_orbitals)
 
     def plot_merged(self):
+        lbl = self.create_label()
+        self.plot_widget.plot_merged(self.selected_atoms, self.selected_orbitals, self.data.doscar.total_dos_energy)
+
         pass
 
     def plot_total_dos(self):
         dataset_up = self.data.total_alfa
         dataset_down = self.data.total_beta
         self.plot_widget.update_total_dos_plot(dataset_up, dataset_down, self.data.doscar.total_dos_energy)
+
+    def create_label(self):
+        lbl = self.plot_widget.create_label(self.orbital_up, self.orbital_up, self.atoms_up, self.atoms_up)
+        return lbl
+
+
+

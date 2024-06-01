@@ -241,9 +241,9 @@ class DOSCARparser:
             self.number_of_atoms = int(lines[0].strip().split()[0])
             info_line_full = lines[5]
             info_line = info_line_full.strip().split()
-            stop_nrg, start_nrg, nedos, self.efermi = [info_line[i] for i in range(4)]
-            nedos = int(nedos)
-            dos_parts = list(self.splitter(lines[6:], nedos + 1))
+            stop_nrg, start_nrg, self.nedos, self.efermi = [info_line[i] for i in range(4)]
+            self.nedos = int(self.nedos)
+            dos_parts = list(self.splitter(lines[6:], self.nedos + 1))
 
             total_dos = [line.strip().split() for line in dos_parts[0]]
             self.total_dos_energy = [float(x) for x in list(map(lambda sublist: sublist[0], total_dos))]

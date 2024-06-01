@@ -11,6 +11,7 @@ class VaspData():
         self.e_fermi = self.doscar.efermi
         self.total_alfa = self.doscar.total_dos_alfa
         self.total_beta = self.doscar.total_dos_beta
+        self.nedos = self.doscar.nedos
 
         poscar = PoscarParser(os.path.join(dir, "POSCAR"))
         self.atoms_symb_and_num = poscar.symbol_and_number()

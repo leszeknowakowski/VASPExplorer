@@ -42,6 +42,8 @@ class MainWindow(QMainWindow):
         right_tab_widget.addTab(self.parameter_widget, "Parameters")
         right_tab_widget.addTab(QWidget(), "Structure list")  # Placeholder for future widget
         splitter.addWidget(right_tab_widget)
+        splitter.setStretchFactor(0,5)
+        splitter.setStretchFactor(1,10)
 
         self.console_widget = ConsoleWidget()
         main_layout.addWidget(self.console_widget)
