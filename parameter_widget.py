@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel
 from PyQt5 import QtCore
 from pyqtgraph.parametertree import Parameter, ParameterTree
 import pyqtgraph as pg
+from dos_plot_widget import MergedPlotWindow
 
 
 class ParameterWidget(QWidget):
@@ -146,6 +147,14 @@ class ParameterWidget(QWidget):
         self.additional_button_layout.addWidget(self.plot_total_dos_btn, 1, 0)
         self.plot_total_dos_btn.clicked.connect(self.plot_total_dos)
 
+        self.save_plots_btn = QPushButton("Save plots")
+        self.additional_button_layout.addWidget(self.save_plots_btn,1, 1)
+        self.save_plots_btn.clicked.connect(self.save_merged_plot)
+
+        self.show_saved_plot_btn = QPushButton("show saved plots")
+        self.additional_button_layout.addWidget(self.show_saved_plot_btn,2,0)
+        self.show_saved_plot_btn.clicked.connect(self.show_saved_plot)
+
         all_btn_layout.addLayout(self.additional_button_layout)
 
         ###################################### tab 3 - atom selection ##################################################
@@ -229,9 +238,8 @@ class ParameterWidget(QWidget):
 
     def plot_merged(self):
         lbl = self.create_label()
-        self.plot_widget.plot_merged(self.selected_atoms, self.selected_orbitals, self.data.doscar.total_dos_energy)
-
-        pass
+        color = self.color_button.color()
+        self.plot_widget.plot_merged(self.selected_atoms, self.selected_orbitals, self.data.doscar.total_dos_energy, lbl, color)
 
     def plot_total_dos(self):
         dataset_up = self.data.total_alfa
@@ -241,6 +249,17 @@ class ParameterWidget(QWidget):
     def create_label(self):
         lbl = self.plot_widget.create_label(self.orbital_up, self.orbital_up, self.atoms_up, self.atoms_up)
         return lbl
+
+    def save_merged_plot(self):
+        data_up = self.plot_widget.bounded_plot.plotItem.curves[0].getData()[0]
+        data_down = self.plot_widget.bounded_plot.plotItem.curves[1].getData()[0]
+        lbl = self.create_label()
+        color = self.plot_widget.bounded_plot.plotItem.curves[0].opts['pen'].color()
+        self.saved_plots.append((data_up, data_down, lbl, color))
+
+
+    def show_saved_plot(self):
+        self.plot_widget.show_all_saved_plots(self.saved_plots, self.data.doscar.total_dos_energy)
 
 
 

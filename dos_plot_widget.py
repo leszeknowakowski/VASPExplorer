@@ -1,14 +1,16 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout
 from PyQt5 import QtCore
 import pyqtgraph as pg
 import re
 import numpy as np
+import sys
 
 class DosPlotWidget(QWidget):
     def __init__(self, data):
         super().__init__()
         self.data = data
         self.initUI()
+        self.legend = []
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
@@ -55,7 +57,7 @@ class DosPlotWidget(QWidget):
             plot_widget.removeItem(item)
 
 
-    def update_plot(self, data, selected_atoms, selected_orbitals):
+    def update_plot(self, data, selected_atoms, selected_orbitals, ):
         self.clear_plot_data(self.full_range_plot)
         self.clear_plot_data(self.bounded_plot)
         colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k', 'b', 'r', 'g', 'c', 'm', 'y', 'k', 'b', 'r', 'g', 'c', 'm', 'y',
@@ -155,14 +157,52 @@ class DosPlotWidget(QWidget):
         merged_data_down = np.sum(dataset_down, axis=(1,0))
         return merged_data_up, merged_data_down
 
-    def plot_merged(self, selected_atoms, selected_orbitals, nrg):
+    def plot_merged(self, selected_atoms, selected_orbitals, nrg, label, color):
         merged_data_up, merged_data_down = self.sum_data_to_merge(selected_atoms,
                                                                               selected_orbitals)
 
         self.clear_plot_data(self.full_range_plot)
         self.clear_plot_data(self.bounded_plot)
-        self.full_range_plot.plot(merged_data_up, nrg, pen=pg.mkPen('b'))
-        self.bounded_plot.plot(merged_data_up, nrg, pen=pg.mkPen('b'))
+        self.full_range_plot.plot(merged_data_up, nrg, pen=pg.mkPen(color))
+        bu = self.bounded_plot.plot(merged_data_up, nrg, pen=pg.mkPen(color))
 
-        self.full_range_plot.plot([-x for x in merged_data_down], nrg, pen=pg.mkPen('b'))
-        self.bounded_plot.plot([-x for x in merged_data_down], nrg, pen=pg.mkPen('b'))
+        self.full_range_plot.plot([-x for x in merged_data_down], nrg, pen=pg.mkPen(color))
+        bd = self.bounded_plot.plot([-x for x in merged_data_down], nrg, pen=pg.mkPen(color))
+
+
+        if self.legend == []:
+            self.legend = pg.LegendItem((80,60), offset=(-20,-50))
+            self.legend.setParentItem(self.bounded_plot.getPlotItem())
+        self.legend.clear()
+        self.legend.addItem(bd, label)
+        self.legend.addItem(bu, label)
+
+    def show_all_saved_plots(self, saved_plots, nrg):
+        self.saved_plots_window = MergedPlotWindow(saved_plots, nrg)
+        self.saved_plots_window.show()
+
+
+class MergedPlotWindow(QWidget):
+    def __init__(self, saved_plots, nrg):
+        super().__init__()
+
+        self.setWindowTitle("Plot Window")
+        self.setGeometry(200, 200, 800, 600)
+
+        layout = QHBoxLayout()
+        self.setLayout(layout)
+
+
+        for data in saved_plots:
+            picked_plot = pg.PlotWidget()
+            picked_plot.setBackground('w')
+            up = picked_plot.plot(data[0], nrg, pen=pg.mkPen(data[3]), name=data[2])
+            picked_plot.plot(data[1], nrg,pen=pg.mkPen(data[3]), name=data[2])
+            legend = pg.LegendItem((80, 60), offset=(70, 20))
+            legend.setParentItem(picked_plot.getPlotItem())
+            legend.addItem(up, name=data[2])
+
+            layout.addWidget(picked_plot)
+
+
+
