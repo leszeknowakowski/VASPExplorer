@@ -12,6 +12,7 @@ import os
 pg.setConfigOptions(antialias=True)
 
 class MainWindow(QMainWindow):
+    '''main window class'''
     def __init__(self):
         super().__init__()
         self.create_data()
