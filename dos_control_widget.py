@@ -267,9 +267,10 @@ class DosControlWidget(QWidget):
     def plot_merged(self):
         lbl = self.create_label()
         color = self.color_button.color()
-        self.plot_widget.plot_merged(self.selected_atoms, self.selected_orbitals, self.data.doscar.total_dos_energy, lbl, color)
         self.saved_labels.append(lbl)
         self.saved_colors.append(color)
+        self.plot_widget.plot_merged(self.selected_atoms, self.selected_orbitals, self.data.doscar.total_dos_energy, self.saved_labels[-1], color)
+
 
     def plot_total_dos(self):
         dataset_up = self.data.total_alfa

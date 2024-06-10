@@ -191,7 +191,7 @@ class DosPlotWidget(QWidget):
         merged_label = atomlbl + orblbl
         joined_label = " ".join(merged_label)
         print(joined_label)
-        return [joined_label]
+        return joined_label
 
     def sum_data_to_merge(self, selected_atoms, selected_orbitals):
         dataset_up = np.array(self.data.data_up)
@@ -202,7 +202,7 @@ class DosPlotWidget(QWidget):
         merged_data_down = np.sum(dataset_down, axis=(1,0))
         return merged_data_up, merged_data_down
 
-    def plot_merged(self, selected_atoms, selected_orbitals, nrg, labels, color):
+    def plot_merged(self, selected_atoms, selected_orbitals, nrg, label, color):
         merged_data_up, merged_data_down = self.sum_data_to_merge(selected_atoms,
                                                                               selected_orbitals)
 
@@ -223,11 +223,11 @@ class DosPlotWidget(QWidget):
         if self.legend == []:
             self.legend = pg.LegendItem((80,60), offset=(-20,-50))
             self.legend.setParentItem(self.bounded_plot.getPlotItem())
-        self.legend.clear()
-        for index, item in enumerate(self.bounded_plot.listDataItems()):
-            if index % 2 == 0:
-                self.legend.addItem(item, labels[int(index/2)])
-
+        #self.legend.clear()
+        #for index, item in enumerate(self.bounded_plot.listDataItems()):
+        #    if index % 2 == 0:
+        #       self.legend.addItem(item, label)
+        self.legend.addItem(self.bounded_plot.listDataItems()[-1], label)
 
     def show_all_saved_plots(self, saved_plots, nrg):
         self.saved_plots_window = MergedPlotWindow(saved_plots, nrg)
