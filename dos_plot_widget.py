@@ -13,6 +13,7 @@ if True:
 
     tic = time.perf_counter()
     import pyqtgraph as pg
+    from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
     toc = time.perf_counter()
     print(f'import pyqtgraph in DOSplot: {toc - tic:0.4f}')
 
@@ -79,9 +80,15 @@ class DosPlotWidget(QWidget):
         self.region.setRegion(view_range)
 
     def clear_plot_data(self, plot_widget):
-        items = [item for item in plot_widget.listDataItems() if isinstance(item, pg.PlotDataItem)]
+        items = [item for item in plot_widget.listDataItems() if isinstance(item, pg.PlotDataItem) and not isinstance(item, MergedPlotDataItem)]
         for item in items:
             plot_widget.removeItem(item)
+
+    def clear_merged_plot(self):
+        for plot in [self.full_range_plot, self.bounded_plot]:
+            for item in [item for item in plot.listDataItems() if isinstance(item, MergedPlotDataItem)]:
+                plot.removeItem(item)
+        self.legend.clear()
 
 
     def update_plot(self, data, selected_atoms, selected_orbitals, ):
@@ -144,7 +151,10 @@ class DosPlotWidget(QWidget):
         re.match(r'\D+', x).group(), int(re.match(r'\d+', x[len(re.match(r'\D+', x).group()):]).group())))
         lst = [orblst, atomlst]
 
-        count_orb_in_label = [lst[0].count(o) for o in ['s', 'p', 'd', 'f']]
+        flattened_lst = [item for sublist in lst for item in sublist]
+
+        count_orb_in_label = [sum(1 for item in flattened_lst if item.startswith(prefix)) for prefix in ["s", "p", "d", "f"]]
+
 
         orblbl = []
         if count_orb_in_label[0] == 1:
@@ -153,12 +163,18 @@ class DosPlotWidget(QWidget):
             orblbl.append('p')
         else:
             orblbl.extend([orb for orb in lst[0] if orb.startswith('p')])
+
         if count_orb_in_label[2] == 5:
             orblbl.append('d')
+        elif count_orb_in_label[2] > 2:
+            orblbl.append('many d')
         else:
             orblbl.extend([orb for orb in lst[0] if orb.startswith('d')])
+
         if count_orb_in_label[3] == 7:
             orblbl.append('f')
+        elif count_orb_in_label[3] > 3:
+            orblbl.append('many f')
         else:
             orblbl.extend([orb for orb in lst[0] if orb.startswith('f')])
 
@@ -173,7 +189,9 @@ class DosPlotWidget(QWidget):
         atomlbl = [f"{key}{number_range(sorted(values))}" for key, values in atomlst_group.items()]
 
         merged_label = atomlbl + orblbl
-        return " ".join(merged_label)
+        joined_label = " ".join(merged_label)
+        print(joined_label)
+        return [joined_label]
 
     def sum_data_to_merge(self, selected_atoms, selected_orbitals):
         dataset_up = np.array(self.data.data_up)
@@ -184,25 +202,32 @@ class DosPlotWidget(QWidget):
         merged_data_down = np.sum(dataset_down, axis=(1,0))
         return merged_data_up, merged_data_down
 
-    def plot_merged(self, selected_atoms, selected_orbitals, nrg, label, color):
+    def plot_merged(self, selected_atoms, selected_orbitals, nrg, labels, color):
         merged_data_up, merged_data_down = self.sum_data_to_merge(selected_atoms,
                                                                               selected_orbitals)
 
         self.clear_plot_data(self.full_range_plot)
         self.clear_plot_data(self.bounded_plot)
-        self.full_range_plot.plot(merged_data_up, nrg, pen=pg.mkPen(color))
-        bu = self.bounded_plot.plot(merged_data_up, nrg, pen=pg.mkPen(color))
 
-        self.full_range_plot.plot([-x for x in merged_data_down], nrg, pen=pg.mkPen(color))
-        bd = self.bounded_plot.plot([-x for x in merged_data_down], nrg, pen=pg.mkPen(color))
+        merged_item_up_full = MergedPlotDataItem(merged_data_up, nrg,pen=pg.mkPen(color))
+        merged_item_up_bound = MergedPlotDataItem(merged_data_up, nrg,pen=pg.mkPen(color))
 
+        self.full_range_plot.addItem(merged_item_up_full)
+        self.bounded_plot.addItem(merged_item_up_bound)
+
+        merged_item_down_full = MergedPlotDataItem([-x for x in merged_data_down], nrg, pen=pg.mkPen(color))
+        merged_item_down_bound = MergedPlotDataItem([-x for x in merged_data_down], nrg, pen=pg.mkPen(color))
+        self.full_range_plot.addItem(merged_item_down_full)
+        self.bounded_plot.addItem(merged_item_down_bound)
 
         if self.legend == []:
             self.legend = pg.LegendItem((80,60), offset=(-20,-50))
             self.legend.setParentItem(self.bounded_plot.getPlotItem())
         self.legend.clear()
-        self.legend.addItem(bd, label)
-        self.legend.addItem(bu, label)
+        for index, item in enumerate(self.bounded_plot.listDataItems()):
+            if index % 2 == 0:
+                self.legend.addItem(item, labels[int(index/2)])
+
 
     def show_all_saved_plots(self, saved_plots, nrg):
         self.saved_plots_window = MergedPlotWindow(saved_plots, nrg)
@@ -231,5 +256,7 @@ class MergedPlotWindow(QWidget):
 
             layout.addWidget(picked_plot)
 
-
+class MergedPlotDataItem(PlotDataItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 

@@ -32,7 +32,7 @@ if True:  # noqa: E402
     print(f'import dos_plot_widget in main: {toc - tic:0.4f}')
 
     tic = time.perf_counter()
-    from parameter_widget import ParameterWidget
+    from dos_control_widget import DosControlWidget
     toc = time.perf_counter()
     print(f'import parameter_widget in main: {toc - tic:0.4f}')
 
@@ -81,8 +81,8 @@ class MainWindow(QMainWindow):
 
         # Right tabs for GUI
         right_tab_widget = QTabWidget()
-        self.parameter_widget = ParameterWidget(self.data, self.dos_plot_widget)
-        right_tab_widget.addTab(self.parameter_widget, "Parameters")
+        self.dos_control_widget = DosControlWidget(self.data, self.dos_plot_widget)
+        right_tab_widget.addTab(self.dos_control_widget, "Parameters")
         right_tab_widget.addTab(QWidget(), "Structure list")  # Placeholder for future widget
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)

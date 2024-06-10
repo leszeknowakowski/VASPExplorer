@@ -27,12 +27,14 @@ print(f'import dos_plot_widget in parameter widget: {toc - tic:0.4f}')
 
 
 
-class ParameterWidget(QWidget):
+class DosControlWidget(QWidget):
     def __init__(self, data, plot_widget):
         super().__init__()
         self.data = data
         self.plot_widget = plot_widget
         self.saved_plots = []
+        self.saved_labels = []
+        self.saved_colors = []
         self.initUI()
 
     def initUI(self):
@@ -177,6 +179,10 @@ class ParameterWidget(QWidget):
         self.additional_button_layout.addWidget(self.show_saved_plot_btn,2,0)
         self.show_saved_plot_btn.clicked.connect(self.show_saved_plot)
 
+        self.clear_merged_plot_btn = QPushButton("Clear plots")
+        self.additional_button_layout.addWidget(self.clear_merged_plot_btn,2,1)
+        self.clear_merged_plot_btn.clicked.connect(self.clear_merged_plot)
+
         all_btn_layout.addLayout(self.additional_button_layout)
 
         ###################################### tab 3 - atom selection ##################################################
@@ -262,6 +268,8 @@ class ParameterWidget(QWidget):
         lbl = self.create_label()
         color = self.color_button.color()
         self.plot_widget.plot_merged(self.selected_atoms, self.selected_orbitals, self.data.doscar.total_dos_energy, lbl, color)
+        self.saved_labels.append(lbl)
+        self.saved_colors.append(color)
 
     def plot_total_dos(self):
         dataset_up = self.data.total_alfa
@@ -273,15 +281,20 @@ class ParameterWidget(QWidget):
         return lbl
 
     def save_merged_plot(self):
-        data_up = self.plot_widget.bounded_plot.plotItem.curves[0].getData()[0]
-        data_down = self.plot_widget.bounded_plot.plotItem.curves[1].getData()[0]
-        lbl = self.create_label()
-        color = self.plot_widget.bounded_plot.plotItem.curves[0].opts['pen'].color()
+        plot_items = int(len(self.plot_widget.bounded_plot.plotItem.curves))
+        data_up = self.plot_widget.bounded_plot.plotItem.curves[-2].getData()[0]
+        data_down = self.plot_widget.bounded_plot.plotItem.curves[-1].getData()[0]
+        lbl = self.saved_labels[-1]
+        color = self.saved_colors[-1]
         self.saved_plots.append((data_up, data_down, lbl, color))
 
 
     def show_saved_plot(self):
         self.plot_widget.show_all_saved_plots(self.saved_plots, self.data.doscar.total_dos_energy)
+
+    def clear_merged_plot(self):
+        self.plot_widget.clear_merged_plot()
+        self.saved_plots = []
 
 
 
