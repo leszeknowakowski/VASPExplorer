@@ -1,8 +1,30 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel, QScrollArea, QFrame, QPushButton,QGridLayout, QPlainTextEdit
+import time
+
+tic = time.perf_counter()
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel, QScrollArea, QFrame, QPushButton, QGridLayout, QPlainTextEdit
+toc = time.perf_counter()
+print(f'import PyQt5.QtWidgets in parameterwidget: {toc - tic:0.4f}')
+
+tic = time.perf_counter()
 from PyQt5 import QtCore
+toc = time.perf_counter()
+print(f'import PyQt5.QtCore in parameter widget: {toc - tic:0.4f}')
+
+tic = time.perf_counter()
 from pyqtgraph.parametertree import Parameter, ParameterTree
+toc = time.perf_counter()
+print(f'import pyqtgraph.parametertree in parameter widget: {toc - tic:0.4f}')
+
+tic = time.perf_counter()
 import pyqtgraph as pg
+toc = time.perf_counter()
+print(f'import pyqtgraph in parameter widget: {toc - tic:0.4f}')
+
+tic = time.perf_counter()
 from dos_plot_widget import MergedPlotWindow
+toc = time.perf_counter()
+print(f'import dos_plot_widget in parameter widget: {toc - tic:0.4f}')
+
 
 
 class ParameterWidget(QWidget):

@@ -1,5 +1,15 @@
+import time
+
+tic = time.perf_counter()
 import os
+toc = time.perf_counter()
+print(f'import os in vaspdata: {toc - tic:0.4f}')
+
+tic = time.perf_counter()
 from VASPparser import *
+toc = time.perf_counter()
+print(f'import VASPparser in vaspdata: {toc - tic:0.4f}')
+
 
 class VaspData():
     def __init__(self, dir):

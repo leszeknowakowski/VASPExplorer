@@ -1,9 +1,36 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout
-from PyQt5 import QtCore
-import pyqtgraph as pg
-import re
-import numpy as np
-import sys
+import time
+
+if True:
+    tic = time.perf_counter()
+    from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout
+    toc = time.perf_counter()
+    print(f'import PyQt5.QtWidgets in DOSplot: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    from PyQt5 import QtCore
+    toc = time.perf_counter()
+    print(f'import PyQt5.QtCore in DOSplot: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    import pyqtgraph as pg
+    toc = time.perf_counter()
+    print(f'import pyqtgraph in DOSplot: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    import re
+    toc = time.perf_counter()
+    print(f'import re in DOSplot: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    import numpy as np
+    toc = time.perf_counter()
+    print(f'import numpy in DOSplot: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    import sys
+    toc = time.perf_counter()
+    print(f'import sys in DOSplot: {toc - tic:0.4f}')
+
 
 class DosPlotWidget(QWidget):
     def __init__(self, data):

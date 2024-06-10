@@ -1,13 +1,55 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit
-from PyQt5 import QtCore
-import pyqtgraph as pg
-from vasp_data import VaspData
-from dos_plot_widget import DosPlotWidget
-from parameter_widget import ParameterWidget
-from console_widget import ConsoleWidget
-import platform
-import os
+import time
+
+if True:  # noqa: E402
+    tic = time.perf_counter()
+    import sys
+    toc = time.perf_counter()
+    print(f'import sys in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit
+    toc = time.perf_counter()
+    print(f'import PyQt5.QtWidgets in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    from PyQt5 import QtCore
+    toc = time.perf_counter()
+    print(f'import PyQt5.QtCore in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    import pyqtgraph as pg
+    toc = time.perf_counter()
+    print(f'import pyqtgraph in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    from vasp_data import VaspData
+    toc = time.perf_counter()
+    print(f'import vasp_data in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    from dos_plot_widget import DosPlotWidget
+    toc = time.perf_counter()
+    print(f'import dos_plot_widget in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    from parameter_widget import ParameterWidget
+    toc = time.perf_counter()
+    print(f'import parameter_widget in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    from console_widget import ConsoleWidget
+    toc = time.perf_counter()
+    print(f'import console_widget in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    import platform
+    toc = time.perf_counter()
+    print(f'import platform in main: {toc - tic:0.4f}')
+
+    tic = time.perf_counter()
+    import os
+    toc = time.perf_counter()
+    print(f'import os in main: {toc - tic:0.4f}')
 
 pg.setConfigOptions(antialias=True)
 
