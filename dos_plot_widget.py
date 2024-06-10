@@ -99,22 +99,29 @@ class DosPlotWidget(QWidget):
         dataset_up = data.data_up
         dataset_down = data.data_down
         nrg = data.doscar.total_dos_energy
+        counter = 0
         for atom_index in selected_atoms:
             for orbital_index in selected_orbitals:
-                plot_color = colors[orbital_index]  # Cycle through colors
-                plot_data = dataset_up[atom_index][orbital_index]
-                self.full_range_plot.plot(plot_data, nrg, pen=pg.mkPen(plot_color))
-                self.bounded_plot.plot(plot_data, nrg, pen=pg.mkPen(plot_color))
+                counter += 1
+        if counter > 10:
+            pass
+        else:
+            for atom_index in selected_atoms:
+                for orbital_index in selected_orbitals:
+                    plot_color = colors[orbital_index]  # Cycle through colors
+                    plot_data = dataset_up[atom_index][orbital_index]
+                    self.full_range_plot.plot(plot_data, nrg, pen=pg.mkPen(plot_color))
+                    self.bounded_plot.plot(plot_data, nrg, pen=pg.mkPen(plot_color))
 
-        # plot dataset down
-        for atom_index in selected_atoms:
-            for orbital_index in selected_orbitals:
-                plot_color = colors[orbital_index]  # Cycle through colors
-                plot_data = dataset_down[atom_index][orbital_index]
-                self.full_range_plot.plot([-x for x in plot_data], nrg,
-                                          pen=pg.mkPen(plot_color))
-                self.bounded_plot.plot([-x for x in plot_data], nrg,
-                                       pen=pg.mkPen(plot_color))
+            # plot dataset down
+            for atom_index in selected_atoms:
+                for orbital_index in selected_orbitals:
+                    plot_color = colors[orbital_index]  # Cycle through colors
+                    plot_data = dataset_down[atom_index][orbital_index]
+                    self.full_range_plot.plot([-x for x in plot_data], nrg,
+                                              pen=pg.mkPen(plot_color))
+                    self.bounded_plot.plot([-x for x in plot_data], nrg,
+                                           pen=pg.mkPen(plot_color))
 
         self.update_bounded_plot_y_range()
 
