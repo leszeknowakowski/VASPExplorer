@@ -28,6 +28,7 @@ class VaspData():
         self.number_of_atoms = poscar.number_of_atoms()
         self.list_atomic_symbols = poscar.list_atomic_symbols()
         self.atomic_symbols = poscar.atomic_symbols()
+        self.init_coordinates = poscar.coordinates()
 
         self.orb_types = [["s"], ["py", "pz", "px"], ["dxy", "dyz", "dz", "dxz", "dx2y2"],
                           ["fy(3x2-y2)", "fxyz", "fyz2", "fz3", "fxz2", "fz(x2-y2)", "fx(x2-3y2)"]]

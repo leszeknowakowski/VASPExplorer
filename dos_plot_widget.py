@@ -86,7 +86,7 @@ class DosPlotWidget(QWidget):
 
     def clear_merged_plot(self):
         for plot in [self.full_range_plot, self.bounded_plot]:
-            for item in [item for item in plot.listDataItems() if isinstance(item, MergedPlotDataItem)]:
+            for item in [item for item in plot.listDataItems() if isinstance(item, MergedPlotDataItem) or isinstance(item, pg.graphicsItems.PlotDataItem.PlotDataItem)]:
                 plot.removeItem(item)
         self.legend.clear()
 
@@ -230,10 +230,6 @@ class DosPlotWidget(QWidget):
         if self.legend == []:
             self.legend = pg.LegendItem((80,60), offset=(-20,-50))
             self.legend.setParentItem(self.bounded_plot.getPlotItem())
-        #self.legend.clear()
-        #for index, item in enumerate(self.bounded_plot.listDataItems()):
-        #    if index % 2 == 0:
-        #       self.legend.addItem(item, label)
         self.legend.addItem(self.bounded_plot.listDataItems()[-1], label)
 
     def show_all_saved_plots(self, saved_plots, nrg):

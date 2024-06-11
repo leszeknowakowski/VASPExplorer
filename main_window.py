@@ -33,8 +33,9 @@ if True:  # noqa: E402
 
     tic = time.perf_counter()
     from dos_control_widget import DosControlWidget
+    from structure_plot import StructureViewer
     toc = time.perf_counter()
-    print(f'import parameter_widget in main: {toc - tic:0.4f}')
+    print(f'import neighbour widgets in main: {toc - tic:0.4f}')
 
     tic = time.perf_counter()
     from console_widget import ConsoleWidget
@@ -74,8 +75,9 @@ class MainWindow(QMainWindow):
         # Left tabs for plots
         left_tab_widget = QTabWidget()
         self.dos_plot_widget = DosPlotWidget(self.data)
+        self.structure_plot_widget = StructureViewer(self.data)
         left_tab_widget.addTab(self.dos_plot_widget, "DOS")
-        left_tab_widget.addTab(QWidget(), "Structure")  # Placeholder for future widget
+        left_tab_widget.addTab(self.structure_plot_widget, "Structure")  # Placeholder for future widget
         left_tab_widget.addTab(QWidget(), "PARCHG/CHGCAR")  # Placeholder for future widget
         splitter.addWidget(left_tab_widget)
 
@@ -113,3 +115,5 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
+    print("ended")
+    print('wtf')

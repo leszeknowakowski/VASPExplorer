@@ -293,10 +293,6 @@ class DOSCARparser:
                 self.dataset_down.append(small_dataset_down)
                 small_dataset_down = []
 
-
-
-
-
     def splitter(self, list, size):
         for i in range(0, len(list), size):
             yield list[i:i + size - 1]
