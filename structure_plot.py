@@ -41,9 +41,9 @@ class StructureViewer(QWidget):
         return data
 
     def add_sphere(self, coords, atom):
-        md = gl.MeshData.sphere(rows=100, cols=200)
+        md = gl.MeshData.sphere(rows=10, cols=20)
         md.setFaceColors([self.element_colors[atom]]*md.faceCount())
-        m3 = gl.GLMeshItem(meshdata=md, smooth=False, shader='shaded')
+        m3 = gl.GLMeshItem(meshdata=md, smooth=True, shader='shaded')
         m3.translate(*coords)
         self.structure_widget.addItem(m3)
 
