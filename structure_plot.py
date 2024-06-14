@@ -11,6 +11,7 @@ class StructureViewer(QWidget):
     def __init__(self, data):
         super().__init__()
         self.data = data
+        self.coordinates = self.data.init_coordinates
         self.initUI()
 
 
@@ -27,6 +28,9 @@ class StructureViewer(QWidget):
         #self.add_sphere([2,2,2], "O")
         self.add_structure()
         self.add_unit_cell(self.data.unit_cell_vectors)
+        self.add_numbers()
+        self.add_top_plane()
+
 
     @staticmethod
     def import_json():
@@ -48,8 +52,7 @@ class StructureViewer(QWidget):
         self.structure_widget.addItem(m3)
 
     def add_structure(self):
-        coords = self.data.init_coordinates
-        for idx, coord in enumerate(coords):
+        for idx, coord in enumerate(self.coordinates):
             self.add_sphere(coord, self.data.list_atomic_symbols[idx])
 
     def add_unit_cell(self, basis_vectors):
@@ -89,4 +92,19 @@ class StructureViewer(QWidget):
         m1.translate(0, 0, 0)
         self.structure_widget.addItem(m1)
 
+    def add_numbers(self):
+        numbers = self.data.atoms_symb_and_num
+        for idx, coord in enumerate(self.coordinates):
+            text = gl.GLTextItem()
+            text.setData(pos=(coord[0], coord[1], coord[2]), color=(1, 1, 1, 255), text=numbers[idx])
+            self.structure_widget.addItem(text)
 
+    def add_top_plane(self):
+        z = pg.gaussianFilter(np.random.normal(size=(50, 50)), (10, 10))
+        p1 = gl.GLSurfacePlotItem(z=z, shader='shaded', color=(0, 0, 0, 1))
+        p1.scale(1,1, 1.0)
+        p1.translate(0, 0, 10)
+        self.structure_widget.addItem(p1)
+
+    def add_bottom_plane(self):
+        pass

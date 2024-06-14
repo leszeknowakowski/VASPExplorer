@@ -98,7 +98,8 @@ class MainWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         elif platform.system() == 'Windows':
-            path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
+            #path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
+            path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
             if os.path.isdir(path):
                 dir = path
             else:
