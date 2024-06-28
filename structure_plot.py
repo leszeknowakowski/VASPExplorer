@@ -41,7 +41,7 @@ class StructureViewer(QWidget):
         self.coordinates = self.data.init_coordinates
         self.sphere_actors = []
         if platform.system() == 'Linux':
-            colors_file = "/home/lnowakowski/venv/vasp-projects/view_poscar/scripts/9999.VASPExplorer"
+            colors_file = "/home/lnowakowski/venv/vasp-projects/view_poscar/scripts/9999.VASPExplorer/elementColorSchemes.json"
         elif platform.system() == 'Windows':
             file = "F:\\syncme-from-c120\\Studia\\python\\vasp_geo\\project_geo\\2.Splitted_PyQtGraph\\elementColorSchemes.json"
             if os.path.isfile(file):
