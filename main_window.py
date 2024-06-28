@@ -129,7 +129,7 @@ class MainWindow(MainWindow):
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2")
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\co3o4_new_new\\2.ROS\\1.large_slab\\1.old_random_mag\\6.CoO-O_CoO-O\\antiferro\\HSE\\DOS_new")
         else:
-            print("can't resolve operating system. Please Leszek, write your code only on Windows or Linux")
+            print("can't resolve operating system. lol, Please Leszek, write your code only on Windows or Linux")
         self.data = VaspData(dir)
 
 if __name__ == '__main__':
