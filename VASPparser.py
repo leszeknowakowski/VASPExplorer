@@ -7,13 +7,14 @@ print(f' import os: {toc - tic:0.4f} seconds')
 class OutcarParser:
     """Class to parse a OUTCAR file"""
 
-    def __init__(self, filename):
+    def __init__(self, dir, filename):
         """parse OUTCAR and find positions of atoms and energy at each geometry"""
-        self.filename = filename
+        self.filename = os.path.join(dir, filename)
         self.data = []
         self.energies = []
         self.positions = []
-        self.poscar = PoscarParser('POSCAR')
+        self.magnetizations = []
+        self.poscar = PoscarParser(os.path.join(dir, 'POSCAR'))
         self.atom_count = self.poscar.number_of_atoms()
 
         with open(self.filename, 'r') as file:
@@ -37,6 +38,18 @@ class OutcarParser:
                     i += 2
                     energy_data = lines[i].strip().split()[4]
                     self.energies.append(float(energy_data))
+                elif line.startswith('magnetization (x)'):
+                    section_magnetization = []
+                    i += 4
+                    current_i = i
+                    for i in range(current_i, current_i + self.atom_count):
+                        line = lines[i]
+                        magnetization_data = line.split()
+                        atom_mag = float(magnetization_data[-1])
+                        section_magnetization.append(atom_mag)
+                    self.magnetizations.append(section_magnetization)
+                if line.startswith('Voluntary context switches:'):
+                    self.magnetizations.pop()
             if section_position==[]:
                 for i in range(lenght):
                     line = lines[i].strip()
@@ -49,6 +62,7 @@ class OutcarParser:
                             atom_data = [float(x) for x in position_data[:3]]
                             section_position.append(atom_data)
                         self.positions.append(section_position)
+                # self.magnetizations = [["N/A" for atom in self.atom_count]]
 
         print('\n')
 
@@ -64,10 +78,10 @@ class OutcarParser:
         search_string = 'magnetization'
         with open(self.filename, 'r') as file:
             file.seek(0, 2)
-            file.seek(file.tell() - 6500, 0)
+            file.seek(file.tell() - 16500, 0)
             file.readline()
             lines = file.readlines()
-            file.seek(file.tell() - 6500, 0)
+            file.seek(file.tell() - 16500, 0)
             file.readline()
             i=0
             while i < len(lines):
