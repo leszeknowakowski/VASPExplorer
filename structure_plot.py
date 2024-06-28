@@ -22,6 +22,11 @@ import vtkmodules.all as vtk
 toc = time.perf_counter()
 print(f'importing vtk {toc - tic}')
 
+tic = time.perf_counter()
+import platform
+toc = time.perf_counter()
+print(f'import platform in structure_plot: {toc - tic:0.4f}')
+
 import numpy as np
 import os
 import json
