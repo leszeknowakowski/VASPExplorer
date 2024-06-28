@@ -35,7 +35,17 @@ class StructureViewer(QWidget):
         self.data = data
         self.coordinates = self.data.init_coordinates
         self.sphere_actors = []
-        with open('elementColorSchemes.json', 'r') as file:
+        if platform.system() == 'Linux':
+            colors_file = "/home/lnowakowski/venv/vasp-projects/view_poscar/scripts/9999.VASPExplorer"
+        elif platform.system() == 'Windows':
+            file = "F:\\syncme-from-c120\\Studia\\python\\vasp_geo\\project_geo\\2.Splitted_PyQtGraph\\elementColorSchemes.json"
+            if os.path.isfile(file):
+                colors_file = file
+            else:
+                colors_file = ("D:\\syncme-from-c120\\Studia\\python\\vasp_geo\\project_geo\\2.Splitted_PyQtGraph\\elementColorSchemes.json")
+        else:
+            print("can't resolve operating system. lol, Please Leszek, write your code only on Windows or Linux")
+        with open(colors_file, 'r') as file:
             color_data = json.load(file)
         self.atom_colors = [color_data[self.data.symbols[i]] for i in range(self.data.number_of_atoms)]
         self.coord_pairs = []  # pairs of points connected by a bond
