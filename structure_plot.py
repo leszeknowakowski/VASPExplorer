@@ -65,7 +65,7 @@ class StructureViewer(QWidget):
         self.symb_actor = None
         self.cube_actor = None
         self.mag_actor = None
-        self.bond_actors = None
+        self.bond_actor = None
         self.master_bond_visibility = 2
         self.scatter_item = None
         self.charge_data = None

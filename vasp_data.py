@@ -88,6 +88,7 @@ class VaspData():
         self.number_of_atoms = len(self.coordinates)
         self.symbols = self.poscar.list_atomic_symbols()
         self.constrains = self.poscar.constrains()
+        self.all_constrains = self.poscar.all_constrains()
 
 
 

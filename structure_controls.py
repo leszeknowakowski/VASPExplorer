@@ -1,6 +1,7 @@
 """ module to GUI control the structure plot"""
 import time
 import numpy as np
+import pyqtgraph as pg
 
 # from functools import partial
 
@@ -53,8 +54,9 @@ class StructureControlsWidget(QWidget):
         self.text_control_widget()
         self.structure_slider_widget()
         self.planes_layout()
+        self.energy_plot_layout()
 
-        self.add_symbol_and_number()
+        #self.add_symbol_and_number()
         self.add_bonds()
         self.add_plane(self.structure_plot_widget.data.z / 2)
         self.add_plane_higher(self.structure_plot_widget.data.z)
@@ -88,14 +90,21 @@ class StructureControlsWidget(QWidget):
 
         self.planes_frame_layout = QVBoxLayout(self.planes_frame)
 
+        self.energy_plot_frame = QFrame(self)
+        self.energy_plot_frame.setFrameShape(QFrame.Panel)
+        self.energy_plot_frame.setFrameShadow(QFrame.Raised)
+        self.energy_plot_frame.setStyleSheet("background-color: magenta;")
+        self.energy_plot_frame.setLineWidth(10)
+        self.energy_plot_frame_layout = QVBoxLayout(self.energy_plot_frame)
+
     def render_structure_control_widget(self):
         """ structure  visibility checkbox widget. Control wheater to plot or not the spheres, bonds, unit cell"""
         # ############# spheres part ###########################
-        sphere_cb = QtWidgets.QCheckBox()
-        sphere_cb.setChecked(True)
-        sphere_cb.setText("Sphere")
+        self.sphere_cb = QtWidgets.QCheckBox()
+        self.sphere_cb.setChecked(True)
+        self.sphere_cb.setText("Sphere")
 
-        sphere_cb.stateChanged.connect(self.toggle_spheres)
+        self.sphere_cb.stateChanged.connect(self.toggle_spheres)
 
         self.sphere_radius_slider = QtWidgets.QSlider()
         self.sphere_radius_slider.setOrientation(QtCore.Qt.Horizontal)
@@ -113,17 +122,17 @@ class StructureControlsWidget(QWidget):
 
         sphere_layout = QHBoxLayout()
         sphere_layout.setSpacing(10)
-        sphere_layout.addWidget(sphere_cb)
+        sphere_layout.addWidget(self.sphere_cb)
         sphere_layout.addWidget(self.sphere_radius_label)
         sphere_layout.addWidget(self.sphere_radius_slider)
         sphere_layout.setAlignment(QtCore.Qt.AlignLeft)
         self.render_frame_layout.addLayout(sphere_layout)
 
         # ############### bonds part #########################
-        bonds_cb = QtWidgets.QCheckBox()
-        bonds_cb.setChecked(True)
-        bonds_cb.setText("bonds")
-        bonds_cb.stateChanged.connect(self.toggle_bonds)
+        self.bonds_cb = QtWidgets.QCheckBox()
+        self.bonds_cb.setChecked(True)
+        self.bonds_cb.setText("bonds")
+        self.bonds_cb.stateChanged.connect(self.toggle_bonds)
 
         self.bond_threshold_slider = QtWidgets.QSlider()
         self.bond_threshold_slider.setOrientation(QtCore.Qt.Horizontal)
@@ -143,7 +152,7 @@ class StructureControlsWidget(QWidget):
 
 
         bond_layaout = QHBoxLayout()
-        bond_layaout.addWidget(bonds_cb)
+        bond_layaout.addWidget(self.bonds_cb)
         bond_layaout.addWidget(self.bond_threshold_label)
         bond_layaout.addWidget(self.bond_threshold_slider)
         self.render_frame_layout.addLayout(bond_layaout)
@@ -157,11 +166,11 @@ class StructureControlsWidget(QWidget):
 
     def text_control_widget(self):
         """ widgets connected to rendering text on 3d structure, such as numbers of atom, constrains """
-        numbers_cb = QtWidgets.QCheckBox()
-        numbers_cb.setChecked(False)
-        numbers_cb.setText('numbers')
-        numbers_cb.stateChanged.connect(self.toggle_symbols)
-        self.render_frame_layout.addWidget(numbers_cb)
+        self.numbers_cb = QtWidgets.QCheckBox()
+        self.numbers_cb.setChecked(False)
+        self.numbers_cb.setText('numbers')
+        self.numbers_cb.stateChanged.connect(self.toggle_symbols)
+        self.render_frame_layout.addWidget(self.numbers_cb)
 
         self.numbers_between_planes_cb = QtWidgets.QCheckBox()
         self.numbers_between_planes_cb.setChecked(False)
@@ -199,8 +208,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider = QtWidgets.QSlider()
         self.geometry_slider.setOrientation(QtCore.Qt.Horizontal)
         self.geometry_slider.setMinimum(0)
-        self.geometry_slider.setMaximum(len(self.structure_plot_widget.data.outcar_coordinates) - 1)
-        self.geometry_slider.setMaximum(10)
+        self.geometry_slider.setMaximum(len(self.structure_plot_widget.data.outcar_coordinates) - 2)
         self.geometry_slider.setValue(0)
         self.geometry_slider.setTickInterval(1)
         self.geometry_slider.setSingleStep(1)
@@ -209,7 +217,9 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.valueChanged.connect(self.add_sphere)
         self.geometry_slider.valueChanged.connect(self.update_geometry_value_label)
         self.geometry_slider.valueChanged.connect(self.add_bonds)
-        # self.geometry_slider.valueChanged.connect(self.add_scatter)
+        self.geometry_slider.valueChanged.connect(self.toggle_symbols)
+        self.geometry_slider.valueChanged.connect(self.toggle_symbols_between_planes)
+        self.geometry_slider.valueChanged.connect(self.update_scatter)
 
         self.geometry_value_label = QtWidgets.QLabel()
         self.geometry_value_label.setText(f"Geometry number: {self.geometry_slider.value()}")
@@ -265,6 +275,30 @@ class StructureControlsWidget(QWidget):
 
         self.planes_frame_layout.addLayout(planes_layout)
         self.vlayout.addWidget(self.planes_frame)
+    def energy_plot_layout(self):
+        self.energy_plot_widget = pg.PlotWidget()
+        self.update_scatter()
+        
+        y = self.structure_plot_widget.data.outcar_energies
+        x = list(range(len(y)))
+        self.energy_plot_widget.plot(x, y)
+
+
+        self.energy_plot_frame_layout.addWidget(self.energy_plot_widget)
+        self.vlayout.addWidget(self.energy_plot_frame)
+
+    def update_scatter(self):
+        for item in self.energy_plot_widget.getPlotItem().listDataItems():
+            if isinstance(item, pg.ScatterPlotItem):
+                self.energy_plot_widget.getPlotItem().removeItem(item)
+        y = self.structure_plot_widget.data.outcar_energies
+        x = list(range(len(y)))
+        current_x = x[self.geometry_slider.value()]
+        current_y = y[self.geometry_slider.value()]
+
+        s1 = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
+        s1.addPoints([current_x], [current_y])
+        self.energy_plot_widget.addItem(s1)
 
     def toggle_spheres(self, flag):
         """switches on and off spheres visibility"""
@@ -382,7 +416,7 @@ class StructureControlsWidget(QWidget):
     def add_plane_higher(self, value):
         """renders a plane perpendicular to XY plane at value height"""
         if self.structure_plot_widget.plane_actor_heigher is not None:
-            self.structure_plot_widget.plotter.remove_actor(self.plane_actor_heigher)
+            self.structure_plot_widget.plotter.remove_actor(self.structure_plot_widget.plane_actor_heigher)
         colors = vtkNamedColors()
         colors.SetColor('BkgColor', [26, 51, 77, 255])
         self.planeSource_heigher = vtkPlaneSource()
@@ -476,13 +510,13 @@ class StructureControlsWidget(QWidget):
     def toggle_symbols(self, flag):
         """ switches on and off symbols and numbers visibility"""
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.symb_actor)
-        symbols = self.structure_plot_widget.data.atoms_symb_and_num
-        coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
-        self.structure_plot_widget.symb_actor = self.plotter.add_point_labels(coords, symbols, font_size=30,
-                                                                              show_points=False, always_visible=True,
-                                                                              shape=None)
-        self.structure_plot_widget.symb_actor.SetVisibility(flag)
-        self.structure_plot_widget.symb_actor.SetVisibility(flag)
+        if self.numbers_cb.isChecked():
+            symbols = self.structure_plot_widget.data.atoms_symb_and_num
+            coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            self.structure_plot_widget.symb_actor = self.plotter.add_point_labels(coords, symbols, font_size=30,
+                                                                                  show_points=False, always_visible=True,
+                                                                                  shape=None)
+            self.structure_plot_widget.symb_actor.SetVisibility(flag)
 
     def toggle_symbols_between_planes(self, flag):
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.symb_actor)
@@ -548,3 +582,18 @@ class StructureControlsWidget(QWidget):
         last = len(self.structure_plot_widget.data.outcar_coordinates)
         self.geometry_slider.setValue(last)
 
+    def get_table_data(self):
+        symb = self.structure_plot_widget.data.atoms_symb_and_num
+        coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
+        const = self.structure_plot_widget.data.all_constrains
+        return symb, coord, const
+
+    def update_row(self, row, atom_num_and_symb, coordinates, constraints):
+        self.structure_plot_widget.data.atoms_symb_and_num[row] = atom_num_and_symb
+        self.self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0][row] = coordinates
+        self.self.structure_plot_widget.data.constrains[row] = constraints
+
+    def delete_row(self, row):
+        self.structure_plot_widget.data.atoms_symb_and_num.pop(row)
+        self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0].pop(row)
+        self.structure_plot_widget.data.constrains.pop(row)

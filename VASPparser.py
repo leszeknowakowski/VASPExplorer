@@ -222,13 +222,16 @@ class PoscarParser:
             start_line = 7
         coordinates = []
         constrain = []
+        all_constrains = []
         for line in self.lines[start_line:start_line + self.number_of_atoms()]:
             values = line.split()
             coordinates.append([float(value) for value in values[:3]])
             if len(values) == 6:
                 constrain.append(values[3])
+                all_constrains.append(values[3:])
             else: 
                 constrain.append('n/a')
+                all_constrains.append(['n/a', 'n/a', 'n/a'])
         if self.coordinate_type() == "Direct":  # convert from direct to cartesian
             coords_cart = []
             for coor in coordinates:
@@ -236,9 +239,9 @@ class PoscarParser:
                 y = coor[1] * self.unit_cell_vectors()[1][1]
                 z = coor[2] * self.unit_cell_vectors()[2][2]
                 coords_cart.append([x, y, z])
-            return coords_cart, constrain
+            return coords_cart, constrain, all_constrains
         else:
-            return coordinates, constrain
+            return coordinates, constrain, all_constrains
 
     def coordinates(self):
         return self.parse_coordinates()[0]
@@ -250,6 +253,8 @@ class PoscarParser:
         else:
             return self.parse_coordinates()[1]
 
+    def all_constrains(self):
+        return self.parse_coordinates()[2]
 
 class DOSCARparser:
 

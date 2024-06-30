@@ -8,6 +8,7 @@ if True:  # noqa: E402
 
     tic = time.perf_counter()
     from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit
+    from PyQt5.QtGui import QCloseEvent
     toc = time.perf_counter()
     print(f'import PyQt5.QtWidgets in main: {toc - tic:0.4f}')
 
@@ -34,18 +35,11 @@ if True:  # noqa: E402
     tic = time.perf_counter()
     from dos_control_widget import DosControlWidget
     from structure_plot import StructureViewer
-    toc = time.perf_counter()
-    print(f'import neighbour widgets in main: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     from console_widget import ConsoleWidget
-    toc = time.perf_counter()
-    print(f'import console_widget in main: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     from structure_controls import StructureControlsWidget
+    from structure_variable_controls import StructureVariableControls
     toc = time.perf_counter()
-    print(f'import structure_controls in main: {toc - tic:0.4f}')
+    print(f'import local modules in main: {toc - tic:0.4f}')
 
     tic = time.perf_counter()
     import platform
@@ -68,7 +62,8 @@ pg.setConfigOptions(antialias=True)
 class MainWindow(MainWindow):
     '''main window class'''
     def __init__(self, parent=None, show=True):
-        QMainWindow.__init__(self, parent)
+        #QMainWindow.__init__(self, parent)
+        super().__init__(parent)
         self.create_data()
         self.initUI()
 
@@ -97,22 +92,30 @@ class MainWindow(MainWindow):
         # Right tabs for GUI
         right_tab_widget = QTabWidget()
         self.dos_control_widget = DosControlWidget(self.data, self.dos_plot_widget)
-        right_tab_widget.addTab(self.dos_control_widget, "Parameters")
+        right_tab_widget.addTab(self.dos_control_widget, "DOS Parameters")
+
         structure_tabs = QTabWidget()
         self.structure_plot_control_tab = StructureControlsWidget(self.structure_plot_interactor_widget)
         structure_tabs.addTab(self.structure_plot_control_tab, "Structure plot control")
-        structure_tabs.addTab(QWidget(), "structure variables control")
-        right_tab_widget.addTab(structure_tabs, "Structure list")  # Placeholder for future widget
+
+        self.structure_variable_control_tab = StructureVariableControls(self.structure_plot_control_tab)
+        structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
+
+        right_tab_widget.addTab(structure_tabs, "Crystal structure")  # Placeholder for future widget
         right_tab_widget.setCurrentIndex(1)
 
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)
         splitter.setStretchFactor(1,10)
 
-        self.console_widget = ConsoleWidget()
-        main_layout.addWidget(self.console_widget)
-        self.console_widget.setFixedHeight(100)
+        # self.console_widget = ConsoleWidget()
+        # main_layout.addWidget(self.console_widget)
+        # self.console_widget.setFixedHeight(100)
 
+    def closeEvent(self, QCloseEvent):
+        super().closeEvent(QCloseEvent)
+        self.structure_plot_interactor_widget
+        self.structure_variable_control_tab.close()
 
 
     def create_data(self):
@@ -125,7 +128,8 @@ class MainWindow(MainWindow):
                 dir = path
             else:
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2")
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\co3o4_new_new\\2.ROS\\1.large_slab\\1.old_random_mag\\6.CoO-O_CoO-O\\antiferro\\HSE\\DOS_new")
         else:
