@@ -582,6 +582,21 @@ class StructureControlsWidget(QWidget):
         last = len(self.structure_plot_widget.data.outcar_coordinates)
         self.geometry_slider.setValue(last)
 
+    def get_symbols(self):
+        return self.structure_plot_widget.data.atoms_symb_and_num
+
+    def get_current_coordinates(self):
+        return self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
+
+    def get_all_coordinates(self):
+        return self.structure_plot_widget.data.outcar_coordinates
+
+    def set_symbols(self, symbols):
+        self.structure_plot_widget.data.atoms_symb_and_num = symbols
+
+    def get_constrains(self):
+        return self.structure_plot_widget.data.constrains
+
     def get_table_data(self):
         symb = self.structure_plot_widget.data.atoms_symb_and_num
         coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
@@ -595,5 +610,8 @@ class StructureControlsWidget(QWidget):
 
     def delete_row(self, row):
         self.structure_plot_widget.data.atoms_symb_and_num.pop(row)
+        self.structure_plot_widget.data.symbols.pop(row)
         self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0].pop(row)
         self.structure_plot_widget.data.constrains.pop(row)
+        self.structure_plot_widget.atom_colors.pop(row)
+
