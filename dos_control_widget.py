@@ -39,15 +39,6 @@ class DosControlWidget(QWidget):
 
     def initUI(self):
         layout = QHBoxLayout(self)
-        '''
-        self.param = Parameter.create(name='params', type='group', children=[
-            {'name': 'Middle Index', 'type': 'int', 'value': 0, 'limits': (0, 15)}
-        ])
-        self.param_tree = ParameterTree()
-        self.param_tree.setParameters(self.param, showTop=True)
-        self.param.sigTreeStateChanged.connect(self.parameter_changed)
-        layout.addWidget(self.param_tree)
-        '''
         self.init_dos_orbitals_atoms_tab(layout)
 
     def init_dos_orbitals_atoms_tab(self, layout):
@@ -55,6 +46,7 @@ class DosControlWidget(QWidget):
         self.scroll_area_layout = QHBoxLayout(self.scroll_area_widget)
 
         self.checkboxes_widget = QWidget()
+        self.checkboxes_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
         self.checkboxes_layout = QVBoxLayout(self.checkboxes_widget)
         self.checkboxes_layout.setAlignment(QtCore.Qt.AlignTop)
         self.scroll_area_left = QScrollArea()
@@ -74,6 +66,7 @@ class DosControlWidget(QWidget):
             self.checkboxes_layout.addWidget(checkbox)
 
         self.scroll_right_widget = QWidget()
+        self.scroll_right_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
         self.scroll_right_layout = QVBoxLayout(self.scroll_right_widget)
         self.scroll_right_layout.setAlignment(QtCore.Qt.AlignTop)
         self.scroll_area_right = QScrollArea()

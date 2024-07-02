@@ -18,10 +18,10 @@ QRangeSlider #Span:active {
     background: #282;
 }
 QRangeSlider #Tail {
-    background: #222;
+    background: #6b6b6b;
 }
 QRangeSlider > QSplitter::handle {
-    background: #393;
+    background: #6b6b6b;
 }
 QRangeSlider > QSplitter::handle:vertical {
     height: 4px;

@@ -59,11 +59,114 @@ if True:  # noqa: E402
     from functools import partial
 pg.setConfigOptions(antialias=True)
 
+STYLE_SHEET = """
+
+    
+QTableView {
+    selection-background-color: #FFFFFF;
+	background-color:#1e1f22;
+	color: #cbcdd2;
+	padding:20;
+	border:none;
+}
+
+QFrame {
+    background-color: #1e1f22;
+}
+    
+QHeaderView::section
+{
+	background-color:#1e1f22;
+	color: #cbcdd2;
+	border-style:none;
+	font-family: 'Montserrat', sans-serif;
+}
+
+QScrollBar:vertical {
+    border:none;
+    background: #2b2d30;
+    width: 20px;
+}
+
+QScrollBar::handle:vertical {
+    background: #393b40;
+    min-height: 20px;
+	border-radius:5;
+}
+
+QTableWidget::item {
+	border-bottom:1px dashed white;
+	font-family: 'Roboto', sans-serif;
+}
+
+QScrollArea{
+	background-color:#1e1f22;
+	color: #cbcdd2;
+	border-style:none;
+	font-family: 'Montserrat', sans-serif;
+	border:none;
+}
+
+QScrollBar::add-line:vertical {
+    border:none;
+    background: #2b2d30;
+    height: 0px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:vertical {
+    border:none;
+    background: #2b2d30;
+    height: 0px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::add-page:vertical {
+	background: #2b2d30;
+}
+
+QScrollBar::sub-page:vertical {
+	background: #2b2d30;
+}
+
+QTableView::item::selected {
+	border-top: 1px solid #FFFFFF;
+	border-bottom: 1px solid #FFFFFF;
+	color: #cbcdd2;
+	background-color:#393b40;
+}
+
+QTabWidget::pane {
+  border: none;
+  color: #cbcdd2;
+  top:-1px; 
+  background: #1e1f22;
+} 
+
+QTabBar::tab {
+  background: #1e1f22; 
+  color: #cbcdd2;
+  border: none; 
+  padding: 10px;
+} 
+
+QTabBar::tab:selected { 
+  background: #393b40; 
+  color: #cbcdd2;
+  margin-bottom: -1px; 
+}
+
+"""
+
+
 class MainWindow(MainWindow):
     '''main window class'''
     def __init__(self, parent=None, show=True):
-        #QMainWindow.__init__(self, parent)
+        QMainWindow.__init__(self, parent)
         super().__init__(parent)
+        self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
         self.create_data()
         self.initUI()
 
@@ -87,7 +190,7 @@ class MainWindow(MainWindow):
         left_tab_widget.addTab(self.structure_plot_interactor_widget, "Structure")  # Placeholder for future widget
         left_tab_widget.addTab(QWidget(), "PARCHG/CHGCAR")  # Placeholder for future widget
         splitter.addWidget(left_tab_widget)
-        left_tab_widget.setCurrentIndex(1)
+        left_tab_widget.setCurrentIndex(0)
 
         # Right tabs for GUI
         right_tab_widget = QTabWidget()
@@ -102,7 +205,7 @@ class MainWindow(MainWindow):
         structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
         right_tab_widget.addTab(structure_tabs, "Crystal structure")  # Placeholder for future widget
-        right_tab_widget.setCurrentIndex(1)
+        right_tab_widget.setCurrentIndex(0)
 
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)
@@ -123,7 +226,7 @@ class MainWindow(MainWindow):
             dir = './'
         elif platform.system() == 'Windows':
             #path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
-            path = "F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt"
+            path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
             if os.path.isdir(path):
                 dir = path
             else:
@@ -138,6 +241,7 @@ class MainWindow(MainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    app.setStyleSheet(STYLE_SHEET)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

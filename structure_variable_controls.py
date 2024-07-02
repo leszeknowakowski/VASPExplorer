@@ -13,16 +13,6 @@ class StructureVariableControls(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignTop)
 
-        self.frame = QFrame(self)
-
-        self.frame.setFrameShape(QFrame.StyledPanel)
-        self.frame.setFrameShadow(QFrame.Raised)
-        self.frame.setStyleSheet("background-color: rgb(200, 200, 200);")
-        self.frame.setLineWidth(10)
-
-        self.frame_layout = QVBoxLayout(self.frame)
-        self.layout.addWidget(self.frame)
-
         # Store the data manager
         self.structure_control_widget = structure_control_widget
 
@@ -31,7 +21,9 @@ class StructureVariableControls(QWidget):
 
         self.save_poscar_btn = QPushButton("Save Poscar")
         self.save_poscar_btn.clicked.connect(self.save_poscar)
-        self.frame_layout.addWidget(self.save_poscar_btn)
+
+        self.layout.addWidget(self.tableWidget)
+        self.layout.addWidget(self.save_poscar_btn)
     def createTable(self):
         self.tableWidget = QTableWidget()
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
@@ -75,7 +67,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget.itemSelectionChanged.connect(self.on_selection_changed)
 
 
-        self.frame_layout.addWidget(self.tableWidget)
+
 
 
     @pyqtSlot(int, int)
@@ -181,17 +173,17 @@ class StructureVariableControls(QWidget):
             with open(file_name, 'w') as file:
                 file.write("created by Leszek Nowakowski with VASPexplorer/DOSwizard \n")
                 file.write("1.0000000000000\n")
-                file.write(f"{x}\t 0.0000000 0.00000\n")
-                file.write(f"{y}\t 0.0000000 0.00000\n")
-                file.write(f"{z}\t 0.0000000 0.00000\n")
+                file.write(f" {x:.6f}\t0.000000 0.000000\n")
+                file.write(f" 0.0000000 {y:.6f} 0.000000\n")
+                file.write(f" 0.0000000 0.0000000 {z:.6f}\n")
                 file.write(atoms_line+"\n")
                 file.write(numbers_line + "\n")
                 file.write("Selective dynamics\n")
                 file.write("Cartesian\n")
                 for index, (coord, const) in enumerate(zip(coordinates, constrains)):
-                    coord_str = ' '.join(map(str, coord))
-                    const_str = ' '.join(map(str, const))
-                    file.write(f"{coord_str}\t{const_str}\n")
+                    coord_str = ' '.join(f"{x:.6f}" for x in coord)
+                    const_str = ' '.join(const)
+                    file.write(f" {coord_str}\t{const_str}\n")
 
  
         

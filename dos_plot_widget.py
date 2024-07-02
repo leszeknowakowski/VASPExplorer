@@ -45,9 +45,9 @@ class DosPlotWidget(QWidget):
 
         plot_splitter = QSplitter(QtCore.Qt.Horizontal)
         self.full_range_plot = pg.PlotWidget()
-        self.full_range_plot.setBackground('w')
+        self.full_range_plot.setBackground("#f0f0f0")
         self.bounded_plot = pg.PlotWidget()
-        self.bounded_plot.setBackground('w')
+        self.bounded_plot.setBackground("#f0f0f0")
 
         plot_splitter.addWidget(self.full_range_plot)
         plot_splitter.addWidget(self.bounded_plot)
@@ -57,7 +57,7 @@ class DosPlotWidget(QWidget):
         self.layout.addWidget(plot_splitter)
 
         # Add LinearRegionItem to the full range plot
-        self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush(255, 235, 14, 100))
+        self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#dce0a4'))
         self.full_range_plot.addItem(self.region)
         self.region.sigRegionChanged.connect(self.update_bounded_plot_y_range)
 
@@ -65,8 +65,8 @@ class DosPlotWidget(QWidget):
 
         self.region.setRegion([-5, 5])
 
-        self.inf_line_full = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen('b'), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': (0, 0, 255), 'fill': (0, 0, 255, 100), 'movable': True})
-        self.inf_line_bounded = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen('b'), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': (0, 0, 255), 'fill': (0, 0, 255, 100), 'movable': True})
+        self.inf_line_full = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen(color='#6ab4dc', width=4), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': '#cbcdd2', 'fill': (0, 0, 255, 100), 'movable': True})
+        self.inf_line_bounded = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen(color='#6ab4dc', width=4), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': '#cbcdd2', 'fill': (0, 0, 255, 100), 'movable': True})
 
         self.full_range_plot.addItem(self.inf_line_full)
         self.bounded_plot.addItem(self.inf_line_bounded)

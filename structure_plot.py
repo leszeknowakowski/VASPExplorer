@@ -43,7 +43,7 @@ class StructureViewer(QWidget):
         if platform.system() == 'Linux':
             colors_file = "/home/lnowakowski/venv/vasp-projects/view_poscar/scripts/9999.VASPExplorer/elementColorSchemes.json"
         elif platform.system() == 'Windows':
-            file = "F:\\syncme-from-c120\\Studia\\python\\vasp_geo\\project_geo\\2.Splitted_PyQtGraph\\elementColorSchemes.json"
+            file = "F:\\syncme\\Studia\\python\\vasp_geo\\project_geo\\2.Splitted_PyQtGraph\\elementColorSchemes.json"
             if os.path.isfile(file):
                 colors_file = file
             else:
@@ -82,6 +82,7 @@ class StructureViewer(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.plotter = QtInteractor()
+        self.plotter.set_background(color="#1e1f22")
         self.plotter.view_yz()
         self.plotter.camera_position = [(5, -60, 13),(4.8, 1.7, 12.3), (0,0,1)]
         self.plotter.camera.enable_parallel_projection()
