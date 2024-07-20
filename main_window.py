@@ -226,7 +226,10 @@ class MainWindow(MainWindow):
             dir = './'
         elif platform.system() == 'Windows':
             #path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
-            path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+            #path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+            # tests for incomplete/missing files
+            path = "F:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\project_geo\\inputs"
+
             if os.path.isdir(path):
                 dir = path
             else:

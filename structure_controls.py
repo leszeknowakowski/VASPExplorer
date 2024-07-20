@@ -612,7 +612,7 @@ class StructureControlsWidget(QWidget):
     def delete_row(self, row):
         self.structure_plot_widget.data.atoms_symb_and_num.pop(row)
         self.structure_plot_widget.data.symbols.pop(row)
-        self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0].pop(row)
+        self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0].pop(row) # delete all geo??
         self.structure_plot_widget.data.constrains.pop(row)
         self.structure_plot_widget.atom_colors.pop(row)
 

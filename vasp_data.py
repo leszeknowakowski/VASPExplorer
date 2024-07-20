@@ -14,6 +14,15 @@ import json
 from exceptions import EmptyFile
 class VaspData():
     def __init__(self, dir):
+        outcar = self.parse_outcar(dir)
+        poscar = self.parse_poscar(dir)
+        doscar = self.parse_doscar(dir)
+
+        self.process_doscar(doscar)
+        self.process_poscar(poscar)
+
+
+    def parse_outcar(self, dir):
         if not os.path.exists(os.path.join(dir, 'OUTCAR')):
             print('no OUTCAR found! importing CONTCAR or POSCAR')
             self.outcar_file = False
@@ -22,6 +31,8 @@ class VaspData():
             self.outcar_data = OutcarParser(dir, 'OUTCAR')
             self.outcar_coordinates = self.outcar_data.find_coordinates()
             self.outcar_energies = self.outcar_data.find_energy()
+
+    def parse_poscar(self, dir):
         if not os.path.exists(os.path.join(dir, 'CONTCAR')):
             if not os.path.exists(os.path.join(dir, 'POSCAR')):
                 p = input("eneter file name: ")
@@ -58,8 +69,16 @@ class VaspData():
                         self.outcar_coordinates = [self.poscar.coordinates()]
                         self.outcar_energies = [0]
         
-        
+    def parse_doscar(self, dir):
         self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
+
+    def parse_chgcar(self):
+        pass
+
+    def parse_parchg(self):
+        pass
+
+    def process_doscar(self, doscar):
         self.data_up = self.doscar.dataset_up
         self.data_down = self.doscar.dataset_down
         self.orbitals = self.doscar.orbitals
@@ -69,6 +88,7 @@ class VaspData():
         self.total_beta = self.doscar.total_dos_beta
         self.nedos = self.doscar.nedos
 
+    def process_poscar(self, poscar):
         #self.poscar = PoscarParser(os.path.join(dir, "POSCAR"))
         self.atoms_symb_and_num = self.poscar.symbol_and_number()
         self.number_of_atoms = self.poscar.number_of_atoms()
@@ -89,9 +109,6 @@ class VaspData():
         self.symbols = self.poscar.list_atomic_symbols()
         self.constrains = self.poscar.constrains()
         self.all_constrains = self.poscar.all_constrains()
-
-
-
 
         # Partition the original list
         for item in self.atoms_symb_and_num:
