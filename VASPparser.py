@@ -63,7 +63,9 @@ class OutcarParser:
                             section_position.append(atom_data)
                         self.positions.append(section_position)
                 # self.magnetizations = [["N/A" for atom in self.atom_count]]
-
+        if self.energies == []:
+            print("run didn't calculated energy (eg. PARCHG file generation or other postprocessing. Energy is set to 0.")
+            self.energies = [0]
         print('\n')
 
     def find_coordinates(self):

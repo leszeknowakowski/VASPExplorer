@@ -350,7 +350,10 @@ class StructureControlsWidget(QWidget):
         bond_threshold = self.bond_threshold
         geometry_slider_value = self.geometry_slider.value()
         coord_pairs = []
-        coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value][0]
+        if len(self.structure_plot_widget.data.outcar_coordinates) == 1:
+            coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value]
+        else:
+            coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value][0]
         if self.structure_plot_widget.bond_actors is not None:
             for actor in self.structure_plot_widget.bond_actors:
                 self.structure_plot_widget.plotter.renderer.RemoveActor(actor)
@@ -600,7 +603,10 @@ class StructureControlsWidget(QWidget):
 
     def get_table_data(self):
         symb = self.structure_plot_widget.data.atoms_symb_and_num
-        coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
+        if len(self.structure_plot_widget.data.outcar_coordinates) == 1:
+            coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+        else:
+            coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
         const = self.structure_plot_widget.data.all_constrains
         return symb, coord, const
 

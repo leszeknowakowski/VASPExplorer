@@ -24,6 +24,7 @@ class StructureVariableControls(QWidget):
 
         self.layout.addWidget(self.tableWidget)
         self.layout.addWidget(self.save_poscar_btn)
+
     def createTable(self):
         self.tableWidget = QTableWidget()
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
