@@ -75,6 +75,8 @@ class StructureViewer(QWidget):
         self.layout = QVBoxLayout(self)
         self.plotter = QtInteractor()
         self.plotter.set_background(color="#1e1f22")
+        self.plotter.add_camera_orientation_widget()
+
         self.plotter.view_yz()
         self.plotter.camera_position = [(5, -60, 13),(4.8, 1.7, 12.3), (0,0,1)]
         self.plotter.camera.enable_parallel_projection()
@@ -86,21 +88,10 @@ class StructureViewer(QWidget):
         self.add_unit_cell(self.data.x,self.data.y,self.data.z)
 
     def add_sphere(self, coord, col, radius):
-        """adds atoms from single geometry as spheres to renderer.
-         Using VTK code because it is 100x faster than pyvista
-         """
-        sphere = vtkSphereSource()
-        sphere.SetRadius(radius)
-        sphere.SetThetaResolution(10)
-        sphere.SetPhiResolution(15)
-        sphere.SetCenter(*coord)
-        sphere_mapper = vtkPolyDataMapper()
-        sphere_mapper.SetInputConnection(sphere.GetOutputPort())
-        sphere_actor = vtkActor()
-        sphere_actor.SetMapper(sphere_mapper)
-        sphere_actor.GetProperty().SetColor(col[0] / 255, col[1] / 255, col[2] / 255)
-        self.sphere_actors.append(sphere_actor)
-        self.plotter.renderer.AddActor(sphere_actor)
+        sphere = pv.Sphere(radius=radius, center=(coord[0], coord[1], coord[2]))
+        actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True)
+        self.sphere_actors.append(actor)
+        self.plotter.update()
         return self.sphere_actors
 
     def add_structure(self):

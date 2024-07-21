@@ -7,8 +7,9 @@ if True:  # noqa: E402
     print(f'import sys in main: {toc - tic:0.4f}')
 
     tic = time.perf_counter()
-    from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit
-    from PyQt5.QtGui import QCloseEvent
+    from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
+    QToolBar, QMenuBar, QAction
+    from PyQt5.QtGui import QCloseEvent, QIcon
     toc = time.perf_counter()
     print(f'import PyQt5.QtWidgets in main: {toc - tic:0.4f}')
 
@@ -168,6 +169,7 @@ class MainWindow(MainWindow):
         super().__init__(parent)
         self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
         self.create_data()
+        self.qmainwindow = QMainWindow()
         self.initUI()
 
 
@@ -178,6 +180,66 @@ class MainWindow(MainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+
+        # Toolbar
+        toolbar = QToolBar()
+        toolbar.setMovable(False)
+        self.addToolBar(toolbar)
+
+        # Toolbar Actions
+        new_action = QAction(QIcon("icons/new.png"), "New", self)
+        new_action.setShortcut('Ctrl+N')
+        open_action = QAction(QIcon("icons/open.png"), "Open", self)
+        open_action.setShortcut("Ctrl+O")
+        save_action = QAction(QIcon("icons/save.png"), "Save", self)
+        save_action.setShortcut("Ctrl+S")
+        quit_action = QAction("Quit", self)
+        quit_action.setShortcut("Ctrl+Q")
+
+        copy_action = QAction(QIcon("icons/copy.png"), "Copy", self)
+        copy_action.setShortcut('Ctrl+C')
+        cut_action = QAction(QIcon("icons/cut.png"), "Cut", self)
+        cut_action.setShortcut("Ctrl+X")
+        paste_action = QAction(QIcon("icons/paste.png"), "Paste", self)
+        paste_action.setShortcut("Ctrl+V")
+
+        right_action = QAction(QIcon("icons/right_arrow.jpg"), "Right", self)
+        right_action.setStatusTip("Move atoms to the right")
+
+
+        left_action = QAction(QIcon("icons/left-arrow.jpg"), "Left", self)
+        down_action = QAction(QIcon("icons/down-arrow.png"), "Down", self)
+        up_action = QAction(QIcon("icons/up-arrow.jpg"), "Up", self)
+
+        # Add action to toolbar
+        toolbar.addAction(new_action)
+        toolbar.addAction(open_action)
+        toolbar.addAction(save_action)
+        toolbar.addAction(right_action)
+        toolbar.addAction(left_action)
+        toolbar.addAction(down_action)
+        toolbar.addAction(up_action)
+
+
+        # menu bar
+        menubar = self.menuBar()
+
+        # Create menu items
+        file_menu = menubar.addMenu('File')
+
+        file_menu.addAction(new_action)
+        file_menu.addAction(open_action)
+        file_menu.addAction(save_action)
+        file_menu.addAction(quit_action)
+
+        # Edit menu
+        edit_menu = menubar.addMenu('Edit')
+
+        edit_menu.addAction(copy_action)
+        edit_menu.addAction(cut_action)
+        edit_menu.addAction(paste_action)
+
+
 
         splitter = QSplitter()
         main_layout.addWidget(splitter)
@@ -211,6 +273,11 @@ class MainWindow(MainWindow):
         splitter.setStretchFactor(0,5)
         splitter.setStretchFactor(1,10)
 
+        right_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='right'))
+        left_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='left'))
+        down_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='down'))
+        up_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='up'))
+
         # self.console_widget = ConsoleWidget()
         # main_layout.addWidget(self.console_widget)
         # self.console_widget.setFixedHeight(100)
@@ -234,9 +301,9 @@ class MainWindow(MainWindow):
                 dir = path
             else:
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                dir = "D:\\test_for_doswizard\\2.running"
+                #dir = "D:\\test_for_doswizard\\3.small_perovskites"
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2")
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\co3o4_new_new\\2.ROS\\1.large_slab\\1.old_random_mag\\6.CoO-O_CoO-O\\antiferro\\HSE\\DOS_new")
         else:

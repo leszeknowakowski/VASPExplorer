@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
 from scipy.spatial.distance import pdist, squareform
 from vtk import *
 from RangeSlider import QRangeSlider
+import pyvista as pv
 
 # import vtkmodules.all as vtk
 toc = time.perf_counter()
@@ -20,13 +21,16 @@ print(f'importing Pyqt from structure controls{toc - tic}')
 
 
 class StructureControlsWidget(QWidget):
+    selected_actors_changed = QtCore.pyqtSignal(list)
     def __init__(self, structure_plot_widget):
         super().__init__()
         self.structure_plot_widget = structure_plot_widget
         self.plotter = self.structure_plot_widget.plotter
         self.constrain_actor = self.structure_plot_widget.constrain_actor
         self.bond_actor = self.structure_plot_widget.bond_actors
-        
+
+        self.plotter.enable_rectangle_picking(show_frustum=False, callback=self.on_selection)
+
         self.vlayout = None
         self.mag_actor = None
         self.plane_height_range_slider = None
@@ -48,6 +52,7 @@ class StructureControlsWidget(QWidget):
         self.bond_threshold = 2.8
         self.sphere_radius = 0.5
         self.constrains = self.structure_plot_widget.data.constrains
+        self.selected_actors = []
 
         self.initUI()
         self.render_structure_control_widget()
@@ -326,19 +331,10 @@ class StructureControlsWidget(QWidget):
         coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
 
         for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
-            sphere = vtkSphereSource()
-            sphere.SetRadius(self.sphere_radius)
-            sphere.SetThetaResolution(10)
-            sphere.SetPhiResolution(15)
-            sphere.SetCenter(*coord)
+            sphere = pv.Sphere(radius=self.sphere_radius, center=(coord[0], coord[1], coord[2]))
+            actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True)
+            self.structure_plot_widget.sphere_actors.append(actor)
 
-            sphere_mapper = vtkPolyDataMapper()
-            sphere_mapper.SetInputConnection(sphere.GetOutputPort())
-            sphere_actor = vtkActor()
-            sphere_actor.SetMapper(sphere_mapper)
-            sphere_actor.GetProperty().SetColor(col[0] / 255, col[1] / 255, col[2] / 255)
-            self.structure_plot_widget.sphere_actors.append(sphere_actor)
-            self.plotter.renderer.AddActor(sphere_actor)
 
     def add_bonds(self):
         """
@@ -621,4 +617,27 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0].pop(row) # delete all geo??
         self.structure_plot_widget.data.constrains.pop(row)
         self.structure_plot_widget.atom_colors.pop(row)
+        for actor in self.structure_plot_widget.sphere_actors:
+            self.plotter.renderer.RemoveActor(actor)
+        self.structure_plot_widget.sphere_actors.pop(row)
+
+    def on_selection(self, RectangleSelection):
+        self.selected_actors = []
+        actors = self.structure_plot_widget.sphere_actors
+        for index, actor in enumerate(actors):
+            is_inside = RectangleSelection.frustum.EvaluateFunction(actor.center) < 0
+            if is_inside:
+                actor.prop.color = 'yellow'
+                self.selected_actors.append(actor)
+            else:
+                actor.prop.color = self.structure_plot_widget.atom_colors[index]
+
+        self.selected_actors_changed.emit(self.selected_actors)
+        for actor in self.selected_actors:
+            print(actor.center)
+
+
+
+
+
 
