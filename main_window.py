@@ -203,14 +203,12 @@ class MainWindow(MainWindow):
         paste_action = QAction(QIcon("icons/paste.png"), "Paste", self)
         paste_action.setShortcut("Ctrl+V")
 
-        right_action = QAction(QIcon("icons/right_arrow.jpg"), "Right", self)
-        right_action.setStatusTip("Move atoms to the right")
-
-
-        left_action = QAction(QIcon("icons/left-arrow.jpg"), "Left", self)
-        down_action = QAction(QIcon("icons/down-arrow.png"), "Down", self)
-        up_action = QAction(QIcon("icons/up-arrow.jpg"), "Up", self)
-
+        right_action = QAction(QIcon("icons/right_arrow.jpg"), "Move atoms to the right", self)
+        left_action = QAction(QIcon("icons/left-arrow.jpg"), "Move atoms to the left", self)
+        down_action = QAction(QIcon("icons/down-arrow.png"), "Move atoms down", self)
+        up_action = QAction(QIcon("icons/up-arrow.jpg"), "Move atoms up", self)
+        in_action = QAction(QIcon("icons/up-arrow.jpg"), "Move atoms towards screen", self)
+        out_action = QAction(QIcon("icons/up-arrow.jpg"), "Move atoms away from screen", self)
         # Add action to toolbar
         toolbar.addAction(new_action)
         toolbar.addAction(open_action)
@@ -252,7 +250,7 @@ class MainWindow(MainWindow):
         left_tab_widget.addTab(self.structure_plot_interactor_widget, "Structure")  # Placeholder for future widget
         left_tab_widget.addTab(QWidget(), "PARCHG/CHGCAR")  # Placeholder for future widget
         splitter.addWidget(left_tab_widget)
-        left_tab_widget.setCurrentIndex(0)
+        left_tab_widget.setCurrentIndex(1)
 
         # Right tabs for GUI
         right_tab_widget = QTabWidget()
@@ -267,7 +265,8 @@ class MainWindow(MainWindow):
         structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
         right_tab_widget.addTab(structure_tabs, "Crystal structure")  # Placeholder for future widget
-        right_tab_widget.setCurrentIndex(0)
+        right_tab_widget.setCurrentIndex(1)
+        structure_tabs.setCurrentIndex(1)
 
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)

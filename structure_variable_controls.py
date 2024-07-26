@@ -56,9 +56,9 @@ class StructureVariableControls(QWidget):
             move_x, move_y, move_z = constraints[row]
 
             self.tableWidget.setItem(row, 0, QTableWidgetItem(atom))
-            self.tableWidget.setItem(row, 1, QTableWidgetItem(str(x)))
-            self.tableWidget.setItem(row, 2, QTableWidgetItem(str(y)))
-            self.tableWidget.setItem(row, 3, QTableWidgetItem(str(z)))
+            self.tableWidget.setItem(row, 1, QTableWidgetItem(str(f'{x:.2f}')))
+            self.tableWidget.setItem(row, 2, QTableWidgetItem(str(f'{y:.2f}')))
+            self.tableWidget.setItem(row, 3, QTableWidgetItem(str(f'{z:.2f}')))
             self.tableWidget.setItem(row, 4, QTableWidgetItem(move_x))
             self.tableWidget.setItem(row, 5, QTableWidgetItem(move_y))
             self.tableWidget.setItem(row, 6, QTableWidgetItem(move_z))
@@ -86,7 +86,6 @@ class StructureVariableControls(QWidget):
                     else:
                         raise ValueError("Movement constraint must be 'T' or 'F'.")
 
-                print("Updated data")
                 self.structure_control_widget.add_sphere()
                 self.structure_control_widget.add_bonds()
             except ValueError:
@@ -135,13 +134,9 @@ class StructureVariableControls(QWidget):
         for item in selected_items:
             selected_rows.add(item.row())
         for row in selected_rows:
-            if self.is_row_selected(row):
-                print(f"Whole row {row} is selected")
             if 0 <= row < len(actors):
                 actors[row].prop.color = 'yellow'
                 self.structure_control_widget.selected_actors.append(actors[row])
-
-        print("seleted")
 
     def is_row_selected(self, row):
         column_count = self.tableWidget.columnCount()
@@ -243,37 +238,35 @@ class StructureVariableControls(QWidget):
 
         coordinates = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[
                 self.structure_control_widget.geometry_slider.value()][0]
+
         selected_rows = self.get_selected_rows()
 
         for actor, row in zip(self.structure_control_widget.selected_actors, selected_rows):
             actor.mapper.dataset.points += translation_vector
-            print(f'center: {actor.center}')
             coordinates[row][0] = actor.center[0]
             coordinates[row][1] = actor.center[1]
             coordinates[row][2] = actor.center[2]
-            self.tableWidget.setItem(row, 1, QTableWidgetItem(str(f'{coordinates[row][0]:.2f}')))
-            self.tableWidget.setItem(row, 2, QTableWidgetItem(str(f'{coordinates[row][1]:.2f}')))
-            self.tableWidget.setItem(row, 3, QTableWidgetItem(str(f'{coordinates[row][2]:.2f}')))
+
+        self.tableWidget.blockSignals(True)
+        self.tableWidget.clearContents()
+        self.layout.removeWidget(self.tableWidget)
+        self.tableWidget.blockSignals(False)
+
+        # Rebuild the table with the updated data
+        self.createTable()
+
+        # Add the new table to the layout
+        self.layout.addWidget(self.tableWidget)
+
         self.tableWidget.clearSelection()
         for row in selected_rows:
             self.tableWidget.selectRow(row)
 
-        print(coordinates)
-        # Print new coordinates
-        #new_coordinates = self.sphere.points.copy()
-        #print(f"New Sphere Coordinates ({direction}):", new_coordinates)
+        self.structure_control_widget.add_bonds()
 
         # Update the plotter
         #self.plotter.update()
-        '''    
-        print("Camera Position:", camera_position)
-        print("Focal Point:", focal_point)
-        print("View Direction (normal to the camera):", view_direction)
-        print("View Up Direction:", view_up)
-        print("Right Direction (left-to-right on the screen):", right_direction)
-        print("Translation Vector:", translation_vector)
-        print("moved")
-        '''
+
 
 
         

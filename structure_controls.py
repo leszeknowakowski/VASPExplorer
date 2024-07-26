@@ -332,9 +332,9 @@ class StructureControlsWidget(QWidget):
 
         for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
             sphere = pv.Sphere(radius=self.sphere_radius, center=(coord[0], coord[1], coord[2]))
-            actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True)
+            actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
             self.structure_plot_widget.sphere_actors.append(actor)
-
+        self.plotter.update()
 
     def add_bonds(self):
         """
@@ -633,8 +633,6 @@ class StructureControlsWidget(QWidget):
                 actor.prop.color = self.structure_plot_widget.atom_colors[index]
 
         self.selected_actors_changed.emit(self.selected_actors)
-        for actor in self.selected_actors:
-            print(actor.center)
 
 
 

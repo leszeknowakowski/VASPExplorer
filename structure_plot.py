@@ -89,7 +89,7 @@ class StructureViewer(QWidget):
 
     def add_sphere(self, coord, col, radius):
         sphere = pv.Sphere(radius=radius, center=(coord[0], coord[1], coord[2]))
-        actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True)
+        actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
         self.sphere_actors.append(actor)
         self.plotter.update()
         return self.sphere_actors
