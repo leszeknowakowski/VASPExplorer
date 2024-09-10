@@ -185,7 +185,7 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
         self._tail_layout.addWidget(self.tail)
         self.setMin(0)
         self.setMax(99)
-        self.setStart(0)
+        self.setStart(15)
         self.setEnd(99)
         self.setDrawValues(True)
 

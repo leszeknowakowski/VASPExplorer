@@ -74,6 +74,10 @@ QTableView {
 QFrame {
     background-color: #1e1f22;
 }
+
+QLabel{
+    color: white;
+    }
     
 QHeaderView::section
 {
@@ -160,6 +164,7 @@ QTabBar::tab:selected {
 }
 
 """
+
 
 
 class MainWindow(MainWindow):
@@ -292,15 +297,15 @@ class MainWindow(MainWindow):
             dir = './'
         elif platform.system() == 'Windows':
             #path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
-            #path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+            path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
             # tests for incomplete/missing files
-            path = "F:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\project_geo\\inputs"
+            #path = "F:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\project_geo\\inputs"
 
             if os.path.isdir(path):
                 dir = path
             else:
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = "D:\\test_for_doswizard\\3.small_perovskites"
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2")

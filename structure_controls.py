@@ -251,13 +251,15 @@ class StructureControlsWidget(QWidget):
         top_plane_cb.stateChanged.connect(self.toggle_plane_heigher)
 
         bottom_plane_cb = QtWidgets.QCheckBox()
-        bottom_plane_cb.setChecked(False)
+        bottom_plane_cb.setChecked(True)
         bottom_plane_cb.setText('bottom plane')
 
         bottom_plane_cb.stateChanged.connect(self.toggle_plane)
 
         self.plane_height_range_slider = QRangeSlider()
-        self.plane_height_range_slider.setRange(1, 50)
+       # self.plane_height_range_slider.setRange(10, 99)
+       # self.plane_height_range_slider.setMin(0)
+       # self.plane_height_range_slider.setMax(100)
         self.plane_height_range_slider.setBackgroundStyle(
             'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
         self.plane_height_range_slider.handle.setStyleSheet(
@@ -441,7 +443,7 @@ class StructureControlsWidget(QWidget):
         val = self.plane_height_range_slider.getRange()
         startVal = val[0]
         endVal = val[1]
-        self.plane_position = startVal
+        #self.plane_position = startVal
         self.planeSource.SetOrigin(-5, -5, startVal / 100 * self.structure_plot_widget.data.z)
         self.planeSource.SetPoint1(self.structure_plot_widget.data.x + 5, -5, startVal / 100 * self.structure_plot_widget.data.z)
         self.planeSource.SetPoint2(-5, self.structure_plot_widget.data.y + 5, startVal / 100 * self.structure_plot_widget.data.z)

@@ -3,7 +3,7 @@ from structure_plot import StructureViewer
 from structure_controls import StructureControlsWidget
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
-    QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView
+    QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from collections import OrderedDict
 import numpy as np
@@ -20,14 +20,42 @@ class StructureVariableControls(QWidget):
 
         # Initialize table and populate
         self.createTable()
+        self.btns_layout = QHBoxLayout()
 
         self.save_poscar_btn = QPushButton("Save Poscar")
         self.save_poscar_btn.clicked.connect(self.save_poscar)
 
+        self.delete_atoms_btn = QPushButton("Delete")
+        self.delete_atoms_btn.clicked.connect(self.delete_atoms)
+
+        self.x_t_btn = QPushButton("T")
+        self.x_f_btn = QPushButton("F")
+        self.y_t_btn = QPushButton("T")
+        self.y_f_btn = QPushButton("F")
+        self.z_t_btn = QPushButton("T")
+        self.z_f_btn = QPushButton("F")
+
+        btns = [self.x_t_btn, self.x_f_btn, self.y_t_btn, self.y_f_btn, self.z_t_btn, self.z_f_btn]
+        self.btns_layout.addWidget(self.save_poscar_btn)
+        self.btns_layout.addWidget(self.delete_atoms_btn)
+        self.btns_layout.addWidget(QLabel("X"))
+        self.btns_layout.addWidget(btns[0])
+        self.btns_layout.addWidget(btns[1])
+        self.btns_layout.addWidget(QLabel("Y"))
+        self.btns_layout.addWidget(btns[2])
+        self.btns_layout.addWidget(btns[3])
+        self.btns_layout.addWidget(QLabel("Z"))
+        self.btns_layout.addWidget(btns[4])
+        self.btns_layout.addWidget(btns[5])
+
+
+
+        self.layout.addLayout(self.btns_layout)
         self.layout.addWidget(self.tableWidget)
-        self.layout.addWidget(self.save_poscar_btn)
 
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
+
+
 
     def createTable(self):
         self.tableWidget = QTableWidget()
@@ -64,9 +92,9 @@ class StructureVariableControls(QWidget):
             self.tableWidget.setItem(row, 6, QTableWidgetItem(move_z))
 
             # Add a delete button in the last column
-            delete_button = QPushButton("Delete")
-            delete_button.clicked.connect(lambda _, r=row: self.deleteRow(r))
-            self.tableWidget.setCellWidget(row, 7, delete_button)
+            #delete_button = QPushButton("Delete")
+            #delete_button.clicked.connect(lambda _, r=row: self.deleteRow(r))
+            #self.tableWidget.setCellWidget(row, 7, delete_button)
 
         # Connect the cellChanged signal to the updateData method
         self.tableWidget.cellChanged.connect(self.updateData)
@@ -199,6 +227,9 @@ class StructureVariableControls(QWidget):
                     const_str = ' '.join(const)
                     file.write(f" {coord_str}\t{const_str}\n")
 
+    def delete_atoms(self):
+        for row in self.tableWidget.selectedItems():
+            self.deleteRow(row)
 
     def translate_object(self, direction):
         camera = self.structure_control_widget.plotter.camera
