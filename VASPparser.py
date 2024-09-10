@@ -19,16 +19,30 @@ class OutcarParser:
         try:
             with open(self.filename, 'r') as file:
                 lines = file.readlines()
+                text = True
         except:
             with open(self.filename, 'rb') as file:
                 lines = file.readlines()
+                binary = True
         lenght = len(lines)
         for i in range(lenght):
             if i % 10000 == 0:
                 print('reading OUTCAR file; line: ', i, f' out of {lenght}', end='\r')
             line = lines[i].strip()
             section_position = []
-            if line.startswith('POSITION'):
+            if text:
+                position = "POSITION"
+                free_energy = 'FREE ENERGIE'
+                magnetization = 'magnetization (x)'
+                voluntary = 'Voluntary context switches:'
+                position_of_ions = 'position of ions in cartesian'
+            if binary:
+                position = b"POSITION"
+                free_energy = b'FREE ENERGIE'
+                magnetization = b'magnetization (x)'
+                voluntary = b'Voluntary context switches:'
+                position_of_ions = b'position of ions in cartesian'
+            if line.startswith(position):
                 i += 2
                 current_i = i
                 for i in range(current_i, current_i + self.atom_count):
@@ -37,11 +51,11 @@ class OutcarParser:
                     atom_data = [float(x) for x in position_data[:3]]
                     section_position.append(atom_data)
                 self.positions.append([section_position])
-            elif line.startswith('FREE ENERGIE'):
+            elif line.startswith(free_energy):
                 i += 2
                 energy_data = lines[i].strip().split()[4]
                 self.energies.append(float(energy_data))
-            elif line.startswith('magnetization (x)'):
+            elif line.startswith(magnetization):
                 section_magnetization = []
                 i += 4
                 current_i = i
@@ -51,12 +65,12 @@ class OutcarParser:
                     atom_mag = float(magnetization_data[-1])
                     section_magnetization.append(atom_mag)
                 self.magnetizations.append(section_magnetization)
-            if line.startswith('Voluntary context switches:'):
+            if line.startswith(voluntary):
                 self.magnetizations.pop()
         if section_position==[]:
             for i in range(lenght):
                 line = lines[i].strip()
-                if line.startswith('position of ions in cartesian'):
+                if line.startswith(position_of_ions):
                     i += 1
                     current_i = i
                     for i in range(current_i, current_i + self.atom_count):
