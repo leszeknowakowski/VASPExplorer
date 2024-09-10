@@ -20,10 +20,12 @@ class OutcarParser:
             with open(self.filename, 'r') as file:
                 lines = file.readlines()
                 text = True
+                binary = False
         except:
             with open(self.filename, 'rb') as file:
                 lines = file.readlines()
                 binary = True
+                text = False
         lenght = len(lines)
         for i in range(lenght):
             if i % 10000 == 0:
