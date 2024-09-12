@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidge
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from collections import OrderedDict
 import numpy as np
+from periodic_table import PeriodicTable
 
 class StructureVariableControls(QWidget):
 
@@ -29,17 +30,24 @@ class StructureVariableControls(QWidget):
         self.delete_atoms_btn.clicked.connect(self.delete_atoms)
 
         self.x_t_btn = QPushButton("T")
+        self.x_t_btn.clicked.connect(lambda: self.change_constrain(4, "T"))
         self.x_f_btn = QPushButton("F")
+        self.x_f_btn.clicked.connect(lambda: self.change_constrain(4, "F"))
         self.y_t_btn = QPushButton("T")
+        self.y_t_btn.clicked.connect(lambda: self.change_constrain(5, "T"))
         self.y_f_btn = QPushButton("F")
+        self.y_f_btn.clicked.connect(lambda: self.change_constrain(5, "F"))
         self.z_t_btn = QPushButton("T")
+        self.z_t_btn.clicked.connect(lambda: self.change_constrain(6, "T"))
         self.z_f_btn = QPushButton("F")
+        self.z_f_btn.clicked.connect(lambda: self.change_constrain(6, "F"))
 
         btns = [self.x_t_btn, self.x_f_btn, self.y_t_btn, self.y_f_btn, self.z_t_btn, self.z_f_btn]
         self.btns_layout.addWidget(self.save_poscar_btn)
         self.btns_layout.addWidget(self.delete_atoms_btn)
         self.btns_layout.addWidget(QLabel("X"))
         self.btns_layout.addWidget(btns[0])
+
         self.btns_layout.addWidget(btns[1])
         self.btns_layout.addWidget(QLabel("Y"))
         self.btns_layout.addWidget(btns[2])
@@ -100,13 +108,18 @@ class StructureVariableControls(QWidget):
         self.tableWidget.cellChanged.connect(self.updateData)
         self.tableWidget.itemSelectionChanged.connect(self.on_selection_changed)
 
+        self.structure_control_widget.structure_plot_widget.plotter.add_key_event('Delete', self.delete_atoms)
+
     @pyqtSlot(int, int)
     def updateData(self, row, column):
+
         if column in [1, 2, 3, 4, 5, 6]:  # Only update if X, Y, Z, Move X, Move Y, or Move Z columns are edited
             try:
                 if column in [1, 2, 3]:  # X, Y, Z columns (float)
                     new_value = float(self.tableWidget.item(row, column).text())
                     self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][0][row][column - 1] = new_value
+                    self.structure_control_widget.add_sphere()
+                    self.structure_control_widget.add_bonds()
                 else:  # Move X, Move Y, Move Z columns (T or F)
                     new_value = self.tableWidget.item(row, column).text()
                     if new_value.upper() in ['T', 'F']:
@@ -114,8 +127,6 @@ class StructureVariableControls(QWidget):
                     else:
                         raise ValueError("Movement constraint must be 'T' or 'F'.")
 
-                self.structure_control_widget.add_sphere()
-                self.structure_control_widget.add_bonds()
             except ValueError:
                 print("Invalid input.")
                 # Revert to the old value
@@ -126,8 +137,6 @@ class StructureVariableControls(QWidget):
                 self.tableWidget.blockSignals(True)
                 self.tableWidget.setItem(row, column, QTableWidgetItem(str(old_value)))
                 self.tableWidget.blockSignals(False)
-
-
 
     def deleteRow(self, row):
         # Call delete_row method from data manager
@@ -144,9 +153,6 @@ class StructureVariableControls(QWidget):
 
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
-
-        self.structure_control_widget.add_sphere()
-        self.structure_control_widget.add_bonds()
 
     def on_selection_changed(self):
         actors = self.structure_control_widget.structure_plot_widget.sphere_actors
@@ -228,8 +234,55 @@ class StructureVariableControls(QWidget):
                     file.write(f" {coord_str}\t{const_str}\n")
 
     def delete_atoms(self):
-        for row in self.tableWidget.selectedItems():
-            self.deleteRow(row)
+        selected_rows = sorted(set(item.row() for item in self.tableWidget.selectedItems()), reverse=True)
+        for index in selected_rows:
+            self.deleteRow(index)
+        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_bonds()
+
+    def add_atom(self):
+        self.atom_choose_window = AtomChooseWindow()
+        self.atom_choose_window.show()
+        self.atom_choose_window.sig.connect(self.change_data_when_atom_added)
+
+    def change_data_when_atom_added(self):
+        self.name, self.x, self.y, self.z, self.x_constr, self.y_constr, self.z_constr = self.atom_choose_window.get_atom_and_coords()
+        names = self.structure_control_widget.structure_plot_widget.data.symbols
+        if self.name in names:
+            pos = next(i for i in reversed(range(len(names))) if names[i] == self.name)
+        else:
+            pos = len(self.structure_control_widget.structure_plot_widget.data.symbols)
+        self.structure_control_widget.structure_plot_widget.data.symbols.insert(pos + 1, self.name)
+        self.structure_control_widget.structure_plot_widget.data.atoms_symb_and_num.insert(pos + 1,
+                                                                                               "".join([self.name,
+                                                                                                       str(pos+1)]))
+        for interation in self.structure_control_widget.structure_plot_widget.data.outcar_coordinates:
+            interation[0].insert(pos + 1, [float(self.x), float(self.y), float(self.z)])
+        self.structure_control_widget.structure_plot_widget.data.all_constrains.insert(pos + 1, [self.x_constr, self.y_constr, self.z_constr])
+        self.structure_control_widget.structure_plot_widget.data.constrains.insert(pos + 1, self.x_constr)
+
+        self.change_table_when_atom_added()
+        print("added")
+
+    def change_table_when_atom_added(self):
+        self.tableWidget.blockSignals(True)
+        self.tableWidget.clearContents()
+        self.layout.removeWidget(self.tableWidget)
+        self.tableWidget.blockSignals(False)
+
+        # Rebuild the table with the updated data
+        self.createTable()
+
+        # Add the new table to the layout
+        self.layout.addWidget(self.tableWidget)
+        self.structure_control_widget.structure_plot_widget.update_atom_colors()
+        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_bonds()
+    def change_constrain(self, column, constrain):
+        indexes = self.tableWidget.selectionModel().selectedRows()
+        for index in sorted(indexes):
+            self.tableWidget.setItem(index.row(), column, QTableWidgetItem(constrain))
+            self.updateData(index.row(), column)
 
     def translate_object(self, direction):
         camera = self.structure_control_widget.plotter.camera
@@ -299,7 +352,65 @@ class StructureVariableControls(QWidget):
         #self.plotter.update()
 
 
+class AtomChooseWindow(QWidget):
+    sig = pyqtSignal()
 
-        
+    def __init__(self):
+        super().__init__()
+        self.layout = QVBoxLayout()
 
+        self.atom_coords_layout = QHBoxLayout()
+
+        self.coords_table = QTableWidget()
+        self.coords_table.setRowCount(3)
+        self.coords_table.setColumnCount(4)
+
+        self.coords_table.setItem(0,0,QTableWidgetItem("atom: "))
+        self.atom_name = QTableWidgetItem("")
+        self.coords_table.setItem(0,4, self.atom_name)
+
+
+        self.x_coord = QTableWidgetItem("0")
+        self.y_coord = QTableWidgetItem("0")
+        self.z_coord = QTableWidgetItem("0")
+
+        self.coords_table.setItem(1, 0, QTableWidgetItem("coordinates:"))
+        self.coords_table.setItem(1, 1, self.x_coord)
+        self.coords_table.setItem(1, 2, self.y_coord)
+        self.coords_table.setItem(1, 3, self.z_coord)
+
+        self.coords_table.setItem(2, 0, QTableWidgetItem("constraints:"))
+        self.coords_table.setItem(2, 1, QTableWidgetItem("F"))
+        self.coords_table.setItem(2, 2, QTableWidgetItem("F"))
+        self.coords_table.setItem(2, 3, QTableWidgetItem("F"))
+
+        self.atom_coords_layout.addWidget(self.coords_table)
+
+        self.layout.addLayout(self.atom_coords_layout)
+        self.setLayout(self.layout)
+
+        self.coords_table.horizontalHeader().hide()
+        self.coords_table.verticalHeader().hide()
+
+        self.periodic_table = PeriodicTable()
+        self.periodic_table.element_selected.connect(self.update_label)
+        self.periodic_table.show()
+
+    def update_label(self, element):
+        self.atom_name = QTableWidgetItem(element)
+        self.coords_table.setItem(0,3, self.atom_name)
+
+    def get_atom_and_coords(self):
+        name = self.atom_name.text()
+        x = self.coords_table.item(1,1).text()
+        y = self.coords_table.item(1,2).text()
+        z = self.coords_table.item(1, 3).text()
+        x_constr = self.coords_table.item(2, 1).text()
+        y_constr = self.coords_table.item(2, 2).text()
+        z_constr = self.coords_table.item(2, 3).text()
+
+        return name, x, y, z, x_constr, y_constr, z_constr
+
+    def closeEvent(self, event):
+        self.sig.emit()
 

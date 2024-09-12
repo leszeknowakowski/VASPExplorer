@@ -208,20 +208,17 @@ class MainWindow(MainWindow):
         paste_action = QAction(QIcon("icons/paste.png"), "Paste", self)
         paste_action.setShortcut("Ctrl+V")
 
-        right_action = QAction(QIcon("icons/right_arrow.jpg"), "Move atoms to the right", self)
-        left_action = QAction(QIcon("icons/left-arrow.jpg"), "Move atoms to the left", self)
+        right_action = QAction(QIcon("icons/right_arrow.png"), "Move atoms to the right", self)
+        left_action = QAction(QIcon("icons/left-arrow.png"), "Move atoms to the left", self)
         down_action = QAction(QIcon("icons/down-arrow.png"), "Move atoms down", self)
-        up_action = QAction(QIcon("icons/up-arrow.jpg"), "Move atoms up", self)
-        in_action = QAction(QIcon("icons/up-arrow.jpg"), "Move atoms towards screen", self)
-        out_action = QAction(QIcon("icons/up-arrow.jpg"), "Move atoms away from screen", self)
+        up_action = QAction(QIcon("icons/up-arrow.png"), "Move atoms up", self)
+        in_action = QAction(QIcon("icons/in-plane.png"), "Move atoms towards screen", self)
+        out_action = QAction(QIcon("icons/out-of-plane.png"), "Move atoms away from screen", self)
+        delete_action = QAction(QIcon("icons/delete.png"), "delete atoms", self)
+        add_action = QAction(QIcon("icons/add.png"), "add atoms", self)
         # Add action to toolbar
-        toolbar.addAction(new_action)
-        toolbar.addAction(open_action)
-        toolbar.addAction(save_action)
-        toolbar.addAction(right_action)
-        toolbar.addAction(left_action)
-        toolbar.addAction(down_action)
-        toolbar.addAction(up_action)
+        actions = [new_action, open_action, save_action, right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action]
+        toolbar.addActions(actions)
 
 
         # menu bar
@@ -281,6 +278,10 @@ class MainWindow(MainWindow):
         left_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='left'))
         down_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='down'))
         up_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='up'))
+        in_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction="out"))
+        out_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction="in"))
+        delete_action.triggered.connect(self.structure_variable_control_tab.delete_atoms)
+        add_action.triggered.connect(self.structure_variable_control_tab.add_atom)
 
         # self.console_widget = ConsoleWidget()
         # main_layout.addWidget(self.console_widget)
@@ -297,7 +298,8 @@ class MainWindow(MainWindow):
             dir = './'
         elif platform.system() == 'Windows':
             #path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
-            path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+            #path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+            path = "F:\\syncme\\modelowanie DFT\\czasteczki\\CO"
             # tests for incomplete/missing files
             #path = "F:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\project_geo\\inputs"
 
@@ -305,8 +307,8 @@ class MainWindow(MainWindow):
                 dir = path
             else:
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = "D:\\test_for_doswizard\\3.small_perovskites"
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2")
             #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\co3o4_new_new\\2.ROS\\1.large_slab\\1.old_random_mag\\6.CoO-O_CoO-O\\antiferro\\HSE\\DOS_new")

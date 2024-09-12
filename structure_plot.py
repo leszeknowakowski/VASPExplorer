@@ -43,8 +43,8 @@ class StructureViewer(QWidget):
         script_dir = os.path.dirname(__file__)
         colors_file = os.path.join(script_dir, 'elementColorSchemes.json')
         with open(colors_file, 'r') as file:
-            color_data = json.load(file)
-        self.atom_colors = [color_data[self.data.symbols[i]] for i in range(self.data.number_of_atoms)]
+            self.color_data = json.load(file)
+        self.atom_colors = [self.color_data[self.data.symbols[i]] for i in range(len(self.data.atoms_symb_and_num))]
         self.coord_pairs = []  # pairs of points connected by a bond
         self.bond_actors = []  # list of bond actors
         self.sphere_actors = []  # list of sphere actors
@@ -65,10 +65,11 @@ class StructureViewer(QWidget):
         self.eps = 0.1
         self.sphere_radius = 0.5
 
-
-
-
         self.initUI()
+
+        self.plotter.add_key_event('z', self.camera_z)
+        self.plotter.add_key_event('x', self.camera_x)
+        self.plotter.add_key_event('y', self.camera_y)
 
 
     def initUI(self):
@@ -86,6 +87,9 @@ class StructureViewer(QWidget):
         self.add_structure()
         #self.add_bonds(1,1)
         self.add_unit_cell(self.data.x,self.data.y,self.data.z)
+
+    def update_atom_colors(self):
+        self.atom_colors = [self.color_data[self.data.symbols[i]] for i in range(len(self.data.atoms_symb_and_num))]
 
     def add_sphere(self, coord, col, radius):
         sphere = pv.Sphere(radius=radius, center=(coord[0], coord[1], coord[2]))
@@ -151,3 +155,12 @@ class StructureViewer(QWidget):
         actor.GetProperty().SetLineWidth(1.0)
 
         return actor
+
+    def camera_z(self):
+        self.plotter.view_xy()
+
+    def camera_x(self):
+        self.plotter.view_yz()
+
+    def camera_y(self):
+        self.plotter.view_xz()

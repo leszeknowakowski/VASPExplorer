@@ -223,6 +223,9 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.valueChanged.connect(self.update_geometry_value_label)
         self.geometry_slider.valueChanged.connect(self.add_bonds)
         self.geometry_slider.valueChanged.connect(self.toggle_symbols)
+        self.geometry_slider.valueChanged.connect(self.toggle_mag_above_plane)
+        self.geometry_slider.valueChanged.connect(self.toggle_constrain_above_plane)
+        self.geometry_slider.valueChanged.connect(self.toggle_all_constrains)
         self.geometry_slider.valueChanged.connect(self.toggle_symbols_between_planes)
         self.geometry_slider.valueChanged.connect(self.update_scatter)
 
@@ -463,13 +466,14 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.plane_actor_heigher.GetProperty().SetOpacity(flag)
     def toggle_all_constrains(self, flag):
         """ switches on and off constrains visibility"""
-        self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.constrain_actor)
-        coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
-        constr = self.structure_plot_widget.data.constrains
-        self.structure_plot_widget.constrain_actor = self.plotter.add_point_labels(coords, constr, font_size=30,
-                                                                                   show_points=False,
-                                                                                   always_visible=True, shape=None)
-        self.structure_plot_widget.constrain_actor.SetVisibility(flag)
+        if self.constrains_all_cb.isChecked():
+            self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.constrain_actor)
+            coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            constr = [constr[0] for constr in self.structure_plot_widget.data.all_constrains]
+            self.structure_plot_widget.constrain_actor = self.plotter.add_point_labels(coords, constr, font_size=30,
+                                                                                       show_points=False,
+                                                                                       always_visible=True, shape=None)
+            self.structure_plot_widget.constrain_actor.SetVisibility(flag)
 
     def toggle_constrain_above_plane(self, flag):
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.constrain_actor)
@@ -484,7 +488,7 @@ class StructureControlsWidget(QWidget):
             indices = indice.tolist()
             for i in range(len(indices)):
                 coords.append(list(coordinates[indices[i]]))
-                constr.append(self.structure_plot_widget.data.constrains[indices[i]])
+                constr.append(self.structure_plot_widget.data.all_constrains[indices[i]][0])
             self.structure_plot_widget.constrain_actor = self.plotter.add_point_labels(coords, constr, font_size=30,
                                                                  show_points=False, always_visible=True, shape=None)
             self.structure_plot_widget.constrain_actor.SetVisibility(flag)
@@ -537,6 +541,7 @@ class StructureControlsWidget(QWidget):
             self.structure_plot_widget.symb_actor = self.plotter.add_point_labels(coords, symb, font_size=30,
                                                                  show_points=False, always_visible=True, shape=None)
             self.structure_plot_widget.symb_actor.SetVisibility(flag)
+
     def add_symbol_and_number(self):
         """ renders an atom symbol and number"""
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.symb_actor)
