@@ -187,6 +187,7 @@ class PoscarParser:
         else:
             self.atom_symbols_exists = True
             atom_symbols = self.lines[5].split()
+            atom_symbols = [atom.rstrip('/') for atom in atom_symbols]
         return atom_symbols
 
     def list_atomic_symbols(self):
@@ -353,7 +354,7 @@ class DOSCARparser:
 
 
 if __name__ == "__main__":
-    doscar = DOSCARparser("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2\\DOSCAR")
-    poscar = PoscarParser("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2\\POSCAR")
+    doscar = DOSCARparser("F:\\syncme\\modelowanie DFT\\czasteczki\\O2\\DOSCAR")
+    poscar = PoscarParser("F:\\syncme\\modelowanie DFT\\czasteczki\\O2\\POSCAR")
     print(doscar.number_of_atoms == poscar.number_of_atoms())
     print(doscar.element_block)
