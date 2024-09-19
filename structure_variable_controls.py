@@ -278,6 +278,7 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.structure_plot_widget.update_atom_colors()
         self.structure_control_widget.add_sphere()
         self.structure_control_widget.add_bonds()
+
     def change_constrain(self, column, constrain):
         indexes = self.tableWidget.selectionModel().selectedRows()
         for index in sorted(indexes):
@@ -414,3 +415,7 @@ class AtomChooseWindow(QWidget):
     def closeEvent(self, event):
         self.sig.emit()
 
+class MovementRangeWindow(QWidget):
+    movement_range = pyqtSignal()
+    def __init__(self):
+        super().__init__()

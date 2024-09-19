@@ -14,6 +14,8 @@ from scipy.spatial.distance import pdist, squareform
 from vtk import *
 from RangeSlider import QRangeSlider
 import pyvista as pv
+import os
+from PyQt5 import QtGui
 
 # import vtkmodules.all as vtk
 toc = time.perf_counter()
@@ -30,6 +32,9 @@ class StructureControlsWidget(QWidget):
         self.bond_actor = self.structure_plot_widget.bond_actors
 
         self.plotter.enable_rectangle_picking(show_frustum=False, callback=self.on_selection)
+
+        self.exec_dir = os.path.dirname(os.path.abspath(__file__))
+        self.icon_path = os.path.join(self.exec_dir, 'icons')
 
         self.vlayout = None
         self.mag_actor = None
@@ -233,14 +238,32 @@ class StructureControlsWidget(QWidget):
         self.geometry_value_label.setText(f"Geometry number: {self.geometry_slider.value()}")
         self.geometry_value_label.setFixedWidth(150)
 
+        self.end_geometry_button = QtWidgets.QPushButton()
+        self.end_geometry_button.setIcon(QtGui.QIcon(os.path.join(self.icon_path, "end.png")))
+        self.end_geometry_button.setFixedWidth(30)
+        self.start_geometry_button = QtWidgets.QPushButton()
+        self.start_geometry_button.setIcon(QtGui.QIcon(os.path.join(self.icon_path, "start.png")))
+        self.start_geometry_button.setFixedWidth(30)
+        self.next_geometry_button = QtWidgets.QPushButton()
+        self.next_geometry_button.setIcon(QtGui.QIcon(os.path.join(self.icon_path, "next.png")))
+        self.next_geometry_button.setFixedWidth(30)
+        self.back_geometry_button = QtWidgets.QPushButton()
+        self.back_geometry_button.setIcon(QtGui.QIcon(os.path.join(self.icon_path, "back.png")))
+        self.back_geometry_button.setFixedWidth(30)
+
         slider_layout = QtWidgets.QHBoxLayout()
         slider_layout.addWidget(self.geometry_slider)
         slider_layout.addWidget(self.geometry_value_label)
-        # slider_layout.addWidget(self.start_geometry_button)
-        # slider_layout.addWidget(self.back_geometry_button)
-        # slider_layout.addWidget(self.next_geometry_button)
-        # slider_layout.addWidget(self.end_geometry_button)
+        slider_layout.addWidget(self.start_geometry_button)
+        slider_layout.addWidget(self.back_geometry_button)
+        slider_layout.addWidget(self.next_geometry_button)
+        slider_layout.addWidget(self.end_geometry_button)
         slider_layout.setAlignment(QtCore.Qt.AlignLeft)
+
+        self.start_geometry_button.clicked.connect(self.start_geometry)
+        self.back_geometry_button.clicked.connect(self.back_geometry)
+        self.next_geometry_button.clicked.connect(self.next_geometry)
+        self.end_geometry_button.clicked.connect(self.end_geometry)
 
         self.geometry_frame_layout.addLayout(slider_layout)
         self.vlayout.addWidget(self.geometry_frame)
@@ -641,8 +664,22 @@ class StructureControlsWidget(QWidget):
 
         self.selected_actors_changed.emit(self.selected_actors)
 
+    def end_geometry(self):
+        last = len(self.structure_plot_widget.data.outcar_coordinates)
+        self.geometry_slider.setValue(last)
 
+    def start_geometry(self):
+        self.geometry_slider.setValue(0)
 
+    def back_geometry(self):
+        value = self.geometry_slider.value()
+        value -= 1
+        self.geometry_slider.setValue(value)
+
+    def next_geometry(self):
+        value = self.geometry_slider.value()
+        value += 1
+        self.geometry_slider.setValue(value)
 
 
 

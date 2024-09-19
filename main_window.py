@@ -39,6 +39,7 @@ if True:  # noqa: E402
     from console_widget import ConsoleWidget
     from structure_controls import StructureControlsWidget
     from structure_variable_controls import StructureVariableControls
+    from chgcar_controls import ChgcarVis
     toc = time.perf_counter()
     print(f'import local modules in main: {toc - tic:0.4f}')
 
@@ -175,8 +176,8 @@ class MainWindow(MainWindow):
         self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
         self.create_data()
         self.qmainwindow = QMainWindow()
+        self.exec_dir = os.path.dirname(os.path.abspath(__file__))
         self.initUI()
-
 
     def initUI(self):
         self.setWindowTitle('DOSWave v.0.0.0')
@@ -192,34 +193,34 @@ class MainWindow(MainWindow):
         self.addToolBar(toolbar)
 
         # Toolbar Actions
-        new_action = QAction(QIcon("icons/new.png"), "New", self)
+        icon_path = os.path.join(self.exec_dir, 'icons')
+        new_action = QAction(QIcon(os.path.join(icon_path, "new.png")), "New", self)
         new_action.setShortcut('Ctrl+N')
-        open_action = QAction(QIcon("icons/open.png"), "Open", self)
+        open_action = QAction(QIcon(os.path.join(icon_path, "open.png")), "Open", self)
         open_action.setShortcut("Ctrl+O")
-        save_action = QAction(QIcon("icons/save.png"), "Save", self)
+        save_action = QAction(QIcon(os.path.join(icon_path, "save.png")), "Save", self)
         save_action.setShortcut("Ctrl+S")
         quit_action = QAction("Quit", self)
         quit_action.setShortcut("Ctrl+Q")
 
-        copy_action = QAction(QIcon("icons/copy.png"), "Copy", self)
+        copy_action = QAction(QIcon(os.path.join(icon_path, "copy.png")), "Copy", self)
         copy_action.setShortcut('Ctrl+C')
-        cut_action = QAction(QIcon("icons/cut.png"), "Cut", self)
+        cut_action = QAction(QIcon(os.path.join(icon_path, "cut.png")), "Cut", self)
         cut_action.setShortcut("Ctrl+X")
-        paste_action = QAction(QIcon("icons/paste.png"), "Paste", self)
+        paste_action = QAction(QIcon(os.path.join(icon_path, "paste.png")), "Paste", self)
         paste_action.setShortcut("Ctrl+V")
 
-        right_action = QAction(QIcon("icons/right_arrow.png"), "Move atoms to the right", self)
-        left_action = QAction(QIcon("icons/left-arrow.png"), "Move atoms to the left", self)
-        down_action = QAction(QIcon("icons/down-arrow.png"), "Move atoms down", self)
-        up_action = QAction(QIcon("icons/up-arrow.png"), "Move atoms up", self)
-        in_action = QAction(QIcon("icons/in-plane.png"), "Move atoms towards screen", self)
-        out_action = QAction(QIcon("icons/out-of-plane.png"), "Move atoms away from screen", self)
-        delete_action = QAction(QIcon("icons/delete.png"), "delete atoms", self)
-        add_action = QAction(QIcon("icons/add.png"), "add atoms", self)
+        right_action = QAction(QIcon(os.path.join(icon_path, "right-arrow.png")), "Move atoms to the right", self)
+        left_action = QAction(QIcon(os.path.join(icon_path, "left-arrow.png")), "Move atoms to the left", self)
+        down_action = QAction(QIcon(os.path.join(icon_path, "down-arrow.png")), "Move atoms down", self)
+        up_action = QAction(QIcon(os.path.join(icon_path, "up-arrow.png")), "Move atoms up", self)
+        in_action = QAction(QIcon(os.path.join(icon_path, "in-plane.png")), "Move atoms towards screen", self)
+        out_action = QAction(QIcon(os.path.join(icon_path, "out-of-plane.png")), "Move atoms away from screen", self)
+        delete_action = QAction(QIcon(os.path.join(icon_path, "delete.png")), "delete atoms", self)
+        add_action = QAction(QIcon(os.path.join(icon_path, "add.png")), "add atoms", self)
         # Add action to toolbar
         actions = [new_action, open_action, save_action, right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action]
         toolbar.addActions(actions)
-
 
         # menu bar
         menubar = self.menuBar()
@@ -239,8 +240,6 @@ class MainWindow(MainWindow):
         edit_menu.addAction(cut_action)
         edit_menu.addAction(paste_action)
 
-
-
         splitter = QSplitter()
         main_layout.addWidget(splitter)
 
@@ -248,9 +247,10 @@ class MainWindow(MainWindow):
         left_tab_widget = QTabWidget()
         self.dos_plot_widget = DosPlotWidget(self.data)
         self.structure_plot_interactor_widget = StructureViewer(self.data)
+
         left_tab_widget.addTab(self.dos_plot_widget, "DOS")
         left_tab_widget.addTab(self.structure_plot_interactor_widget, "Structure")  # Placeholder for future widget
-        left_tab_widget.addTab(QWidget(), "PARCHG/CHGCAR")  # Placeholder for future widget
+
         splitter.addWidget(left_tab_widget)
         left_tab_widget.setCurrentIndex(1)
 
@@ -269,6 +269,10 @@ class MainWindow(MainWindow):
         right_tab_widget.addTab(structure_tabs, "Crystal structure")  # Placeholder for future widget
         right_tab_widget.setCurrentIndex(1)
         structure_tabs.setCurrentIndex(1)
+
+        self.chgcar_viewer_widget = ChgcarVis(self.structure_plot_control_tab)
+        self.chgcar_viewer_widget.chg_file_path = ""
+        left_tab_widget.addTab(self.chgcar_viewer_widget, "PARCHG/CHGCAR")  # Placeholder for future widget
 
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)
