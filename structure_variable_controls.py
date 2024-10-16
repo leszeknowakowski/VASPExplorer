@@ -253,7 +253,12 @@ class StructureVariableControls(QWidget):
         else:
             pos = len(self.structure_control_widget.structure_plot_widget.data.symbols)
         self.structure_control_widget.structure_plot_widget.data.symbols.insert(pos + 1, self.name)
-        self.structure_control_widget.structure_plot_widget.data.atoms_symb_and_num.insert(pos + 1,
+        if self.name in names:
+            self.structure_control_widget.structure_plot_widget.data.atoms_symb_and_num.insert(pos + 1,
+                                                                                               "".join([self.name,
+                                                                                                       str(pos+2)]))
+        else:
+            self.structure_control_widget.structure_plot_widget.data.atoms_symb_and_num.insert(pos + 1,
                                                                                                "".join([self.name,
                                                                                                        str(pos+1)]))
         for interation in self.structure_control_widget.structure_plot_widget.data.outcar_coordinates:
@@ -369,7 +374,11 @@ class AtomChooseWindow(QWidget):
         self.coords_table.setItem(0,0,QTableWidgetItem("atom: "))
         self.atom_name = QTableWidgetItem("")
         self.coords_table.setItem(0,4, self.atom_name)
+        self.resize(640, 300)
 
+        self.periodic_table = PeriodicTable()
+        self.periodic_table.element_selected.connect(self.update_label)
+        self.periodic_table.show()
 
         self.x_coord = QTableWidgetItem("0")
         self.y_coord = QTableWidgetItem("0")
@@ -390,12 +399,20 @@ class AtomChooseWindow(QWidget):
         self.layout.addLayout(self.atom_coords_layout)
         self.setLayout(self.layout)
 
+        self.buttons_layout = QHBoxLayout()
+        self.add_button = QPushButton("add")
+        self.buttons_layout.addWidget(self.add_button)
+        self.add_button.clicked.connect(self.add_atom)
+
+        self.discard_button = QPushButton("discard")
+        self.buttons_layout.addWidget(self.discard_button)
+        self.discard_button.clicked.connect(self.discard)
+        self.layout.addLayout(self.buttons_layout)
+
         self.coords_table.horizontalHeader().hide()
         self.coords_table.verticalHeader().hide()
 
-        self.periodic_table = PeriodicTable()
-        self.periodic_table.element_selected.connect(self.update_label)
-        self.periodic_table.show()
+
 
     def update_label(self, element):
         self.atom_name = QTableWidgetItem(element)
@@ -412,8 +429,17 @@ class AtomChooseWindow(QWidget):
 
         return name, x, y, z, x_constr, y_constr, z_constr
 
-    def closeEvent(self, event):
-        self.sig.emit()
+    def add_atom(self):
+        try:
+            if self.atom_name.text() != '':
+                self.sig.emit()
+                self.close()
+        except:
+            print("no atom added")
+
+    def discard(self):
+        self.close()
+        self.periodic_table.close()
 
 class MovementRangeWindow(QWidget):
     movement_range = pyqtSignal()
