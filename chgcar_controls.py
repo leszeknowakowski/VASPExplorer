@@ -140,6 +140,10 @@ class ChgcarVis(QWidget):
             self.create_chgcar_data()
             self.w.close()
 
+    def closeEvent(self, QCloseEvent):
+        super().closeEvent(QCloseEvent)
+        self.plotter.Finalize()
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     main_window = ChgcarVis()

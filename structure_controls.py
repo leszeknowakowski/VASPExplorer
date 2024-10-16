@@ -68,8 +68,6 @@ class StructureControlsWidget(QWidget):
 
         #self.add_symbol_and_number()
         self.add_bonds()
-        self.add_plane(self.structure_plot_widget.data.z / 2)
-        self.add_plane_higher(self.structure_plot_widget.data.z)
 
     def initUI(self):
         self.vlayout = QVBoxLayout(self)
@@ -171,7 +169,7 @@ class StructureControlsWidget(QWidget):
         unit_cell_cb = QtWidgets.QCheckBox()
         unit_cell_cb.setChecked(True)
         unit_cell_cb.setText('unit cell')
-        # unit_cell_cb.stateChanged.connect(self.toggle_unit_cell)
+        unit_cell_cb.stateChanged.connect(self.toggle_unit_cell)
         self.render_frame_layout.addWidget(unit_cell_cb)
 
     def text_control_widget(self):
@@ -190,7 +188,7 @@ class StructureControlsWidget(QWidget):
 
         self.mag_cb = QtWidgets.QCheckBox()
         self.mag_cb.setChecked(False)
-        self.mag_cb.setText('magnetization')
+        self.mag_cb.setText('magnetization between planes')
         self.mag_cb.stateChanged.connect(self.toggle_mag_above_plane)
         self.render_frame_layout.addWidget(self.mag_cb)
 
@@ -301,6 +299,9 @@ class StructureControlsWidget(QWidget):
         self.plane_height_range_slider.endValueChanged.connect(self.all_planes_position)
         self.plane_height_range_slider.endValueChanged.connect(self.toggle_constrain_above_plane)
         self.plane_height_range_slider.endValueChanged.connect(self.toggle_symbols_between_planes)
+
+        self.add_plane(self.plane_height_range_slider.getRange()[0])
+        self.add_plane_higher(self.plane_height_range_slider.getRange()[0])
 
         planes_layout = QtWidgets.QHBoxLayout()
         planes_layout.addWidget(top_plane_cb)
@@ -519,7 +520,7 @@ class StructureControlsWidget(QWidget):
     def toggle_mag_above_plane(self, flag):
         self.plotter.renderer.RemoveActor(self.mag_actor)
         if self.mag_cb.isChecked():
-            self.end_geometry()
+            #self.end_geometry()
             slidervalue = self.plane_height_range_slider.getRange()
             height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
             end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
