@@ -16,6 +16,7 @@ class OutcarParser:
         self.magnetizations = []
         self.poscar = PoscarParser(os.path.join(dir, 'POSCAR'))
         self.atom_count = self.poscar.number_of_atoms()
+        ml_counter = 0
         try:
             with open(self.filename, 'r') as file:
                 lines = file.readlines()
@@ -35,12 +36,14 @@ class OutcarParser:
             if text:
                 position = "POSITION"
                 free_energy = 'FREE ENERGIE'
+                ml_free_energy = 'ML FREE ENERGIE'
                 magnetization = 'magnetization (x)'
                 voluntary = 'Voluntary context switches:'
                 position_of_ions = 'position of ions in cartesian'
             if binary:
                 position = b"POSITION"
                 free_energy = b'FREE ENERGIE'
+                ml_free_energy = b'ML FREE ENERGIE'
                 magnetization = b'magnetization (x)'
                 voluntary = b'Voluntary context switches:'
                 position_of_ions = b'position of ions in cartesian'
@@ -57,6 +60,18 @@ class OutcarParser:
                 i += 2
                 energy_data = lines[i].strip().split()[4]
                 self.energies.append(float(energy_data))
+            elif line.startswith(ml_free_energy):
+                ml_counter += 1
+                i += 2
+                if float(lines[i].strip().split()[5]) == 0:
+                    if ml_counter == 1:
+                        pass
+                    else:
+                        self.energies.append(float(energy_data))
+                else:
+                    energy_data = lines[i].strip().split()[5]
+                    self.energies.append(float(energy_data))
+
             elif line.startswith(magnetization):
                 section_magnetization = []
                 i += 4
@@ -68,7 +83,8 @@ class OutcarParser:
                     section_magnetization.append(atom_mag)
                 self.magnetizations.append(section_magnetization)
             if line.startswith(voluntary):
-                self.magnetizations.pop()
+                if len(self.magnetizations) > 0:
+                    self.magnetizations.pop()
         if section_position==[]:
             for i in range(lenght):
                 line = lines[i].strip()
