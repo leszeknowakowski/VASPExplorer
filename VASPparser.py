@@ -297,72 +297,86 @@ class PoscarParser:
 class DOSCARparser:
 
     def __init__(self, file):
-        with open(file, 'r') as file:
-            lines = file.readlines()
-            self.number_of_atoms = int(lines[0].strip().split()[0])
-            self.dataset_up = []
-            small_dataset_up = []
-            self.dataset_down = []
-            small_dataset_down = []
-            try:
-                info_line_full = lines[5]
-                info_line = info_line_full.strip().split()
-                stop_nrg, start_nrg, self.nedos, self.efermi = [info_line[i] for i in range(4)]
-                self.nedos = int(self.nedos)
-                dos_parts = list(self.splitter(lines[6:], self.nedos + 1))
+        self.dataset_up = []
+        small_dataset_up = []
+        self.dataset_down = []
+        small_dataset_down = []
+        if os.path.exists(file):
+            with open(file, 'r') as file:
+                lines = file.readlines()
+                self.number_of_atoms = int(lines[0].strip().split()[0])
 
-                total_dos = [line.strip().split() for line in dos_parts[0]]
-                self.total_dos_energy = [float(x) for x in list(map(lambda sublist: sublist[0], total_dos))]
-                self.total_dos_alfa = [float(x) for x in list(map(lambda sublist: sublist[1], total_dos))]
-                self.total_dos_beta = [float(x) for x in list(map(lambda sublist: sublist[2], total_dos))]
-                dos_parts = [list for list in dos_parts[1:]]
-                dos_parts = [[line.strip().split() for line in sublist] for sublist in dos_parts]
-                self.dos_parts = [[[float(x) for x in list[1:]] for list in sublist] for sublist in dos_parts]
-                del lines
-                if len(self.dos_parts[0][0]) == 18:
-                    self.element_block = 'd'
-                    self.orbitals = ["s", "py", "pz", "px", "dxy", "dyz", "dz", "dxz", "dx2y2"]
-                    self.orbital_types = [["s"], ["py", "pz", "px"], ["dxy", "dyz", "dz", "dxz", "dx2y2"]]
-                elif len(self.dos_parts[0][0]) == 8:
-                    self.element_block = 'p'
-                    self.orbitals = ["s", "py", "pz", "px"]
-                    self.orbital_types =[["s"], ["py", "pz", "px"]]
-                elif len(self.dos_parts[0][0]) == 32:
-                    self.element_block = 'f'
-                    self.orbitals = ["s", "py", "pz", "px", "dxy", "dyz", "dz", "dxz", "dx2y2", "fy(3x2-y2)", "fxyz", "fyz2",
-                                "fz3", "fxz2", "fz(x2-y2)", "fx(x2-3y2)"]
-                    self.orbital_types =[["s"], ["py", "pz", "px"], ["dxy", "dyz", "dz", "dxz", "dx2y2"], ["fy(3x2-y2)", "fxyz", "fyz2",
-                                "fz3", "fxz2", "fz(x2-y2)", "fx(x2-3y2)"]]
-                elif len(self.dos_parts[0][0]) == 2:
-                    self.element_block = 's'
-                    self.orbitals = ["s"]
-                    self.orbital_types = [["s"]]
-                else:
-                    '''raise error'''
-                    pass
+                try:
+                    info_line_full = lines[5]
+                    info_line = info_line_full.strip().split()
+                    stop_nrg, start_nrg, self.nedos, self.efermi = [info_line[i] for i in range(4)]
+                    self.nedos = int(self.nedos)
+                    dos_parts = list(self.splitter(lines[6:], self.nedos + 1))
 
-                for i in range(self.number_of_atoms):
-                    for j in range(0, 2 * len(self.orbitals), 2):
-                        small_dataset_up.append(list(map(lambda sublist: sublist[j], self.dos_parts[i])))
-                    self.dataset_up.append(small_dataset_up)
-                    small_dataset_up = []
-                for i in range(self.number_of_atoms):
-                    for j in range(1, 2 * len(self.orbitals) + 1, 2):
-                        small_dataset_down.append(list(map(lambda sublist: sublist[j], self.dos_parts[i])))
-                    self.dataset_down.append(small_dataset_down)
-                    small_dataset_down = []
-            except:
-                print("DOSCAR file is invalid. It will not be proccesed")
-                for i in range(self.number_of_atoms):
-                    small_dataset_up.append([0])
-                    small_dataset_down.append([0])
-                    self.total_dos_alfa = [0]
-                    self.total_dos_beta = [0]
-                    self.total_dos_energy = [0]
-                self.orbitals = ["none"]
-                self.orbital_types = ["none"]
-                self.nedos = 0
-                self.efermi = 0
+                    total_dos = [line.strip().split() for line in dos_parts[0]]
+                    self.total_dos_energy = [float(x) for x in list(map(lambda sublist: sublist[0], total_dos))]
+                    self.total_dos_alfa = [float(x) for x in list(map(lambda sublist: sublist[1], total_dos))]
+                    self.total_dos_beta = [float(x) for x in list(map(lambda sublist: sublist[2], total_dos))]
+                    dos_parts = [list for list in dos_parts[1:]]
+                    dos_parts = [[line.strip().split() for line in sublist] for sublist in dos_parts]
+                    self.dos_parts = [[[float(x) for x in list[1:]] for list in sublist] for sublist in dos_parts]
+                    del lines
+                    if len(self.dos_parts[0][0]) == 18:
+                        self.element_block = 'd'
+                        self.orbitals = ["s", "py", "pz", "px", "dxy", "dyz", "dz", "dxz", "dx2y2"]
+                        self.orbital_types = [["s"], ["py", "pz", "px"], ["dxy", "dyz", "dz", "dxz", "dx2y2"]]
+                    elif len(self.dos_parts[0][0]) == 8:
+                        self.element_block = 'p'
+                        self.orbitals = ["s", "py", "pz", "px"]
+                        self.orbital_types =[["s"], ["py", "pz", "px"]]
+                    elif len(self.dos_parts[0][0]) == 32:
+                        self.element_block = 'f'
+                        self.orbitals = ["s", "py", "pz", "px", "dxy", "dyz", "dz", "dxz", "dx2y2", "fy(3x2-y2)", "fxyz", "fyz2",
+                                    "fz3", "fxz2", "fz(x2-y2)", "fx(x2-3y2)"]
+                        self.orbital_types =[["s"], ["py", "pz", "px"], ["dxy", "dyz", "dz", "dxz", "dx2y2"], ["fy(3x2-y2)", "fxyz", "fyz2",
+                                    "fz3", "fxz2", "fz(x2-y2)", "fx(x2-3y2)"]]
+                    elif len(self.dos_parts[0][0]) == 2:
+                        self.element_block = 's'
+                        self.orbitals = ["s"]
+                        self.orbital_types = [["s"]]
+                    else:
+                        '''raise error'''
+                        pass
+
+                    for i in range(self.number_of_atoms):
+                        for j in range(0, 2 * len(self.orbitals), 2):
+                            small_dataset_up.append(list(map(lambda sublist: sublist[j], self.dos_parts[i])))
+                        self.dataset_up.append(small_dataset_up)
+                        small_dataset_up = []
+                    for i in range(self.number_of_atoms):
+                        for j in range(1, 2 * len(self.orbitals) + 1, 2):
+                            small_dataset_down.append(list(map(lambda sublist: sublist[j], self.dos_parts[i])))
+                        self.dataset_down.append(small_dataset_down)
+                        small_dataset_down = []
+                except:
+                    print("DOSCAR file is invalid. It will not be proccesed")
+                    for i in range(self.number_of_atoms):
+                        small_dataset_up.append([0])
+                        small_dataset_down.append([0])
+                        self.total_dos_alfa = [0]
+                        self.total_dos_beta = [0]
+                        self.total_dos_energy = [0]
+                    self.orbitals = ["none"]
+                    self.orbital_types = ["none"]
+                    self.nedos = 0
+                    self.efermi = 0
+        else:
+            print('no DOSCAR found!')
+            for i in range(1):
+                small_dataset_up.append([0])
+                small_dataset_down.append([0])
+                self.total_dos_alfa = [0]
+                self.total_dos_beta = [0]
+                self.total_dos_energy = [0]
+            self.orbitals = ["none"]
+            self.orbital_types = ["none"]
+            self.nedos = 0
+            self.efermi = 0
 
     def splitter(self, list, size):
         for i in range(0, len(list), size):

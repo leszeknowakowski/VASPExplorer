@@ -70,6 +70,8 @@ class VaspData():
                         self.outcar_energies = [0]
         
     def parse_doscar(self, dir):
+        if not os.path.exists(os.path.join(dir, 'DOSCAR')):
+            print('no DOSCAR found. All ')
         self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
 
     def parse_chgcar(self):
