@@ -298,11 +298,11 @@ class DOSCARparser:
 
     def __init__(self, file):
         self.dataset_up = []
-        small_dataset_up = []
+        self.small_dataset_up = []
         self.dataset_down = []
-        small_dataset_down = []
+        self.small_dataset_down = []
         if os.path.exists(file):
-            if os.path.getsize(file) ~= 0:
+            if os.path.getsize(file) != 0:
                 with open(file, 'r') as file:
                     lines = file.readlines()
                     self.number_of_atoms = int(lines[0].strip().split()[0])
@@ -346,19 +346,19 @@ class DOSCARparser:
 
                         for i in range(self.number_of_atoms):
                             for j in range(0, 2 * len(self.orbitals), 2):
-                                small_dataset_up.append(list(map(lambda sublist: sublist[j], self.dos_parts[i])))
-                            self.dataset_up.append(small_dataset_up)
-                            small_dataset_up = []
+                                self.small_dataset_up.append(list(map(lambda sublist: sublist[j], self.dos_parts[i])))
+                            self.dataset_up.append(self.small_dataset_up)
+                            self.small_dataset_up = []
                         for i in range(self.number_of_atoms):
                             for j in range(1, 2 * len(self.orbitals) + 1, 2):
-                                small_dataset_down.append(list(map(lambda sublist: sublist[j], self.dos_parts[i])))
-                            self.dataset_down.append(small_dataset_down)
-                            small_dataset_down = []
+                                self.small_dataset_down.append(list(map(lambda sublist: sublist[j], self.dos_parts[i])))
+                            self.dataset_down.append(self.small_dataset_down)
+                            self.small_dataset_down = []
                     except:
                         print("DOSCAR file is invalid. It will not be proccesed")
                         for i in range(self.number_of_atoms):
-                            small_dataset_up.append([0])
-                            small_dataset_down.append([0])
+                            self.small_dataset_up.append([0])
+                            self.small_dataset_down.append([0])
                             self.total_dos_alfa = [0]
                             self.total_dos_beta = [0]
                             self.total_dos_energy = [0]
@@ -375,8 +375,8 @@ class DOSCARparser:
 
     def make_empty_DOS_data(self):
         for i in range(1):
-            small_dataset_up.append([0])
-            small_dataset_down.append([0])
+            self.small_dataset_up.append([0])
+            self.small_dataset_down.append([0])
             self.total_dos_alfa = [0]
             self.total_dos_beta = [0]
             self.total_dos_energy = [0]

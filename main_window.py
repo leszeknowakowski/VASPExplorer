@@ -303,7 +303,8 @@ class MainWindow(MainWindow):
         elif platform.system() == 'Windows':
             #path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
             #path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-            path = "F:\\syncme\\modelowanie DFT\\czasteczki\\CO"
+            #path = "F:\\syncme\\modelowanie DFT\\czasteczki\\CO"
+            path = "F:\\test_for_doswizard\\1.empty DOS"
             # tests for incomplete/missing files
             #path = "F:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\project_geo\\inputs"
 
