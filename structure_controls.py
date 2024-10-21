@@ -543,6 +543,8 @@ class StructureControlsWidget(QWidget):
         if self.numbers_cb.isChecked():
             symbols = self.structure_plot_widget.data.atoms_symb_and_num
             coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            if len(coords) == 3 and self.structure_plot_widget.data.number_of_atoms != 3:
+                coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             self.structure_plot_widget.symb_actor = self.plotter.add_point_labels(coords, symbols, font_size=30,
                                                                                   show_points=False, always_visible=True,
                                                                                   shape=None)
@@ -555,6 +557,8 @@ class StructureControlsWidget(QWidget):
             height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
             end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
             coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            if len(coordinates) == 3 and self.structure_plot_widget.data.number_of_atoms != 3:
+                coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             coords = []
             symb = []
             indice = np.where((coordinates[:, 2] > height) & (coordinates[:, 2] < end))[0]
@@ -645,7 +649,11 @@ class StructureControlsWidget(QWidget):
     def delete_row(self, row):
         self.structure_plot_widget.data.atoms_symb_and_num.pop(row)
         self.structure_plot_widget.data.symbols.pop(row)
-        self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0].pop(row) # delete all geo??
+        if len(self.structure_plot_widget.data.outcar_coordinates) == 3 and self.structure_plot_widget.data.number_of_atoms != 3:
+            self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()].pop(row) # delete all geo??
+        else:
+            self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0].pop(row)
+
         self.structure_plot_widget.data.constrains.pop(row)
         self.structure_plot_widget.atom_colors.pop(row)
         for actor in self.structure_plot_widget.sphere_actors:

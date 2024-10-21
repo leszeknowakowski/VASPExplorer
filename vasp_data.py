@@ -71,7 +71,9 @@ class VaspData():
         
     def parse_doscar(self, dir):
         if not os.path.exists(os.path.join(dir, 'DOSCAR')):
-            print('no DOSCAR found. All ')
+            print('no DOSCAR found.')
+        elif os.path.getsize(os.path.join(dir, 'DOSCAR')) == 0:
+            print("DOSCAR is empty.")
         self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
 
     def parse_chgcar(self):
