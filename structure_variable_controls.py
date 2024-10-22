@@ -3,7 +3,7 @@ from structure_plot import StructureViewer
 from structure_controls import StructureControlsWidget
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
-    QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel
+    QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel,QLineEdit
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from collections import OrderedDict
 import numpy as np
@@ -21,8 +21,10 @@ class StructureVariableControls(QWidget):
 
         # Initialize table and populate
         self.createTable()
+        # add first row buttons layout
         self.btns_layout = QHBoxLayout()
 
+        # create and connect buttons
         self.save_poscar_btn = QPushButton("Save Poscar")
         self.save_poscar_btn.clicked.connect(self.save_poscar)
 
@@ -42,12 +44,12 @@ class StructureVariableControls(QWidget):
         self.z_f_btn = QPushButton("F")
         self.z_f_btn.clicked.connect(lambda: self.change_constrain(6, "F"))
 
+        # add buttons to layout
         btns = [self.x_t_btn, self.x_f_btn, self.y_t_btn, self.y_f_btn, self.z_t_btn, self.z_f_btn]
         self.btns_layout.addWidget(self.save_poscar_btn)
         self.btns_layout.addWidget(self.delete_atoms_btn)
         self.btns_layout.addWidget(QLabel("X"))
         self.btns_layout.addWidget(btns[0])
-
         self.btns_layout.addWidget(btns[1])
         self.btns_layout.addWidget(QLabel("Y"))
         self.btns_layout.addWidget(btns[2])
@@ -56,9 +58,24 @@ class StructureVariableControls(QWidget):
         self.btns_layout.addWidget(btns[4])
         self.btns_layout.addWidget(btns[5])
 
-
-
         self.layout.addLayout(self.btns_layout)
+
+        # create second row of buttons
+        self.selected_atoms_btn_layout = QHBoxLayout()
+        self.print_selected_atoms_btn = QPushButton("print")
+        self.add_selection_input_field = QLineEdit()
+        self.add_selection_input_field.setMaximumWidth(800)
+        self.select_added_atoms = QPushButton("add")
+
+        # add and connect buttons
+        self.selected_atoms_btn_layout.addWidget(self.print_selected_atoms_btn)
+        self.print_selected_atoms_btn.clicked.connect(self.print_selected_atoms)
+        self.selected_atoms_btn_layout.addWidget(self.add_selection_input_field)
+        self.selected_atoms_btn_layout.addWidget(self.select_added_atoms)
+        self.select_added_atoms.clicked.connect(self.add_input_to_selection)
+
+        self.layout.addLayout(self.selected_atoms_btn_layout)
+
         self.layout.addWidget(self.tableWidget)
 
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
@@ -356,7 +373,25 @@ class StructureVariableControls(QWidget):
 
         # Update the plotter
         #self.plotter.update()
+    def print_selected_atoms(self):
+        selected_rows = self.get_selected_rows()
+        print("Selected atoms numbers:")
+        print([x + 1 for x in selected_rows])
 
+    def add_input_to_selection(self):
+        def strip_if_not_number(s):
+            if len(s) > 1:
+                # Check if the first character is not a digit
+                if not s[0].isdigit():
+                    s = s[1:]
+                # Check if the last character is not a digit
+                if not s[-1].isdigit():
+                    s = s[:-1]
+            return s
+        text = strip_if_not_number(self.add_selection_input_field.text())
+        atoms = [int(x) for x in text.split(',')]
+        for number in atoms:
+            self.tableWidget.selectRow(number)
 
 class AtomChooseWindow(QWidget):
     sig = pyqtSignal()

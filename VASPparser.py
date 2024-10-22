@@ -16,7 +16,9 @@ class OutcarParser:
         self.magnetizations = []
         self.poscar = PoscarParser(os.path.join(dir, 'POSCAR'))
         self.atom_count = self.poscar.number_of_atoms()
+        self.section_position = []
         ml_counter = 0
+        mlff = False
         try:
             with open(self.filename, 'r') as file:
                 lines = file.readlines()
@@ -32,7 +34,7 @@ class OutcarParser:
             if i % 10000 == 0:
                 print('reading OUTCAR file; line: ', i, f' out of {lenght}', end='\r')
             line = lines[i].strip()
-            section_position = []
+
             if text:
                 position = "POSITION"
                 free_energy = 'FREE ENERGIE'
@@ -47,31 +49,43 @@ class OutcarParser:
                 magnetization = b'magnetization (x)'
                 voluntary = b'Voluntary context switches:'
                 position_of_ions = b'position of ions in cartesian'
-            if line.startswith(position):
+
+            if line.startswith(position) and line.endswith("(ML)"):
+                mlff = True
+                self.section_position = []
                 i += 2
                 current_i = i
                 for i in range(current_i, current_i + self.atom_count):
                     line = lines[i]
                     position_data = line.split()
                     atom_data = [float(x) for x in position_data[:3]]
-                    section_position.append(atom_data)
-                self.positions.append([section_position])
-            elif line.startswith(free_energy):
+                    self.section_position.append(atom_data)
+                self.positions.append(self.section_position)
+
+            elif line.startswith(position) and mlff == False:
+                self.section_position = []
                 i += 2
-                energy_data = lines[i].strip().split()[4]
-                self.energies.append(float(energy_data))
+                current_i = i
+                for i in range(current_i, current_i + self.atom_count):
+                    line = lines[i]
+                    position_data = line.split()
+                    atom_data = [float(x) for x in position_data[:3]]
+                    self.section_position.append(atom_data)
+                self.positions.append(self.section_position)
+
             elif line.startswith(ml_free_energy):
+                mlff = True
                 ml_counter += 1
                 i += 2
-                if float(lines[i].strip().split()[5]) == 0:
-                    if ml_counter == 1:
-                        pass
-                    else:
-                        self.energies.append(float(energy_data))
+                energy_data = float(lines[i].strip().split()[5])
+                self.energies.append(float(energy_data))
+            elif line.startswith(free_energy):
+                if mlff == True:
+                    pass
                 else:
-                    energy_data = lines[i].strip().split()[5]
+                    i += 2
+                    energy_data = lines[i].strip().split()[4]
                     self.energies.append(float(energy_data))
-
             elif line.startswith(magnetization):
                 section_magnetization = []
                 i += 4
@@ -85,7 +99,7 @@ class OutcarParser:
             if line.startswith(voluntary):
                 if len(self.magnetizations) > 0:
                     self.magnetizations.pop()
-        if section_position==[]:
+        if self.section_position==[]:
             for i in range(lenght):
                 line = lines[i].strip()
                 if line.startswith(position_of_ions):
@@ -95,12 +109,15 @@ class OutcarParser:
                         line = lines[i]
                         position_data = line.split()
                         atom_data = [float(x) for x in position_data[:3]]
-                        section_position.append(atom_data)
-                    self.positions.append(section_position)
+                        self.section_position.append(atom_data)
+                    self.positions.append(self.section_position)
             # self.magnetizations = [["N/A" for atom in self.atom_count]]
         if self.energies == []:
             print("run didn't calculated energy (eg. PARCHG file generation or other postprocessing. Energy is set to 0.")
             self.energies = [0]
+        else:
+            first_non_zero = next((x for x in self.energies if x != 0.0), None)
+            self.energies = [first_non_zero if x == 0.0 else x for x in self.energies]
         print('\n')
 
     def find_coordinates(self):

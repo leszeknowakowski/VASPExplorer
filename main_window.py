@@ -210,7 +210,7 @@ class MainWindow(MainWindow):
         paste_action = QAction(QIcon(os.path.join(icon_path, "paste.png")), "Paste", self)
         paste_action.setShortcut("Ctrl+V")
 
-        right_action = QAction(QIcon(os.path.join(icon_path, "right-arrow.png")), "Move atoms to the right", self)
+        right_action = QAction(QIcon(os.path.join(icon_path, "right_arrow.png")), "Move atoms to the right", self)
         left_action = QAction(QIcon(os.path.join(icon_path, "left-arrow.png")), "Move atoms to the left", self)
         down_action = QAction(QIcon(os.path.join(icon_path, "down-arrow.png")), "Move atoms down", self)
         up_action = QAction(QIcon(os.path.join(icon_path, "up-arrow.png")), "Move atoms up", self)
@@ -266,7 +266,7 @@ class MainWindow(MainWindow):
         self.structure_variable_control_tab = StructureVariableControls(self.structure_plot_control_tab)
         structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
-        right_tab_widget.addTab(structure_tabs, "Crystal structure")  # Placeholder for future widget
+        right_tab_widget.addTab(structure_tabs, "Crystal structure")
         right_tab_widget.setCurrentIndex(1)
         structure_tabs.setCurrentIndex(1)
 
@@ -301,22 +301,14 @@ class MainWindow(MainWindow):
         if platform.system() == 'Linux':
             dir = './'
         elif platform.system() == 'Windows':
-            #path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
             #path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
             #path = "F:\\syncme\\modelowanie DFT\\czasteczki\\CO"
-            path = "F:\\test_for_doswizard\\1.empty DOS"
-            # tests for incomplete/missing files
-            #path = "F:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\project_geo\\inputs"
-
+            path = "F:\\syncme\\test_for_doswizard\\1.Ceo2_ceo4t\\3.DOS"
             if os.path.isdir(path):
                 dir = path
             else:
-                #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                dir = "D:\\test_for_doswizard\\6.inteface"
-            #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2")
-            #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\co3o4_new_new\\2.ROS\\1.large_slab\\1.old_random_mag\\6.CoO-O_CoO-O\\antiferro\\HSE\\DOS_new")
+                dir = "D:\\syncme-from-c120\\test_for_doswizard\\6.interface"
         else:
             print("can't resolve operating system. lol, Please Leszek, write your code only on Windows or Linux")
         self.data = VaspData(dir)
@@ -327,5 +319,3 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
-    print("ended")
-    print('wtf')

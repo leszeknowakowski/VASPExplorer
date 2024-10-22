@@ -1,5 +1,4 @@
-#import pyqtgraph as pg
-#import pyqtgraph.opengl as gl
+
 import time
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout, QFrame
@@ -87,7 +86,7 @@ class StructureViewer(QWidget):
         self.setLayout(self.layout)
         self.add_structure()
         #self.add_bonds(1,1)
-        self.add_unit_cell(self.data.x,self.data.y,self.data.z)
+        #self.add_unit_cell(self.data.x,self.data.y,self.data.z)
 
     def update_atom_colors(self):
         self.atom_colors = [self.color_data[self.data.symbols[i]] for i in range(len(self.data.atoms_symb_and_num))]

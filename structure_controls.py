@@ -216,7 +216,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider = QtWidgets.QSlider()
         self.geometry_slider.setOrientation(QtCore.Qt.Horizontal)
         self.geometry_slider.setMinimum(0)
-        self.geometry_slider.setMaximum(len(self.structure_plot_widget.data.outcar_coordinates) - 2)
+        self.geometry_slider.setMaximum(len(self.structure_plot_widget.data.outcar_coordinates)-1)
         self.geometry_slider.setValue(0)
         self.geometry_slider.setTickInterval(1)
         self.geometry_slider.setSingleStep(1)
@@ -357,7 +357,7 @@ class StructureControlsWidget(QWidget):
         for actor in self.structure_plot_widget.sphere_actors:
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors = []
-        coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
+        coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
 
         for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
             sphere = pv.Sphere(radius=self.sphere_radius, center=(coord[0], coord[1], coord[2]))
@@ -378,7 +378,7 @@ class StructureControlsWidget(QWidget):
         if len(self.structure_plot_widget.data.outcar_coordinates) == 1:
             coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value]
         else:
-            coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value][0]
+            coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value]
         if self.structure_plot_widget.bond_actors is not None:
             for actor in self.structure_plot_widget.bond_actors:
                 self.structure_plot_widget.plotter.renderer.RemoveActor(actor)
@@ -492,7 +492,7 @@ class StructureControlsWidget(QWidget):
         """ switches on and off constrains visibility"""
         if self.constrains_all_cb.isChecked():
             self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.constrain_actor)
-            coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             constr = [constr[0] for constr in self.structure_plot_widget.data.all_constrains]
             self.structure_plot_widget.constrain_actor = self.plotter.add_point_labels(coords, constr, font_size=30,
                                                                                        show_points=False,
@@ -505,7 +505,7 @@ class StructureControlsWidget(QWidget):
             slidervalue = self.plane_height_range_slider.getRange()
             height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
             end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
-            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             coords = []
             constr = []
             indice = np.where((coordinates[:, 2] > height) & (coordinates[:, 2] < end))[0]
@@ -525,7 +525,7 @@ class StructureControlsWidget(QWidget):
             height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
             end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
 
-            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             coords = []
             magnet = []
             mag = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
@@ -542,7 +542,7 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.symb_actor)
         if self.numbers_cb.isChecked():
             symbols = self.structure_plot_widget.data.atoms_symb_and_num
-            coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             if len(coords) == 3 and self.structure_plot_widget.data.number_of_atoms != 3:
                 coords = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             self.structure_plot_widget.symb_actor = self.plotter.add_point_labels(coords, symbols, font_size=30,
@@ -556,7 +556,7 @@ class StructureControlsWidget(QWidget):
             slidervalue = self.plane_height_range_slider.getRange()
             height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
             end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
-            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0])
+            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             if len(coordinates) == 3 and self.structure_plot_widget.data.number_of_atoms != 3:
                 coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             coords = []
@@ -573,7 +573,7 @@ class StructureControlsWidget(QWidget):
     def add_symbol_and_number(self):
         """ renders an atom symbol and number"""
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.symb_actor)
-        coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
+        coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
         symb_num = self.structure_plot_widget.data.atoms_symb_and_num
         coords = list(np.array(coordinates) + [0, -0.2, 0.5])
         self.structure_plot_widget.symb_actor = self.structure_plot_widget.plotter.add_point_labels(coords, symb_num,
@@ -621,7 +621,7 @@ class StructureControlsWidget(QWidget):
         return self.structure_plot_widget.data.atoms_symb_and_num
 
     def get_current_coordinates(self):
-        return self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
+        return self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
 
     def get_all_coordinates(self):
         return self.structure_plot_widget.data.outcar_coordinates
@@ -637,13 +637,13 @@ class StructureControlsWidget(QWidget):
         if len(self.structure_plot_widget.data.outcar_coordinates) == 1:
             coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
         else:
-            coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0]
+            coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
         const = self.structure_plot_widget.data.all_constrains
         return symb, coord, const
 
     def update_row(self, row, atom_num_and_symb, coordinates, constraints):
         self.structure_plot_widget.data.atoms_symb_and_num[row] = atom_num_and_symb
-        self.self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0][row] = coordinates
+        self.self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][row] = coordinates
         self.self.structure_plot_widget.data.constrains[row] = constraints
 
     def delete_row(self, row):
@@ -652,7 +652,7 @@ class StructureControlsWidget(QWidget):
         if len(self.structure_plot_widget.data.outcar_coordinates) == 3 and self.structure_plot_widget.data.number_of_atoms != 3:
             self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()].pop(row) # delete all geo??
         else:
-            self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()][0].pop(row)
+            self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()].pop(row)
 
         self.structure_plot_widget.data.constrains.pop(row)
         self.structure_plot_widget.atom_colors.pop(row)
