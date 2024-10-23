@@ -42,19 +42,19 @@ class ChgcarVis(QWidget):
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
-        self.plotter = QtInteractor()
-        self.plotter.set_background(color="#1e1f22")
-        self.plotter.add_camera_orientation_widget()
+        self.chg_plotter = QtInteractor()
+        self.chg_plotter.set_background(color="#1e1f22")
+        self.chg_plotter.add_camera_orientation_widget()
 
         self.chg_file_button = QPushButton('open CHGCAR')
         self.chg_file_button.clicked.connect(self.show_chg_dialog)
         self.layout.addWidget(self.chg_file_button)
 
-        self.plotter.view_yz()
-        self.plotter.camera_position = [(5, -60, 13), (4.8, 1.7, 12.3), (0, 0, 1)]
-        self.plotter.camera.enable_parallel_projection()
-        self.plotter.camera.parallel_scale = 18
-        self.layout.addWidget(self.plotter.interactor)
+        self.chg_plotter.view_yz()
+        self.chg_plotter.camera_position = [(5, -60, 13), (4.8, 1.7, 12.3), (0, 0, 1)]
+        self.chg_plotter.camera.enable_parallel_projection()
+        self.chg_plotter.camera.parallel_scale = 18
+        self.layout.addWidget(self.chg_plotter.interactor)
         self.setLayout(self.layout)
         #self.add_structure()
         # self.add_bonds(1,1)
@@ -113,7 +113,7 @@ class ChgcarVis(QWidget):
             newcolors[mapping < 0] = lightblue
             my_colormap = ListedColormap(newcolors)
             # colors.cmap = [(0,255,254), 'yellow']
-            self.plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=my_colormap)
+            self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=my_colormap)
 
     def clear_contours(self):
         pvgrid = pv.ImageData()
@@ -123,7 +123,7 @@ class ChgcarVis(QWidget):
         data = np.random.rand(10, 10, 10)
         pvgrid.point_data["values"] = data.flatten(order="F")
         contours = pvgrid.contour()
-        self.plotter.add_mesh(contours, opacity=0, name='isosurface')
+        self.chg_plotter.add_mesh(contours, opacity=0, name='isosurface')
 
     def show_chg_dialog(self):
         if self.chg_file_path:
@@ -139,6 +139,9 @@ class ChgcarVis(QWidget):
 
             self.create_chgcar_data()
             self.w.close()
+    def closeEvent(self, QCloseEvent):
+        super().closeEvent(QCloseEvent)
+        self.chg_plotter.Finalize()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -3,6 +3,7 @@
 import time
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout, QFrame
+from PyQt5.QtGui import QCloseEvent
 toc = time.perf_counter()
 print(f'importing PyQt5 from Structure, time: {toc - tic:0.4f} seconds')
 
@@ -164,3 +165,7 @@ class StructureViewer(QWidget):
 
     def camera_y(self):
         self.plotter.view_xz()
+
+    def closeEvent(self, QCloseEvent):
+        super().closeEvent(QCloseEvent)
+        self.plotter.Finalize()
