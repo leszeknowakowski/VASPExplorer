@@ -270,9 +270,9 @@ class MainWindow(MainWindow):
         right_tab_widget.setCurrentIndex(1)
         structure_tabs.setCurrentIndex(1)
 
-        self.chgcar_viewer_widget = ChgcarVis(self.structure_plot_control_tab)
-        self.chgcar_viewer_widget.chg_file_path = ""
-        left_tab_widget.addTab(self.chgcar_viewer_widget, "PARCHG/CHGCAR")  # Placeholder for future widget
+        #self.chgcar_viewer_widget = ChgcarVis(self.structure_plot_control_tab)
+        #self.chgcar_viewer_widget.chg_file_path = ""
+        #left_tab_widget.addTab(self.chgcar_viewer_widget, "PARCHG/CHGCAR")  # Placeholder for future widget
 
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)
