@@ -210,7 +210,7 @@ class MainWindow(MainWindow):
         paste_action = QAction(QIcon(os.path.join(icon_path, "paste.png")), "Paste", self)
         paste_action.setShortcut("Ctrl+V")
 
-        right_action = QAction(QIcon(os.path.join(icon_path, "right-arrow.png")), "Move atoms to the right", self)
+        right_action = QAction(QIcon(os.path.join(icon_path, "right_arrow.png")), "Move atoms to the right", self)
         left_action = QAction(QIcon(os.path.join(icon_path, "left-arrow.png")), "Move atoms to the left", self)
         down_action = QAction(QIcon(os.path.join(icon_path, "down-arrow.png")), "Move atoms down", self)
         up_action = QAction(QIcon(os.path.join(icon_path, "up-arrow.png")), "Move atoms up", self)
