@@ -208,7 +208,7 @@ class MainWindow(MainWindow):
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 dir = "X:\\5.interaface\\2.very_small_interface\\1.MLFF"
-            print("can't resolve operating system. lol, Please Leszek, write your code only on Windows or Linux")
+            print("can't resolve operating system")
         self.data = VaspData(dir)
 
 if __name__ == '__main__':
