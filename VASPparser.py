@@ -17,7 +17,11 @@ class OutcarParser:
         self.energies = []
         self.positions = []
         self.magnetizations = []
-        self.poscar = PoscarParser(os.path.join(dir, 'POSCAR'))
+        if os.path.exists(os.path.join(dir, 'POSCAR')):
+            poscar = 'POSCAR'
+        else:
+            poscar = 'CONTCAR'
+        self.poscar = PoscarParser(os.path.join(dir, poscar))
         self.atom_count = self.poscar.number_of_atoms()
         self.section_position = []
         ml_counter = 0
@@ -225,7 +229,11 @@ class PoscarParser:
             self.atom_symbols_exists = True
             atom_symbols = self.lines[5].split()
             atom_symbols = [atom.rstrip('/') for atom in atom_symbols]
-        return atom_symbols
+
+        def extract_letters(input_string):
+            return ''.join([char for char in input_string if char.isalpha()])
+
+        return [extract_letters(s) for s in atom_symbols]
 
     def list_atomic_symbols(self):
         symbol_list = [s for s, c in zip(self.atomic_symbols(), self.atom_counts()) for _ in range(c)]

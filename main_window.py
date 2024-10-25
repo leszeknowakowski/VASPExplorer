@@ -61,110 +61,8 @@ if True:  # noqa: E402
     from functools import partial
 pg.setConfigOptions(antialias=True)
 
-STYLE_SHEET = """
+STYLE_SHEET = []
 
-    
-QTableView {
-    selection-background-color: #FFFFFF;
-	background-color:#1e1f22;
-	color: #cbcdd2;
-	padding:20;
-	border:none;
-}
-
-QFrame {
-    background-color: #1e1f22;
-}
-
-QLabel{
-    color: white;
-    }
-    
-QHeaderView::section
-{
-	background-color:#1e1f22;
-	color: #cbcdd2;
-	border-style:none;
-	font-family: 'Montserrat', sans-serif;
-}
-
-QScrollBar:vertical {
-    border:none;
-    background: #2b2d30;
-    width: 20px;
-}
-
-QScrollBar::handle:vertical {
-    background: #393b40;
-    min-height: 20px;
-	border-radius:5;
-}
-
-QTableWidget::item {
-	border-bottom:1px dashed white;
-	font-family: 'Roboto', sans-serif;
-}
-
-QScrollArea{
-	background-color:#1e1f22;
-	color: #cbcdd2;
-	border-style:none;
-	font-family: 'Montserrat', sans-serif;
-	border:none;
-}
-
-QScrollBar::add-line:vertical {
-    border:none;
-    background: #2b2d30;
-    height: 0px;
-    subcontrol-position: bottom;
-    subcontrol-origin: margin;
-}
-
-QScrollBar::sub-line:vertical {
-    border:none;
-    background: #2b2d30;
-    height: 0px;
-    subcontrol-position: top;
-    subcontrol-origin: margin;
-}
-
-QScrollBar::add-page:vertical {
-	background: #2b2d30;
-}
-
-QScrollBar::sub-page:vertical {
-	background: #2b2d30;
-}
-
-QTableView::item::selected {
-	border-top: 1px solid #FFFFFF;
-	border-bottom: 1px solid #FFFFFF;
-	color: #cbcdd2;
-	background-color:#393b40;
-}
-
-QTabWidget::pane {
-  border: none;
-  color: #cbcdd2;
-  top:-1px; 
-  background: #1e1f22;
-} 
-
-QTabBar::tab {
-  background: #1e1f22; 
-  color: #cbcdd2;
-  border: none; 
-  padding: 10px;
-} 
-
-QTabBar::tab:selected { 
-  background: #393b40; 
-  color: #cbcdd2;
-  margin-bottom: -1px; 
-}
-
-"""
 
 
 
@@ -173,7 +71,7 @@ class MainWindow(MainWindow):
     def __init__(self, parent=None, show=True):
         QMainWindow.__init__(self, parent)
         super().__init__(parent)
-        self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
+        #self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
         self.create_data()
         self.qmainwindow = QMainWindow()
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
@@ -302,28 +200,20 @@ class MainWindow(MainWindow):
         if platform.system() == 'Linux':
             dir = './'
         elif platform.system() == 'Windows':
-            #path = "F:\\syncme\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98"
-            path = "F:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-            #path = "F:\\syncme\\modelowanie DFT\\czasteczki\\CO"
-            # tests for incomplete/missing files
-            #path = "F:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\project_geo\\inputs"
-
+            path = "F:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_half_O\\2.large\\1.HSE"
             if os.path.isdir(path):
                 dir = path
             else:
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                #dir = "D:\\test_for_doswizard\\3.small_perovskites"
-            #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\czasteczki\\O2")
-            #self.data = VaspData("D:\\OneDrive - Uniwersytet Jagielloński\\modelowanie DFT\\co3o4_new_new\\2.ROS\\1.large_slab\\1.old_random_mag\\6.CoO-O_CoO-O\\antiferro\\HSE\\DOS_new")
-        else:
+                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                dir = "X:\\5.interaface\\2.very_small_interface\\1.MLFF"
             print("can't resolve operating system. lol, Please Leszek, write your code only on Windows or Linux")
         self.data = VaspData(dir)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    app.setStyleSheet(STYLE_SHEET)
+    #app.setStyleSheet(STYLE_SHEET)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

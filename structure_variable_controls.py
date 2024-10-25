@@ -344,7 +344,7 @@ class StructureVariableControls(QWidget):
             translation_vector = move_distance * view_direction
 
         coordinates = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[
-                self.structure_control_widget.geometry_slider.value()][0]
+                self.structure_control_widget.geometry_slider.value()]
 
         selected_rows = self.get_selected_rows()
 
@@ -377,6 +377,7 @@ class StructureVariableControls(QWidget):
         selected_rows = self.get_selected_rows()
         print("Selected atoms numbers:")
         print([x + 1 for x in selected_rows])
+        print("done")
 
     def add_input_to_selection(self):
         def strip_if_not_number(s):
