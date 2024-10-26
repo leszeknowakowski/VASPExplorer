@@ -8,6 +8,7 @@ from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from collections import OrderedDict
 import numpy as np
 from periodic_table import PeriodicTable
+from itertools import groupby
 
 class StructureVariableControls(QWidget):
 
@@ -76,6 +77,23 @@ class StructureVariableControls(QWidget):
 
         self.layout.addLayout(self.selected_atoms_btn_layout)
 
+        #create another row of buttons
+        self.another_btn_layout = QHBoxLayout()
+        self.print_magmom_btn = QPushButton("print magmoms")
+        self.set_magmom_input_field = QLineEdit()
+        self.set_magmom_input_field.setMaximumWidth(800)
+        self.set_magmom_btn = QPushButton("set magmom")
+
+
+
+        self.print_magmom_btn.clicked.connect(self.print_magmoms)
+        self.set_magmom_btn.clicked.connect(self.set_magmoms)
+
+        self.another_btn_layout.addWidget(self.print_magmom_btn)
+        self.another_btn_layout.addWidget(self.set_magmom_input_field)
+        self.another_btn_layout.addWidget(self.set_magmom_btn)
+        self.layout.addLayout(self.another_btn_layout)
+
         self.layout.addWidget(self.tableWidget)
 
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
@@ -88,7 +106,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget.setSelectionMode(QAbstractItemView.MultiSelection)
 
         # Get data from the data manager
-        atom_num_and_symb, coordinates, constraints = self.structure_control_widget.get_table_data()
+        atom_num_and_symb, coordinates, constraints, magmoms = self.structure_control_widget.get_table_data()
 
         # Set row count based on the data
         num_atoms = len(atom_num_and_symb)
@@ -96,7 +114,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget.setColumnCount(8)  # Extra columns for constraints and delete button
 
         # Set table headers
-        headers = ["Atom", "X", "Y", "Z", "Move X", "Move Y", "Move Z", "Actions"]
+        headers = ["Atom", "X", "Y", "Z", "Move X", "Move Y", "Move Z", "MagMom"]
         self.tableWidget.setHorizontalHeaderLabels(headers)
         header = self.tableWidget.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -107,6 +125,7 @@ class StructureVariableControls(QWidget):
             atom = atom_num_and_symb[row]
             x, y, z = coordinates[row]
             move_x, move_y, move_z = constraints[row]
+            magmom =magmoms[row]
 
             self.tableWidget.setItem(row, 0, QTableWidgetItem(atom))
             self.tableWidget.setItem(row, 1, QTableWidgetItem(str(f'{x:.2f}')))
@@ -116,10 +135,8 @@ class StructureVariableControls(QWidget):
             self.tableWidget.setItem(row, 5, QTableWidgetItem(move_y))
             self.tableWidget.setItem(row, 6, QTableWidgetItem(move_z))
 
-            # Add a delete button in the last column
-            #delete_button = QPushButton("Delete")
-            #delete_button.clicked.connect(lambda _, r=row: self.deleteRow(r))
-            #self.tableWidget.setCellWidget(row, 7, delete_button)
+
+            self.tableWidget.setItem(row, 7, QTableWidgetItem(str(magmom)))
 
         # Connect the cellChanged signal to the updateData method
         self.tableWidget.cellChanged.connect(self.updateData)
@@ -393,6 +410,24 @@ class StructureVariableControls(QWidget):
         atoms = [int(x) for x in text.split(',')]
         for number in atoms:
             self.tableWidget.selectRow(number)
+    def print_magmoms(self):
+        mags = []
+        for row in range(self.tableWidget.rowCount()):
+            mags.append(self.tableWidget.item(row, 7).text())
+        # Create the compressed string
+        compressed_string = " ".join(
+            f"{count}*{key}" if count > 1 else key
+            for key, group in groupby(mags)
+            for count in [len(list(group))]  # Calculate length only once and store in count
+        )
+
+        print('MAGMOM = ' + compressed_string)
+
+    def set_magmoms(self):
+        indexes = self.tableWidget.selectionModel().selectedRows()
+        for index in sorted(indexes):
+            self.tableWidget.setItem(index.row(), 7, QTableWidgetItem(self.set_magmom_input_field.text()))
+            self.updateData(index.row(), 7)
 
 class AtomChooseWindow(QWidget):
     sig = pyqtSignal()

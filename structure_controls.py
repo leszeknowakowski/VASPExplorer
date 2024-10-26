@@ -635,7 +635,8 @@ class StructureControlsWidget(QWidget):
         else:
             coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
         const = self.structure_plot_widget.data.all_constrains
-        return symb, coord, const
+        magmoms = self.structure_plot_widget.data.magmoms
+        return symb, coord, const, magmoms
 
     def update_row(self, row, atom_num_and_symb, coordinates, constraints):
         self.structure_plot_widget.data.atoms_symb_and_num[row] = atom_num_and_symb

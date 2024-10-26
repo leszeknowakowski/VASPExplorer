@@ -24,6 +24,7 @@ class OutcarParser:
         self.poscar = PoscarParser(os.path.join(dir, poscar))
         self.atom_count = self.poscar.number_of_atoms()
         self.section_position = []
+        self.magmoms = []
         ml_counter = 0
         mlff = False
         try:
@@ -49,6 +50,7 @@ class OutcarParser:
                 magnetization = 'magnetization (x)'
                 voluntary = 'Voluntary context switches:'
                 position_of_ions = 'position of ions in cartesian'
+                magmom = 'MAGMOM'
             if binary:
                 position = b"POSITION"
                 free_energy = b'FREE ENERGIE'
@@ -56,6 +58,7 @@ class OutcarParser:
                 magnetization = b'magnetization (x)'
                 voluntary = b'Voluntary context switches:'
                 position_of_ions = b'position of ions in cartesian'
+                magmom = b'magmom'
 
             if line.startswith(position) and line.endswith("(ML)"):
                 mlff = True
@@ -103,6 +106,17 @@ class OutcarParser:
                     atom_mag = float(magnetization_data[-1])
                     section_magnetization.append(atom_mag)
                 self.magnetizations.append(section_magnetization)
+            elif line.startswith(magmom):
+                magmom_splitted = line.split()
+                magmom_section = []
+                for chunk in magmom_splitted:
+                    if "*" in chunk:
+                        chunk_splitted = chunk.split("*")
+                        magmom_section.append([float(chunk_splitted[1])]*int(chunk_splitted[0]))
+                    else:
+                        magmom_section.append(float(chunk))
+
+                self.magmoms = magmom_section
             if line.startswith(voluntary):
                 if len(self.magnetizations) > 0:
                     self.magnetizations.pop()
@@ -126,6 +140,8 @@ class OutcarParser:
         else:
             first_non_zero = next((x for x in self.energies if x != 0.0), None)
             self.energies = [first_non_zero if x == 0.0 else x for x in self.energies]
+        if self.magmoms == []:
+            self.magmoms = self.atom_count * ["0"]
         print('\n')
 
     def find_coordinates(self):

@@ -1,6 +1,11 @@
 import time
 
 tic = time.perf_counter()
+from ase.io import read, write
+toc = time.perf_counter()
+print(f'import ase in vaspdata: {toc - tic:0.4f}')
+
+tic = time.perf_counter()
 import os
 toc = time.perf_counter()
 print(f'import os in vaspdata: {toc - tic:0.4f}')
@@ -31,8 +36,17 @@ class VaspData():
             self.outcar_data = OutcarParser(dir, 'OUTCAR')
             self.outcar_coordinates = self.outcar_data.find_coordinates()
             self.outcar_energies = self.outcar_data.find_energy()
+            self.magmoms = self.outcar_data.magmoms
 
     def parse_poscar(self, dir):
+        if not os.path.exists(os.path.join(dir, 'CONTCAR')) and not os.path.exists(os.path.join(dir, 'POSCAR')):
+            for file in os.listdir(dir):
+                # Check if the file has a .cell extension
+                if file.endswith(".cell"):
+                    # Read the .cell file
+                    structure = read(os.path.join(dir,file))
+                    write(os.path.join(dir,"POSCAR"), structure, format="vasp")
+
         if not os.path.exists(os.path.join(dir, 'CONTCAR')):
             if not os.path.exists(os.path.join(dir, 'POSCAR')):
                 p = input("eneter file name: ")
@@ -44,6 +58,7 @@ class VaspData():
                     if not self.outcar_file:
                         self.outcar_coordinates = [self.poscar.coordinates()]
                         self.outcar_energies = [0]
+                        self.magmoms = self.poscar.number_of_atoms() * [0]
 
             else:
                 self.poscar = PoscarParser(os.path.join(dir, 'POSCAR'))
@@ -51,6 +66,7 @@ class VaspData():
                 if not self.outcar_file:
                     self.outcar_coordinates = [self.poscar.coordinates()]
                     self.outcar_energies = [0]
+                    self.magmoms = self.poscar.number_of_atoms() * [0]
         else:
             if os.path.getsize(os.path.join(dir, 'CONTCAR')) > 0:
                 self.poscar = PoscarParser(os.path.join(dir, 'CONTCAR'))
@@ -58,6 +74,7 @@ class VaspData():
                 if self.outcar_file == False:
                     self.outcar_coordinates = [self.poscar.coordinates()]
                     self.outcar_energies = [0]
+                    self.magmoms = self.poscar.number_of_atoms() * [0]
 
             else:
                 if not os.path.exists(os.path.join(dir, 'POSCAR')):
@@ -68,6 +85,7 @@ class VaspData():
                     if not self.outcar_file or self.outcar_coordinates == []:
                         self.outcar_coordinates = [self.poscar.coordinates()]
                         self.outcar_energies = [0]
+                        self.magmoms = self.poscar.number_of_atoms() * [0]
         
     def parse_doscar(self, dir):
         self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
