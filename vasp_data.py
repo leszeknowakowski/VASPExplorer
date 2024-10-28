@@ -1,9 +1,12 @@
 import time
 
 tic = time.perf_counter()
-from ase.io import read, write
-toc = time.perf_counter()
-print(f'import ase in vaspdata: {toc - tic:0.4f}')
+try:
+    from ase.io import read, write
+    toc = time.perf_counter()
+    print(f'import ase in vaspdata: {toc - tic:0.4f}')
+except:
+    print("no ASE module")
 
 tic = time.perf_counter()
 import os
