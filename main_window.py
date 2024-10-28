@@ -177,7 +177,7 @@ class MainWindow(MainWindow):
         if platform.system() == 'Linux':
             dir = './'
         elif platform.system() == 'Windows':
-            path = "X:\\90.LUMI\\6.interface\\2.interface\\1.Co3O4_3x3\\2.Co3O4_3x3_11_CeO4t_large\\1.part_large\\3.algo_all_14_nodes"
+            path = "F:\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v2_half_O\\HJ_model_version_2 CASTEP Energy"
             if os.path.isdir(path):
                 dir = path
             else:
