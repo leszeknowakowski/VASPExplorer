@@ -251,7 +251,7 @@ class StructureVariableControls(QWidget):
         atoms_line = ' '.join(map(str, atoms))
         numbers_line = ' '.join(map(str, numbers))
 
-        coordinates = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][0]
+        coordinates = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()]
         constrains = self.structure_control_widget.structure_plot_widget.data.all_constrains
         if file_name:
             # Remove file extension if it exists
