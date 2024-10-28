@@ -285,25 +285,26 @@ class StructureVariableControls(QWidget):
         self.atom_choose_window.sig.connect(self.change_data_when_atom_added)
 
     def change_data_when_atom_added(self):
-        self.name, self.x, self.y, self.z, self.x_constr, self.y_constr, self.z_constr = self.atom_choose_window.get_atom_and_coords()
+        name,  x,  y,  z,  x_constr,  y_constr,  z_constr,  magmom = self.atom_choose_window.get_atom_and_coords()
         names = self.structure_control_widget.structure_plot_widget.data.symbols
-        if self.name in names:
-            pos = next(i for i in reversed(range(len(names))) if names[i] == self.name)
+        if  name in names:
+            pos = next(i for i in reversed(range(len(names))) if names[i] ==  name)
         else:
             pos = len(self.structure_control_widget.structure_plot_widget.data.symbols)
-        self.structure_control_widget.structure_plot_widget.data.symbols.insert(pos + 1, self.name)
-        if self.name in names:
+        self.structure_control_widget.structure_plot_widget.data.symbols.insert(pos + 1,  name)
+        if  name in names:
             self.structure_control_widget.structure_plot_widget.data.atoms_symb_and_num.insert(pos + 1,
-                                                                                               "".join([self.name,
+                                                                                               "".join([ name,
                                                                                                        str(pos+2)]))
         else:
             self.structure_control_widget.structure_plot_widget.data.atoms_symb_and_num.insert(pos + 1,
-                                                                                               "".join([self.name,
+                                                                                               "".join([ name,
                                                                                                        str(pos+1)]))
         for interation in self.structure_control_widget.structure_plot_widget.data.outcar_coordinates:
-            interation[0].insert(pos + 1, [float(self.x), float(self.y), float(self.z)])
-        self.structure_control_widget.structure_plot_widget.data.all_constrains.insert(pos + 1, [self.x_constr, self.y_constr, self.z_constr])
-        self.structure_control_widget.structure_plot_widget.data.constrains.insert(pos + 1, self.x_constr)
+            interation.insert(pos + 1, [float( x), float( y), float( z)])
+        self.structure_control_widget.structure_plot_widget.data.all_constrains.insert(pos + 1, [ x_constr,  y_constr,  z_constr])
+        self.structure_control_widget.structure_plot_widget.data.constrains.insert(pos + 1,  x_constr)
+        self.structure_control_widget.structure_plot_widget.data.magmoms.insert(pos + 1, magmom)
 
         self.change_table_when_atom_added()
         print("added")
@@ -444,7 +445,7 @@ class AtomChooseWindow(QWidget):
         self.atom_coords_layout = QHBoxLayout()
 
         self.coords_table = QTableWidget()
-        self.coords_table.setRowCount(3)
+        self.coords_table.setRowCount(4)
         self.coords_table.setColumnCount(4)
 
         self.coords_table.setItem(0,0,QTableWidgetItem("atom: "))
@@ -469,6 +470,9 @@ class AtomChooseWindow(QWidget):
         self.coords_table.setItem(2, 1, QTableWidgetItem("F"))
         self.coords_table.setItem(2, 2, QTableWidgetItem("F"))
         self.coords_table.setItem(2, 3, QTableWidgetItem("F"))
+
+        self.coords_table.setItem(3, 0, QTableWidgetItem("magmom"))
+        self.coords_table.setItem(3, 1, QTableWidgetItem("0"))
 
         self.atom_coords_layout.addWidget(self.coords_table)
 
@@ -502,8 +506,9 @@ class AtomChooseWindow(QWidget):
         x_constr = self.coords_table.item(2, 1).text()
         y_constr = self.coords_table.item(2, 2).text()
         z_constr = self.coords_table.item(2, 3).text()
+        magmom = self.coords_table.item(3, 1).text()
 
-        return name, x, y, z, x_constr, y_constr, z_constr
+        return name, x, y, z, x_constr, y_constr, z_constr, magmom
 
     def add_atom(self):
         try:
