@@ -1,32 +1,21 @@
 #import pyqtgraph as pg
 #import pyqtgraph.opengl as gl
 import time
-tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout, QFrame
 from PyQt5.QtGui import QCloseEvent
-toc = time.perf_counter()
-print(f'importing PyQt5 from Structure, time: {toc - tic:0.4f} seconds')
+import platform
+from pyvistaqt import QtInteractor
 
 tic = time.perf_counter()
 import pyvista as pv
 toc = time.perf_counter()
-print(f'importing pyvista from Structure, time: {toc - tic:0.4f} seconds')
-
-tic = time.perf_counter()
-from pyvistaqt import QtInteractor
-toc = time.perf_counter()
-print(f'importing pyqt from Structure, time: {toc - tic}')
+print(f'importing pyvista, time: {toc - tic:0.4f} seconds')
 
 tic = time.perf_counter()
 from vtk import *
 import vtkmodules.all as vtk
 toc = time.perf_counter()
-print(f'importing vtk {toc - tic}')
-
-tic = time.perf_counter()
-import platform
-toc = time.perf_counter()
-print(f'import platform in structure_plot: {toc - tic:0.4f}')
+print(f'importing vtk, time: {toc - tic} seconds')
 
 import numpy as np
 import os

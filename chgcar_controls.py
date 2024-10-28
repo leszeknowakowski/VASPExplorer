@@ -2,25 +2,16 @@ import time
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, QFileDialog, QPushButton
 from PyQt5 import QtCore
-toc = time.perf_counter()
-print(f'importing PyQt5 from Chgcar, time: {toc - tic:0.4f} seconds')
-
-tic = time.perf_counter()
 import pyvista as pv
 from pyvistaqt import QtInteractor
-toc = time.perf_counter()
-print(f'importing pyvista from Chgcar, time: {toc - tic:0.4f} seconds')
-
 import numpy as np
 from matplotlib.colors import ListedColormap
-
-tic = time.perf_counter()
 #sys.path.insert(1, "/home/lnowakowski/python/Scripts/")
 import chopPARCHG_test_chgcar_comp as chp
-toc = time.perf_counter()
-print(f'importing CHGCAR parser {toc-tic}')
-
 import sys
+toc = time.perf_counter()
+print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
+
 
 class DialogWIndow(QWidget):
     def __init__(self):

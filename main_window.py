@@ -1,22 +1,19 @@
 import time
 
 if True:  # noqa: E402
-    tic = time.perf_counter()
+
     import sys
-    toc = time.perf_counter()
-    print(f'import sys in main: {toc - tic:0.4f}')
+
 
     tic = time.perf_counter()
     from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
     QToolBar, QMenuBar, QAction
     from PyQt5.QtGui import QCloseEvent, QIcon
+    from PyQt5 import QtCore
     toc = time.perf_counter()
     print(f'import PyQt5.QtWidgets in main: {toc - tic:0.4f}')
 
-    tic = time.perf_counter()
-    from PyQt5 import QtCore
-    toc = time.perf_counter()
-    print(f'import PyQt5.QtCore in main: {toc - tic:0.4f}')
+
 
     tic = time.perf_counter()
     import pyqtgraph as pg
@@ -25,15 +22,7 @@ if True:  # noqa: E402
 
     tic = time.perf_counter()
     from vasp_data import VaspData
-    toc = time.perf_counter()
-    print(f'import vasp_data in main: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     from dos_plot_widget import DosPlotWidget
-    toc = time.perf_counter()
-    print(f'import dos_plot_widget in main: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     from dos_control_widget import DosControlWidget
     from structure_plot import StructureViewer
     from console_widget import ConsoleWidget
@@ -43,21 +32,9 @@ if True:  # noqa: E402
     toc = time.perf_counter()
     print(f'import local modules in main: {toc - tic:0.4f}')
 
-    tic = time.perf_counter()
     import platform
-    toc = time.perf_counter()
-    print(f'import platform in main: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     import os
-    toc = time.perf_counter()
-    print(f'import os in main: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     from pyvistaqt import QtInteractor, MainWindow
-    toc = time.perf_counter()
-    print(f'importing pyqt from Structure, time: {toc - tic}')
-
     from functools import partial
 pg.setConfigOptions(antialias=True)
 

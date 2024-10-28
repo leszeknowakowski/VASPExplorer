@@ -1,11 +1,8 @@
 """ module to GUI control the structure plot"""
 import time
+tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
-
-# from functools import partial
-
-tic = time.perf_counter()
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
     QHBoxLayout
@@ -16,11 +13,8 @@ from RangeSlider import QRangeSlider
 import pyvista as pv
 import os
 from PyQt5 import QtGui
-
-# import vtkmodules.all as vtk
 toc = time.perf_counter()
-print(f'importing Pyqt from structure controls{toc - tic}')
-
+print(f'importing in structure controls, time: {toc - tic:0.4f} seconds')
 
 class StructureControlsWidget(QWidget):
     selected_actors_changed = QtCore.pyqtSignal(list)

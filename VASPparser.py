@@ -1,11 +1,5 @@
 import time
-
-tic = time.perf_counter()
 import os
-
-toc = time.perf_counter()
-print(f' import os: {toc - tic:0.4f} seconds')
-
 
 class OutcarParser:
     """Class to parse a OUTCAR file"""

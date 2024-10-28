@@ -1,3 +1,5 @@
+import time
+tic = time.perf_counter()
 from PyQt5.QtGui import QCloseEvent
 from structure_plot import StructureViewer
 from structure_controls import StructureControlsWidget
@@ -9,6 +11,9 @@ from collections import OrderedDict
 import numpy as np
 from periodic_table import PeriodicTable
 from itertools import groupby
+toc = time.perf_counter()
+print(f'importing in structure variable controls: {toc - tic:0.4f}')
+
 
 class StructureVariableControls(QWidget):
 
