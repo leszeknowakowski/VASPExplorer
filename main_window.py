@@ -200,7 +200,7 @@ class MainWindow(MainWindow):
         if platform.system() == 'Linux':
             dir = './'
         elif platform.system() == 'Windows':
-            path = "F:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_half_O\\2.large\\1.HSE"
+            path = "X:\\90.LUMI\\6.interface\\2.interface\\1.Co3O4_3x3\\2.Co3O4_3x3_11_CeO4t_large\\1.part_large\\3.algo_all_14_nodes"
             if os.path.isdir(path):
                 dir = path
             else:

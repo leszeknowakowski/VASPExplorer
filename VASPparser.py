@@ -107,14 +107,14 @@ class OutcarParser:
                     section_magnetization.append(atom_mag)
                 self.magnetizations.append(section_magnetization)
             elif line.startswith(magmom):
-                magmom_splitted = line.split()
+                magmom_splitted = line.split("=")[1].split()
                 magmom_section = []
                 for chunk in magmom_splitted:
                     if "*" in chunk:
                         chunk_splitted = chunk.split("*")
-                        magmom_section.append([float(chunk_splitted[1])]*int(chunk_splitted[0]))
+                        magmom_section.extend([float(chunk_splitted[1])]*int(chunk_splitted[0]))
                     else:
-                        magmom_section.append(float(chunk))
+                        magmom_section.extend(float(chunk))
 
                 self.magmoms = magmom_section
             if line.startswith(voluntary):
