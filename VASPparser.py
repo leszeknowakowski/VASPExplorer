@@ -108,7 +108,7 @@ class OutcarParser:
                         chunk_splitted = chunk.split("*")
                         magmom_section.extend([float(chunk_splitted[1])]*int(chunk_splitted[0]))
                     else:
-                        magmom_section.appendfloat(chunk))
+                        magmom_section.append(float(chunk))
 
                 self.magmoms = magmom_section
             if line.startswith(voluntary):
