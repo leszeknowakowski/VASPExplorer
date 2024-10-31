@@ -219,7 +219,8 @@ class StructureVariableControls(QWidget):
         return True
 
     def rectangle_rows_selection(self):
-        self.tableWidget.clearSelection()
+        if self.structure_control_widget.selected_actors == []:
+            self.tableWidget.clearSelection()
         rows = self.get_selected_rows()
         for row in rows:
             self.tableWidget.selectRow(row)
@@ -400,7 +401,6 @@ class StructureVariableControls(QWidget):
         selected_rows = self.get_selected_rows()
         print("Selected atoms numbers:")
         print([x + 1 for x in selected_rows])
-        print("done")
 
     def add_input_to_selection(self):
         def strip_if_not_number(s):
@@ -416,6 +416,7 @@ class StructureVariableControls(QWidget):
         atoms = [int(x) for x in text.split(',')]
         for number in atoms:
             self.tableWidget.selectRow(number)
+
     def print_magmoms(self):
         mags = []
         for row in range(self.tableWidget.rowCount()):

@@ -26,6 +26,7 @@ class StructureControlsWidget(QWidget):
         self.bond_actor = self.structure_plot_widget.bond_actors
 
         self.plotter.enable_rectangle_picking(show_frustum=False, callback=self.on_selection)
+        self.plotter.add_key_event(key='r', callback=self.shift_event)
 
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
         self.icon_path = os.path.join(self.exec_dir, 'icons')
@@ -52,6 +53,8 @@ class StructureControlsWidget(QWidget):
         self.sphere_radius = 0.5
         self.constrains = self.structure_plot_widget.data.constrains
         self.selected_actors = []
+
+        self.shift_pressed = False
 
         self.initUI()
         self.render_structure_control_widget()
@@ -659,6 +662,14 @@ class StructureControlsWidget(QWidget):
                 actor.prop.color = self.structure_plot_widget.atom_colors[index]
 
         self.selected_actors_changed.emit(self.selected_actors)
+
+    def shift_event(self):
+        if self.shift_pressed:
+            self.shift_pressed = False
+            self.plotter.renderer.GetRenderWindow().SetCurrentCursor(1)
+        else:
+            self.shift_pressed = True
+            self.plotter.renderer.GetRenderWindow().SetCurrentCursor(10)
 
     def end_geometry(self):
         last = len(self.structure_plot_widget.data.outcar_coordinates)

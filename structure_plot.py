@@ -75,7 +75,6 @@ class StructureViewer(QWidget):
         self.layout.addWidget(self.plotter.interactor)
         self.setLayout(self.layout)
         self.add_structure()
-        #self.add_bonds(1,1)
         self.add_unit_cell(self.data.x,self.data.y,self.data.z)
 
     def update_atom_colors(self):
