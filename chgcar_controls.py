@@ -1,6 +1,7 @@
 import time
 tic = time.perf_counter()
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, QFileDialog, QPushButton
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, QFileDialog, QPushButton, QHBoxLayout, QSlider, \
+    QLineEdit
 from PyQt5 import QtCore
 import pyvista as pv
 from pyvistaqt import QtInteractor
@@ -9,6 +10,7 @@ from matplotlib.colors import ListedColormap
 #sys.path.insert(1, "/home/lnowakowski/python/Scripts/")
 import chopPARCHG_test_chgcar_comp as chp
 import sys
+import os
 toc = time.perf_counter()
 print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
 
@@ -28,33 +30,89 @@ class ChgcarVis(QWidget):
         super().__init__()
         self.structure_control_widget = structure_control_widget
         self.contour_type = 'total'
+        self.charge_data = None
 
         self.initUI()
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
-        self.chg_plotter = QtInteractor()
-        self.chg_plotter.set_background(color="#1e1f22")
-        self.chg_plotter.add_camera_orientation_widget()
+        self.layout.setAlignment(QtCore.Qt.AlignTop)
+        self.chg_plotter = self.structure_control_widget.plotter
 
         self.chg_file_button = QPushButton('open CHGCAR')
         self.chg_file_button.clicked.connect(self.show_chg_dialog)
         self.layout.addWidget(self.chg_file_button)
 
-        self.chg_plotter.view_yz()
-        self.chg_plotter.camera_position = [(5, -60, 13), (4.8, 1.7, 12.3), (0, 0, 1)]
-        self.chg_plotter.camera.enable_parallel_projection()
-        self.chg_plotter.camera.parallel_scale = 18
-        self.layout.addWidget(self.chg_plotter.interactor)
+        spin_btn_layout = QHBoxLayout()
+
+        self.total_btn = QPushButton('total')
+        self.spin_btn = QPushButton('spin')
+        self.alfa_btn = QPushButton('alfa')
+        self.beta_btn = QPushButton('beta')
+        self.clear_btn = QPushButton('clear')
+
+        spin_btns = [self.total_btn, self.spin_btn, self.alfa_btn, self.beta_btn, self.clear_btn]
+        spin_types = ['total', 'spin', 'alfa', 'beta', 'clear']
+
+        for btn in spin_btns:
+            spin_btn_layout.addWidget(btn)
+
+        self.total_btn.clicked.connect(lambda: self.set_spin_type(type="total"))
+        self.spin_btn.clicked.connect(lambda: self.set_spin_type(type="spin"))
+        self.alfa_btn.clicked.connect(lambda: self.set_spin_type(type="alfa"))
+        self.beta_btn.clicked.connect(lambda: self.set_spin_type(type="beta"))
+
+        self.total_btn.clicked.connect(self.add_contours)
+        self.spin_btn.clicked.connect(self.add_contours)
+        self.alfa_btn.clicked.connect(self.add_contours)
+        self.beta_btn.clicked.connect(self.add_contours)
+        self.clear_btn.clicked.connect(self.clear_contours)
+
+        self.layout.addLayout(spin_btn_layout)
+
+        self.eps_layout = QHBoxLayout()
+
+        self.chg_eps_text = QLabel("isosurface value (eps) :")
+
+        self.chg_eps_value_label = QLabel()
+
+        self.chg_eps_slider = QSlider()
+        self.chg_eps_slider.setOrientation(QtCore.Qt.Horizontal)
+        self.chg_eps_slider.setMinimum(0)
+        self.chg_eps_slider.setMaximum(100)
+        self.chg_eps_slider.setValue(10)
+        self.chg_eps_slider.setTickInterval(1)
+        self.chg_eps_slider.setSingleStep(1)
+        self.eps = self.chg_eps_slider.value()/100
+
+        self.chg_eps_value_label.setText(str(self.eps))
+
+        self.chg_eps_slider.sliderReleased.connect(self.update_eps)
+        self.chg_eps_slider.sliderReleased.connect(self.add_contours)
+        self.chg_eps_slider.valueChanged.connect(self.change_eps_label)
+
+        self.eps_layout.addWidget(self.chg_eps_text)
+        self.eps_layout.addWidget(self.chg_eps_value_label)
+        self.eps_layout.addWidget(self.chg_eps_slider)
+
+
+        self.layout.addLayout(self.eps_layout)
         self.setLayout(self.layout)
-        #self.add_structure()
-        # self.add_bonds(1,1)
-        #self.add_unit_cell(self.data.x, self.data.y, self.data.z)
+
+    def set_spin_type(self, type="total"):
+        if type == "total":
+            self.contour_type = "total"
+        elif type == "spin":
+            self.contour_type = "spin"
+        elif type == "alfa":
+            self.contour_type = "alfa"
+        elif type == "beta":
+            self.contour_type = "beta"
 
     def create_chgcar_data(self):
         tic = time.perf_counter()
         chopping_factor = 1
-        self.charge_data = chp.PoscarParser(self.chg_file_path, chopping_factor)
+        self.charge_data = chp.PoscarParser(os.path.join(self.chg_file_path, "CHGCAR"), chopping_factor)
         self.add_contours()
 
         toc = time.perf_counter()
@@ -65,6 +123,9 @@ class ChgcarVis(QWidget):
 
     def update_eps(self):
         self.eps = self.chg_eps_slider.value() / 100
+
+    def change_eps_label(self, value):
+        self.chg_eps_value_label.setText(str(value/100))
 
     def add_contours(self):
         if self.charge_data == None:
@@ -86,9 +147,6 @@ class ChgcarVis(QWidget):
             pvgrid.origin = (0, 0, 0)
             pvgrid.spacing = tuple(self.charge_data.calculate_grid_spacings())
             pvgrid.point_data["values"] = test_vol.flatten(order="F")
-            ##### dokończyć ######
-            self.structure_control_widget.end_geometry()
-            self.plane_actor.GetProperty().SetOpacity(0)
             if self.contour_type == "spin":
                 contours = pvgrid.contour([self.eps * max_val, self.eps * min_val])
             else:
@@ -98,13 +156,32 @@ class ChgcarVis(QWidget):
             colors.scalar_range = (self.eps * min_val, self.eps * max_val)
             lightblue = np.array([0 / 256, 255 / 256, 254 / 256, 1.0])
             yellow = np.array([255 / 256, 255 / 256, 0 / 256, 1.0])
+            black = np.array([0 / 256, 0 / 256, 0 / 256, 1.0])
             mapping = np.linspace(self.eps * min_val, self.eps * max_val, 256)
             newcolors = np.empty((256, 4))
-            newcolors[mapping > 0] = yellow
+            newcolors[mapping >= 0] = yellow
+            #newcolors[mapping == 0] = black
             newcolors[mapping < 0] = lightblue
             my_colormap = ListedColormap(newcolors)
-            # colors.cmap = [(0,255,254), 'yellow']
-            self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=my_colormap)
+            colors.cmap = ['red', 'red']
+            try:
+                self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=my_colormap)
+            except ValueError:
+                print("contour is empty - there is too large/small epsilon or - if You want to plot spin density - structure is non-magnetic")
+
+    def clear_contours(self):
+        pvgrid = pv.ImageData()
+        pvgrid.dimensions=(10,10,10)
+        pvgrid.origin=(0,0,0)
+        pvgrid.spacing=(1,1,1)
+        data = np.random.rand(10,10,10)
+        pvgrid.point_data["values"]=data.flatten(order="F")
+        contours = pvgrid.contour()
+        self.plotter.add_mesh(contours, opacity=0, name='isosurface')
+
+    def add_structure(self):
+        for actor in self.structure_control_widget.plotter.actors.values():
+            self.chg_plotter.add_actor(actor)
 
     def clear_contours(self):
         pvgrid = pv.ImageData()
@@ -136,9 +213,10 @@ class ChgcarVis(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    main_window = ChgcarVis()
-    main_window.chg_file_path = "F:\\syncme\\modelowanie DFT\\lobster_tests\\1.ceo_bulk\\1.lobster_5.1.0\\1.ceo_bulk\\CHGCAR"
+    main_window = ChgcarVis("a")
+    main_window.chg_file_path = "D:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\scripts_from_Krypton"
     main_window.setWindowTitle("Main Window")
-    main_window.resize(300, 150)
+    main_window.create_chgcar_data()
+    main_window.resize(1000, 850)
     main_window.show()
     sys.exit(app.exec_())

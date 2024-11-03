@@ -74,7 +74,7 @@ class StructureViewer(QWidget):
         self.plotter.camera.parallel_scale = 18
         self.layout.addWidget(self.plotter.interactor)
         self.setLayout(self.layout)
-        self.add_structure()
+        #self.add_structure()
         self.add_unit_cell(self.data.x,self.data.y,self.data.z)
 
     def update_atom_colors(self):

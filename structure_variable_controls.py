@@ -156,7 +156,7 @@ class StructureVariableControls(QWidget):
             try:
                 if column in [1, 2, 3]:  # X, Y, Z columns (float)
                     new_value = float(self.tableWidget.item(row, column).text())
-                    self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][0][row][column - 1] = new_value
+                    self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 1] = new_value
                     self.structure_control_widget.add_sphere()
                     self.structure_control_widget.add_bonds()
                 else:  # Move X, Move Y, Move Z columns (T or F)
@@ -170,7 +170,7 @@ class StructureVariableControls(QWidget):
                 print("Invalid input.")
                 # Revert to the old value
                 if column in [1, 2, 3]:
-                    old_value = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][0][row][column - 1]
+                    old_value = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 1]
                 else:
                     old_value = self.structure_control_widget.structure_plot_widget.data.constrains[row][column - 4]
                 self.tableWidget.blockSignals(True)

@@ -6,6 +6,7 @@ import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
     QHBoxLayout
+from PyQt5.QtGui import QCloseEvent
 
 from scipy.spatial.distance import pdist, squareform
 from vtk import *
@@ -65,6 +66,7 @@ class StructureControlsWidget(QWidget):
 
         #self.add_symbol_and_number()
         self.add_bonds()
+        self.add_sphere()
 
     def initUI(self):
         self.vlayout = QVBoxLayout(self)
@@ -153,8 +155,6 @@ class StructureControlsWidget(QWidget):
         self.bond_threshold_slider.valueChanged.connect(self.set_bond_threshold)
         self.bond_threshold_slider.valueChanged.connect(self.add_bonds)
         self.bond_threshold_slider.valueChanged.connect(self.update_bond_threshold_label)
-
-
 
         bond_layaout = QHBoxLayout()
         bond_layaout.addWidget(self.bonds_cb)
@@ -276,11 +276,14 @@ class StructureControlsWidget(QWidget):
         bottom_plane_cb.setText('bottom plane')
 
         bottom_plane_cb.stateChanged.connect(self.toggle_plane)
+        z = self.structure_plot_widget.data.z
 
+        # setRange -> aktualny, teraźniejszy zares slidera
+        # setMin, setMax - maksymalna wartość slidera (granice)
         self.plane_height_range_slider = QRangeSlider()
-       # self.plane_height_range_slider.setRange(10, 99)
-       # self.plane_height_range_slider.setMin(0)
-       # self.plane_height_range_slider.setMax(100)
+        self.plane_height_range_slider.setRange(40,80)
+        self.plane_height_range_slider.setMin(0)
+        self.plane_height_range_slider.setMax(100)
         self.plane_height_range_slider.setBackgroundStyle(
             'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
         self.plane_height_range_slider.handle.setStyleSheet(
@@ -357,7 +360,7 @@ class StructureControlsWidget(QWidget):
         coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
 
         for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
-            sphere = pv.Sphere(radius=self.sphere_radius, center=(coord[0], coord[1], coord[2]))
+            sphere = pv.Sphere(radius=self.sphere_radius, center=(coord[0], coord[1], coord[2]), theta_resolution=20, phi_resolution=20)
             actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
             self.structure_plot_widget.sphere_actors.append(actor)
         self.plotter.update()
@@ -419,13 +422,14 @@ class StructureControlsWidget(QWidget):
     def add_plane(self, value):
         if self.structure_plot_widget.plane_actor is not None:
             self.structure_plot_widget.plotter.remove_actor(self.structure_plot_widget.plane_actor)
+        z = self.structure_plot_widget.data.z
         colors = vtkNamedColors()
         colors.SetColor('BkgColor', [26, 51, 77, 255])
         self.planeSource = vtkPlaneSource()
         self.planeSource.SetNormal(0.0, 0.0, 1.0)
-        self.planeSource.SetOrigin(-5, -5, value)
-        self.planeSource.SetPoint1(self.structure_plot_widget.data.x + 5, -5, value)
-        self.planeSource.SetPoint2(-5, self.structure_plot_widget.data.y + 5, value)
+        self.planeSource.SetOrigin(-5, -5, z/100 * value)
+        self.planeSource.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z/100 * value)
+        self.planeSource.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z/100 * value)
         self.planeSource.Update()
         plane = self.planeSource.GetOutput()
 
@@ -443,13 +447,14 @@ class StructureControlsWidget(QWidget):
         """renders a plane perpendicular to XY plane at value height"""
         if self.structure_plot_widget.plane_actor_heigher is not None:
             self.structure_plot_widget.plotter.remove_actor(self.structure_plot_widget.plane_actor_heigher)
+        z = self.structure_plot_widget.data.z
         colors = vtkNamedColors()
         colors.SetColor('BkgColor', [26, 51, 77, 255])
         self.planeSource_heigher = vtkPlaneSource()
         self.planeSource_heigher.SetNormal(0.0, 0.0, 1.0)
-        self.planeSource_heigher.SetOrigin(-5, -5, value)
-        self.planeSource_heigher.SetPoint1(self.structure_plot_widget.data.x + 5, -5, value)
-        self.planeSource_heigher.SetPoint2(-5, self.structure_plot_widget.data.y + 5, value)
+        self.planeSource_heigher.SetOrigin(-5, -5, z/100 * value)
+        self.planeSource_heigher.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z/100 * value)
+        self.planeSource_heigher.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z/100 * value)
         self.planeSource_heigher.Update()
         plane = self.planeSource_heigher.GetOutput()
 
@@ -467,15 +472,16 @@ class StructureControlsWidget(QWidget):
         val = self.plane_height_range_slider.getRange()
         startVal = val[0]
         endVal = val[1]
+        z = self.structure_plot_widget.data.z
         #self.plane_position = startVal
-        self.planeSource.SetOrigin(-5, -5, startVal / 100 * self.structure_plot_widget.data.z)
-        self.planeSource.SetPoint1(self.structure_plot_widget.data.x + 5, -5, startVal / 100 * self.structure_plot_widget.data.z)
-        self.planeSource.SetPoint2(-5, self.structure_plot_widget.data.y + 5, startVal / 100 * self.structure_plot_widget.data.z)
+        self.planeSource.SetOrigin(-5, -5, z / 100 * startVal)
+        self.planeSource.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z / 100 * startVal)
+        self.planeSource.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z / 100 * startVal)
         self.planeSource.Update()
 
-        self.planeSource_heigher.SetOrigin(-5, -5, endVal / 100 * self.structure_plot_widget.data.z)
-        self.planeSource_heigher.SetPoint1(self.structure_plot_widget.data.x + 5, -5, endVal / 100 * self.structure_plot_widget.data.z)
-        self.planeSource_heigher.SetPoint2(-5, self.structure_plot_widget.data.y + 5, endVal / 100 * self.structure_plot_widget.data.z)
+        self.planeSource_heigher.SetOrigin(-5, -5, z / 100 * endVal)
+        self.planeSource_heigher.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z / 100 * endVal)
+        self.planeSource_heigher.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z / 100 * endVal)
         self.planeSource_heigher.Update()
 
         self.structure_plot_widget.plotter.renderer.Render()
@@ -687,6 +693,10 @@ class StructureControlsWidget(QWidget):
         value = self.geometry_slider.value()
         value += 1
         self.geometry_slider.setValue(value)
+
+    def closeEvent(self, QCloseEvent):
+        super().closeEvent(QCloseEvent)
+        self.structure_plot_widget.plotter.Finalize()
 
 
 

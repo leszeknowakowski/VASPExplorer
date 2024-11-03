@@ -49,7 +49,7 @@ class MainWindow(MainWindow):
         QMainWindow.__init__(self, parent)
         super().__init__(parent)
         #self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
-        self.create_data()
+        self.dir = self.create_data()
         self.qmainwindow = QMainWindow()
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
         self.initUI()
@@ -141,13 +141,13 @@ class MainWindow(MainWindow):
         self.structure_variable_control_tab = StructureVariableControls(self.structure_plot_control_tab)
         structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
-        right_tab_widget.addTab(structure_tabs, "Crystal structure")  # Placeholder for future widget
+        right_tab_widget.addTab(structure_tabs, "Crystal structure")
         right_tab_widget.setCurrentIndex(1)
         structure_tabs.setCurrentIndex(1)
 
-        #self.chgcar_viewer_widget = ChgcarVis(self.structure_plot_control_tab)
-        #self.chgcar_viewer_widget.chg_file_path = ""
-        #left_tab_widget.addTab(self.chgcar_viewer_widget, "PARCHG/CHGCAR")  # Placeholder for future widget
+        self.chgcar_control_widget = ChgcarVis(self.structure_plot_control_tab)
+        self.chgcar_control_widget.chg_file_path = self.dir
+        structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
 
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)
@@ -168,10 +168,9 @@ class MainWindow(MainWindow):
 
     def closeEvent(self, QCloseEvent):
         super().closeEvent(QCloseEvent)
-        self.structure_plot_interactor_widget
+        self.structure_plot_interactor_widget.close()
+        self.structure_plot_control_tab.close()
         self.structure_variable_control_tab.close()
-        #self.chgcar_viewer_widget.close()
-
 
     def create_data(self):
         if platform.system() == 'Linux':
@@ -181,18 +180,20 @@ class MainWindow(MainWindow):
             if os.path.isdir(path):
                 dir = path
             else:
-                dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\czasteczki\\CO"
+                dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
             #print("can't resolve operating system")
         self.data = VaspData(dir)
+        return dir
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     #app.setStyleSheet(STYLE_SHEET)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec_())
-    print("ended")
-    print('wtf')
+    try:
+        sys.exit(app.exec_())
+    except:
+        print('goodbye!')
