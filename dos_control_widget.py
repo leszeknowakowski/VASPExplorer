@@ -4,7 +4,21 @@ import pyqtgraph as pg
 
 
 class DosControlWidget(QWidget):
+    """class for controling the DOS plot
+    Attributes:
+    data:
+        VaspData object
+    plot_widget:
+        DosPlotWidget object
+    saved_plots:
+        list of saved plots
+    saved_labels:
+        list of saved plot labels
+    saved_colors
+        list of saved plot colors
+    """
     def __init__(self, data, plot_widget):
+        """initialize"""
         super().__init__()
         self.data = data
         self.plot_widget = plot_widget
@@ -14,17 +28,26 @@ class DosControlWidget(QWidget):
         self.initUI()
 
     def initUI(self):
+        "initialize UI"
         layout = QHBoxLayout(self)
         self.init_dos_orbitals_atoms_tab(layout)
 
     def init_dos_orbitals_atoms_tab(self, layout):
+        """initialize dos orbitals tab
+        Parameters:
+        layout
+            QHBoxLayout from initUI
+        """
         self.scroll_area_widget = QWidget()
         self.scroll_area_layout = QHBoxLayout(self.scroll_area_widget)
 
+        # checkboxes
         self.checkboxes_widget = QWidget()
         self.checkboxes_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
         self.checkboxes_layout = QVBoxLayout(self.checkboxes_widget)
         self.checkboxes_layout.setAlignment(QtCore.Qt.AlignTop)
+
+        # scroll area for atoms
         self.scroll_area_left = QScrollArea()
         self.scroll_area_left.setWidgetResizable(True)
         self.scroll_area_left.setWidget(self.checkboxes_widget)
@@ -35,12 +58,15 @@ class DosControlWidget(QWidget):
         self.checkboxes_layout.addWidget(label)
 
         self.atom_checkboxes = []
+
+        # add appropiate number of checkboxes
         for i in range(self.data.number_of_atoms):
             checkbox = QCheckBox(self.data.atoms_symb_and_num[i])
             checkbox.stateChanged.connect(self.checkbox_changed)
             self.atom_checkboxes.append(checkbox)
             self.checkboxes_layout.addWidget(checkbox)
 
+        # scroll area for orbitals
         self.scroll_right_widget = QWidget()
         self.scroll_right_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
         self.scroll_right_layout = QVBoxLayout(self.scroll_right_widget)
@@ -54,6 +80,7 @@ class DosControlWidget(QWidget):
         label = QLabel("orbitals:")
         self.scroll_right_layout.addWidget(label)
 
+        # add appropiate number of orbital checkboxes
         self.orbital_checkboxes = []
         for i in range(len(self.data.orbitals)):
             checkbox = QCheckBox(self.data.orbitals[i])
@@ -70,7 +97,7 @@ class DosControlWidget(QWidget):
         all_btn_layout.addLayout(btn_atoms_layout)
         layout.addLayout(all_btn_layout)
 
-        ####################### Select ORBITALS buttons#################################################
+        # Select orbitals buttons
         select_layout = QVBoxLayout()
         for i, orbital_list in enumerate(self.data.orbital_types):
             orb_letter = orbital_list[0] if len(orbital_list) == 1 else orbital_list[0][0]
@@ -157,13 +184,18 @@ class DosControlWidget(QWidget):
         ###################################### tab 3 - atom selection ##################################################
         empty_widget = QWidget()  # An empty tab
 
-
-
         self.console = QPlainTextEdit()
         self.console.setReadOnly(True)
         self.console.setFixedHeight(100)
 
     def update_checkboxes(self, orbitals, check):
+        """update orbital checkboxes
+        Parameters:
+        orbitals
+            type of orbital from data
+        check
+            signal of checking/unchecking
+        """
         # Block signals to avoid multiple updates
         for checkbox in self.orbital_checkboxes:
             checkbox.blockSignals(True)
@@ -174,11 +206,20 @@ class DosControlWidget(QWidget):
         self.checkbox_changed()
 
     def update_atom_checkboxes(self, atom, check):
+        """update atom checkboxes
+        Parameters:
+        orbitals
+            type of orbital from data
+        check
+            signal of checking/unchecking
+        """
+        # block signals
         for checkbox in self.atom_checkboxes:
             checkbox.blockSignals(True)
             if checkbox.text() in atom:
                 checkbox.setChecked(check)
             checkbox.blockSignals(False)
+        # update atom_up
         self.checkbox_changed()
 
     def select_atom(self, index):
@@ -212,10 +253,12 @@ class DosControlWidget(QWidget):
         print("Deselected All")
 
     def update_indexes(self):
+        """store the indexes of selected atoms and orbitals"""
         self.selected_atoms = [i for i, cb in enumerate(self.atom_checkboxes) if cb.isChecked()]
         self.selected_orbitals = [i for i, cb in enumerate(self.orbital_checkboxes) if cb.isChecked()]
 
     def checkbox_changed(self):
+        """function to update values when checkbox is checked/unchecked"""
         self.update_indexes()
         self.update_plot()
         self.orbital_up = [checkbox.text() for checkbox in self.orbital_checkboxes if checkbox.isChecked()]
@@ -231,9 +274,11 @@ class DosControlWidget(QWidget):
                 self.update_plot()
 
     def update_plot(self):
+        """update the DOS plot"""
         self.plot_widget.update_plot(self.data, self.selected_atoms, self.selected_orbitals)
 
     def plot_merged(self):
+        """plot the merged DOS for all selected atoms and orbitals"""
         lbl = self.create_label()
         color = self.color_button.color()
         self.saved_labels.append(lbl)
@@ -242,15 +287,18 @@ class DosControlWidget(QWidget):
 
 
     def plot_total_dos(self):
+        """plot total DOS"""
         dataset_up = self.data.total_alfa
         dataset_down = self.data.total_beta
         self.plot_widget.update_total_dos_plot(dataset_up, dataset_down, self.data.doscar.total_dos_energy)
 
     def create_label(self):
+        """create label"""
         lbl = self.plot_widget.create_label(self.orbital_up, self.orbital_up, self.atoms_up, self.atoms_up)
         return lbl
 
     def save_merged_plot(self):
+        """save merged plot to a save list"""
         plot_items = int(len(self.plot_widget.bounded_plot.plotItem.curves))
         data_up = self.plot_widget.bounded_plot.plotItem.curves[-2].getData()[0]
         data_down = self.plot_widget.bounded_plot.plotItem.curves[-1].getData()[0]
@@ -258,11 +306,12 @@ class DosControlWidget(QWidget):
         color = self.saved_colors[-1]
         self.saved_plots.append((data_up, data_down, lbl, color))
 
-
     def show_saved_plot(self):
+        """show saved plots"""
         self.plot_widget.show_all_saved_plots(self.saved_plots, self.data.doscar.total_dos_energy)
 
     def clear_merged_plot(self):
+        """clear all saved plots"""
         self.plot_widget.clear_merged_plot()
         self.saved_plots = []
 
