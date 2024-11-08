@@ -1,3 +1,37 @@
+# !/usr/bin/env python
+# ---------------------------------------------------------------------------------------------
+# Copyright (c) 2011-2014, Ryan Galloway (ryan@rsgalloway.com)
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#  - Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+#  - Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+#  - Neither the name of the software nor the names of its contributors
+#    may be used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# ---------------------------------------------------------------------------------------------
+# docs and latest version available for download at
+#   http://rsgalloway.github.com/qrangeslider
+# ---------------------------------------------------------------------------------------------
+
 import sys, os
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -32,10 +66,14 @@ QRangeSlider > QSplitter::handle:pressed {
 """
 
 def scale(val, src, dst):
+    """
+    Scale the given value from the scale of src to the scale of dst.
+    """
     return int(((val - src[0]) / float(src[1]-src[0])) * (dst[1]-dst[0]) + dst[0])
 
 
 class Ui_Form(object):
+    """default range slider form"""
     def setupUi(self, Form):
         Form.setObjectName("QRangeSlider")
         Form.resize(300, 30)
@@ -94,6 +132,7 @@ class Element(QtWidgets.QGroupBox):
 
 
 class Head(Element):
+    """area before the handle"""
     def __init__(self, parent, main):
         super(Head, self).__init__(parent, main)
 
@@ -104,6 +143,7 @@ class Head(Element):
 
 
 class Tail(Element):
+    """area after the handle"""
     def __init__(self, parent, main):
         super(Tail, self).__init__(parent, main)
 
@@ -114,6 +154,7 @@ class Tail(Element):
 
 
 class Handle(Element):
+    """handle area"""
     def __init__(self, parent, main):
         super(Handle, self).__init__(parent, main)
 
@@ -147,6 +188,67 @@ class Handle(Element):
 
 
 class QRangeSlider(QtWidgets.QWidget, Ui_Form):
+    """
+        The QRangeSlider class implements a horizontal range slider widget.
+
+        Inherits QWidget.
+
+        Methods
+
+            * __init__ (self, QWidget parent = None)
+            * bool drawValues (self)
+            * int end (self)
+            * (int, int) getRange (self)
+            * int max (self)
+            * int min (self)
+            * int start (self)
+            * setBackgroundStyle (self, QString styleSheet)
+            * setDrawValues (self, bool draw)
+            * setEnd (self, int end)
+            * setStart (self, int start)
+            * setRange (self, int start, int end)
+            * setSpanStyle (self, QString styleSheet)
+
+        Signals
+
+            * endValueChanged (int)
+            * maxValueChanged (int)
+            * minValueChanged (int)
+            * startValueChanged (int)
+
+        Customizing QRangeSlider
+
+        You can style the range slider as below:
+        ::
+            QRangeSlider * {
+                border: 0px;
+                padding: 0px;
+            }
+            QRangeSlider #Head {
+                background: #222;
+            }
+            QRangeSlider #Span {
+                background: #393;
+            }
+            QRangeSlider #Span:active {
+                background: #282;
+            }
+            QRangeSlider #Tail {
+                background: #222;
+            }
+
+        Styling the range slider handles follows QSplitter options:
+        ::
+            QRangeSlider > QSplitter::handle {
+                background: #393;
+            }
+            QRangeSlider > QSplitter::handle:vertical {
+                height: 4px;
+            }
+            QRangeSlider > QSplitter::handle:pressed {
+                background: #ca5;
+            }
+    """
     endValueChanged = QtCore.pyqtSignal(int)
     maxValueChanged = QtCore.pyqtSignal(int)
     minValueChanged = QtCore.pyqtSignal(int)
@@ -160,6 +262,12 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
     _SPLIT_END = 2
 
     def __init__(self, parent=None):
+        """Create a new QRangeSlider instance.
+
+             :param parent: QWidget parent
+             :return: New QRangeSlider instance.
+
+         """
         super(QRangeSlider, self).__init__(parent)
         self.setupUi(self)
         self.setMouseTracking(False)

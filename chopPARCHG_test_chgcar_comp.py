@@ -40,36 +40,78 @@ class Colors:
 
 
 def print_colored_message(message, color):
+    """helper function to print colorful terminal messages"""
     print(f"{color}{message}{Colors.RESET}")
 
 
 class PoscarParser:
-    """class to parse POSCAR / CONTCAR files"""
+    """class to parse POSCAR / CONTCAR files
+    Parameters
+    ------------------
+    filename: str
+        CHGCAR filename
+    chop_number: int
+        how many times CHGCAR grid should be shrinked (helps to save memory
+    """
 
     def __init__(self, filename, chop_number):
         self.filename = filename
         self.chop_number = int(chop_number)
-        self.data = {}
 
+        # read all file at once (not very efficient though...)
         with open(self.filename, 'r') as file:
             self.lines = file.readlines()
+
+        # grid dimensions [x, y, z]
         self.grid_result = self.grid()
+
+        # chopped grid of numbers
         self.all_numbers = self.change_numbers(self.chop_number)
+
+        # calc alfa and beta density
+        # TODO: execute this function only when alfa,beta density is chosen
         [self.alfa, self.beta] = self.calc_alfa_beta(self.chop_number)
+
         self.header = self.lines[:self.end_coords_line() + 1]
+
     def title(self):
+        """title line of CHGCAR
+
+        Returns:
+        _____________
+        str
+            title of the CHGCAR file
+        """
         return self.lines[0].strip()
 
     def scale_factor(self):
+        """
+        Returns:
+        ______________________
+        float
+            unit cell scale factor
+        """
         return float(self.lines[1].strip())
 
     def unit_cell_vectors(self):
+        """
+        Returns:
+        _______________________
+        list
+            unit cell basis vectors as a list [[a1, a2, a3], [b1, b2, b3], [c1, c2, c3]]
+        """
         unit_cell_vectors = []
         for line in self.lines[2:5]:
             unit_cell_vectors.append([float(value) for value in line.split()])
         return unit_cell_vectors
 
     def calculate_volume(self):
+        """ Calculates volume of unit cell
+        Returns:
+        _____________________
+        float
+            unit cell volume in Angstroms
+        """
         vectors = self.unit_cell_vectors()
         a_vec = np.array(vectors[0])
         b_vec = np.array(vectors[1])
@@ -80,35 +122,89 @@ class PoscarParser:
         return volume
 
     def calculate_grid_spacings(self):
+        """ Calculates the spacing between grid points of chopped grid
+        Returns:
+        _____________________
+        list
+            spacings in all directions as a float list [sx, sy, sz]
+        """
         vecs = [self.unit_cell_vectors()[i][i] for i in range(3)]
-        spacings =  [vecs[i]/self.grid_result[i] for i in range(3)]
-        return [spacings[i]*self.chop_number for i in range(3)]
+        spacings = [vecs[i]/self.grid_result[i] for i in range(3)]
+        spacing_chopped = [spacings[i]*self.chop_number for i in range(3)]
+        return spacing_chopped
 
     def atomic_symbols(self):
+        """
+        Returns:
+        _____________________
+        list
+            list of strings of unique atoms, eg. ["Co", "Ce", "O"] as defined in CHGCAR
+        """
         symbols = self.lines[5].split()
         return symbols
 
     def list_atomic_symbols(self):
+        """
+        Returns:
+        _____________________
+        list
+            list of strings of every atom, multiplied by occurences,
+            eg. ["Co", "Co", "Co", "Ce", "Ce", "O"] as defined in CHGCAR
+        """
         symbol_list = [s for s, c in zip(self.atomic_symbols(), self.atom_counts()) for _ in range(c)]
         return symbol_list
 
     def atom_counts(self):
+        """ get the number of uniqe atoms from CHGCAR file
+        Returns:
+        _____________________
+        list
+            list of integers, eg. [5, 10, 1]
+        """
         counts = [int(value) for value in self.lines[6].split()]
         return counts
 
     def number_of_atoms(self):
+        """ calculate total number of atoms
+        Returns:
+        _____________________
+        int
+        """
         return sum(self.atom_counts())
 
     def symbol_and_number(self):
+        """creates a list of string of atoms with their ordinal numbers
+        Returns:
+        _____________________
+        list
+            list of strings of atoms and numbers,
+            eg. ["Co1", "Co2", "Ce3", "O4"] as defined in CHGCAR
+        """
         sym_num_list = []
         for symbol, number in zip(self.list_atomic_symbols(), range(1, self.number_of_atoms() + 1)):
             sym_num_list.append(str(symbol) + str(number))
         return sym_num_list
 
     def coordinate_type(self):
+        """get the types of coordinates in CHGCAR structural part
+        Returns:
+        ----------------
+        str
+            "Direct" or "Cartesian"
+        """
         return self.lines[7].strip()
 
     def parse_coordinates(self):
+        """ atoms' coordinates parser
+        Returns:
+        _____________________
+        list
+            list of coordinates in cartesian for every atom
+        list
+            list of movement constrains for every atom
+        int
+            number of line at which structural part of CHGCAR has ended
+        """
         coordinates = []
         constrain = []
         number_of_atoms = self.number_of_atoms()
@@ -131,19 +227,49 @@ class PoscarParser:
             return coordinates, constrain, end_line
 
     def coordinates(self):
+        """
+        Returns:
+        _____________________
+        list
+            list of coordinates in cartesian for every atom
+        """
         return self.parse_coordinates()[0]
 
     def constrains(self):
+        """
+        Returns:
+        _____________________
+        list
+            list of constrains for every atom
+        """
         return self.parse_coordinates()[1]
 
     def end_coords_line(self):
+        """
+        Returns:
+        _____________________
+        int
+            number of line at which structural part of CHGCAR has ended
+        """
         return self.parse_coordinates()[2]
         
     def grid_string(self):
+        """get the line where grid numbers are defined
+        Returns:
+        _____________________
+        string
+            whole line straight from CHGCAR
+        """
         grid_string = self.lines[self.end_coords_line() + 1]
         return grid_string
         
     def grid(self):
+        """calculate the grid dimensions
+        Returns:
+        _____________________
+        list
+            list of int with grid points in each dimensions, eg. [10,10,20]
+        """
         grid_list = [int(x) for x in self.grid_string().split()]
         global xgrid, ygrid, zgrid, grid_points
         xgrid, ygrid, zgrid = grid_list[0], grid_list[1], grid_list[2]
@@ -151,10 +277,22 @@ class PoscarParser:
         return grid_list
 
     def read_numbers(self):
+        """get the whole rest of file after first grid dimensions line
+        Returns:
+        _____________________
+        list
+            list of string for every line up to the EOF
+        """
         content = self.lines[self.end_coords_line() + 2:]
         return content
             
     def common_divisors(self, a, b, c):
+        """calculate common divisors for dimensions of grid
+        Returns:
+        _____________________
+        list
+            list of all possible common divisors
+        """
         divisors = []
         smallest = min(a, b, c)
         for i in range(1, smallest + 1):
@@ -162,7 +300,15 @@ class PoscarParser:
                 divisors.append(i)
         return divisors
         
-    def test_split(self):
+    def split_grid(self):
+        """ splits the grid into total and spin density
+        Returns:
+        _____________________
+        list
+            list of total density points
+        list
+             list of spin density points
+        """
         content = self.read_numbers()
         search_grid_str=self.grid_string()[:10]
         chopping_index = next((i for i, s in enumerate(content) if search_grid_str in s), None)
@@ -175,9 +321,17 @@ class PoscarParser:
         return total,spin
         
     def change_numbers(self, chop_number):
+        """chop and reshape the grid
+        Returns:
+        _____________________
+        np.array
+            numpy chopped matrix of total density
+        np.array
+            numpy chopped matrix of spin density
+        """
         grid_list = self.grid_result
         divisors = self.common_divisors(*grid_list)
-        totaldensity, spindensity = self.test_split()
+        totaldensity, spindensity = self.split_grid()
         
         print("grid: ", grid_list, "common divisors:", divisors)
         if chop_number not in divisors:
@@ -193,8 +347,7 @@ class PoscarParser:
         return total_chopped_matrix, spin_chopped_matrix
 
     def save_total_file(self, output_file_path, chop_number):
-        # dont divide by volume
-        volume = self.calculate_volume()
+        """" save chopped file as CHGCAR-total-choppedx{chop_num}.vasp with total charge density """
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
                 output_file.write(list)
@@ -210,8 +363,7 @@ class PoscarParser:
                     output_file.write("\t")
 
     def save_all_file(self, output_file_path, chop_number):
-        # dont divide by volume
-        volume = self.calculate_volume()
+        """" save chopped file as CHGCAR-all-choppedx{chop_num}.vasp with total charge density """
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
                 output_file.write(list)
@@ -239,8 +391,7 @@ class PoscarParser:
                     output_file.write("\t")
 
     def save_spin_file(self, output_file_path, chop_number):
-        # dont divide by volume
-        volume = self.calculate_volume()
+        """" save chopped file as CHGCAR-spin-choppedx{chop_num}.vasp with total charge density """
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
                 output_file.write(list)
@@ -256,6 +407,13 @@ class PoscarParser:
                     output_file.write("\t")
 
     def calc_alfa_beta(self, chop_number):
+        """calculate alfa and beta density
+        Returns:
+            np.array
+                with alfa charge density
+            np.array
+                with beta density
+        """
         [total_density, spin_density] = self.all_numbers
         sum_total = 2 * total_density
         sum_spin = 2 * spin_density
@@ -264,6 +422,7 @@ class PoscarParser:
         return alfa_density, beta_density
 
     def save_alfa_file(self, output_file_path, chop_number):
+        """" save chopped file as CHGCAR-alfa-choppedx{chop_num}.vasp with total charge density """
         alfa = self.alfa
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
@@ -279,6 +438,7 @@ class PoscarParser:
                     output_file.write("\t")
 
     def save_beta_file(self, output_file_path, chop_number):
+        """" save chopped file as CHGCAR-beta-choppedx{chop_num}.vasp with total charge density """
         beta = self.beta
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
@@ -294,6 +454,7 @@ class PoscarParser:
                     output_file.write("\t")
 
     def save_final_file(self, dens_type, file_path, chop):
+        """wrapper to all 4 saving functions"""
         file_suffix = f"-{dens_type}-chopped-x{chop}.vasp"
         file_path = file_path + file_suffix
         method_name = f"save_{dens_type}_file"
@@ -305,6 +466,11 @@ class PoscarParser:
             pass
             
 def parse_file_range(file_range):
+    """parse the range of files to be chopped
+    Returns:
+    ---------------------
+        set
+            set of numbers of files to be chopped"""
     result = set()
     ranges = file_range.split(',')
 
@@ -317,8 +483,13 @@ def parse_file_range(file_range):
 
     return result
 
-
 def find_files_in_range(directory, file_range):
+    """find all files that are chosen to be chopped in a current directory
+    Returns:
+    --------------
+    list
+        list of files to be chopped
+    """
     target_numbers = parse_file_range(file_range)
     file_pattern = re.compile(r'\d+')
 
@@ -333,6 +504,7 @@ def find_files_in_range(directory, file_range):
     return matching_files
     
 if __name__ == "__main__":
+    # take argumens from user - chop number, density type, file range
     chop_number = sys.argv[1]
     dens_type = sys.argv[2:]
     user_input = input("Enter file range (eg. 0001-0050,83,85) or type all if you want to proceed all files in directory:")
@@ -352,7 +524,6 @@ if __name__ == "__main__":
         sorted_filenames = sorted(matching_files)
         
     for filename in sorted_filenames:
-        #if filename.startswith("PARCHG") and not filename.endswith(".vasp"):
         if filename.startswith("PARCHG") or filename.startswith("CHGCAR") or filename.startswith("LOCPOT"):
             tic = time.time()
             filepath = os.path.join(current_directory, filename)

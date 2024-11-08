@@ -7,7 +7,6 @@ import pyvista as pv
 from pyvistaqt import QtInteractor
 import numpy as np
 from matplotlib.colors import ListedColormap
-#sys.path.insert(1, "/home/lnowakowski/python/Scripts/")
 import chopPARCHG_test_chgcar_comp as chp
 import sys
 import os
@@ -16,7 +15,12 @@ print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
 
 
 class DialogWIndow(QWidget):
+    """
+    This class provides a window which is shown when heavy I/O operations
+    are done, eg. reading CHGCAR file
+    """
     def __init__(self):
+        """ Initialize """
         super().__init__()
         layout = QVBoxLayout()
         self.setMinimumSize(300,300)
@@ -26,7 +30,17 @@ class DialogWIndow(QWidget):
 
 
 class ChgcarVis(QWidget):
+    """ this class provides functionality for reading, displaying and
+    controlling the electron charge density plots.
+
+    Parameters
+    ----------------------
+    structure_control_widget : class
+        structure control widget from main window
+
+    """
     def __init__(self, structure_control_widget):
+        """ Initialize """
         super().__init__()
         self.structure_control_widget = structure_control_widget
         self.contour_type = 'total'
@@ -35,10 +49,13 @@ class ChgcarVis(QWidget):
         self.initUI()
 
     def initUI(self):
+        """ initialize GUI for this tab """
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(QtCore.Qt.AlignTop)
+        # this is the same plotter as plotter from StructureControlWidget
         self.chg_plotter = self.structure_control_widget.plotter
 
+        # create buttons
         self.chg_file_button = QPushButton('open CHGCAR')
         self.chg_file_button.clicked.connect(self.show_chg_dialog)
         self.layout.addWidget(self.chg_file_button)
@@ -70,10 +87,9 @@ class ChgcarVis(QWidget):
 
         self.layout.addLayout(spin_btn_layout)
 
+         # layout for isosurface value slider
         self.eps_layout = QHBoxLayout()
-
         self.chg_eps_text = QLabel("isosurface value (eps) :")
-
         self.chg_eps_value_label = QLabel()
 
         self.chg_eps_slider = QSlider()
@@ -94,12 +110,23 @@ class ChgcarVis(QWidget):
         self.eps_layout.addWidget(self.chg_eps_text)
         self.eps_layout.addWidget(self.chg_eps_value_label)
         self.eps_layout.addWidget(self.chg_eps_slider)
-
-
         self.layout.addLayout(self.eps_layout)
+
         self.setLayout(self.layout)
 
     def set_spin_type(self, type="total"):
+        """ set the type of spin to visualise on charge
+        density plot
+
+        Parameters:
+        --------------------------
+        type: "total" | "spin" | "alfa" | "beta"
+            "total" plots total charge density
+            "spin" plots spin charge density
+            "alfa" plots major spin charge density
+            "beta" plots minor spin charge density
+        """
+
         if type == "total":
             self.contour_type = "total"
         elif type == "spin":
@@ -110,48 +137,76 @@ class ChgcarVis(QWidget):
             self.contour_type = "beta"
 
     def create_chgcar_data(self):
+        """ creates data for plotting  """
+        # timer
         tic = time.perf_counter()
         chopping_factor = 1
         self.charge_data = chp.PoscarParser(os.path.join(self.chg_file_path, "CHGCAR"), chopping_factor)
+
+        # add contours
         self.add_contours()
 
         toc = time.perf_counter()
         print(f'charge density data read and displayed. Time elapsed: {toc - tic} s')
 
     def set_contour_type(self, contour_type):
+        """
+        set the contour type. Function is connected to buttons
+        Deprecated/
+        """
         self.contour_type = contour_type
 
     def update_eps(self):
+        """ update isosurface value with slider """
         self.eps = self.chg_eps_slider.value() / 100
 
     def change_eps_label(self, value):
+        """ updates the isosurface value label
+
+        Parameters:
+        -----------------
+        value : int
+            Passed by slider
+
+        """
+
         self.chg_eps_value_label.setText(str(value/100))
 
     def add_contours(self):
+        """ creates the isosurface contours from charge density data """
+
         if self.charge_data == None:
+            # if no charge data was loaded, print message
             print("no data was found")
         else:
+            # volumetric_data is the actual data with charge
             if self.contour_type == "total":
-                test_vol = self.charge_data.all_numbers[0]
+                volumetric_data = self.charge_data.all_numbers[0]
             elif self.contour_type == "spin":
-                test_vol = self.charge_data.all_numbers[1]
+                volumetric_data = self.charge_data.all_numbers[1]
             elif self.contour_type == "alfa":
-                test_vol = self.charge_data.alfa
+                volumetric_data = self.charge_data.alfa
             elif self.contour_type == "beta":
-                test_vol = self.charge_data.beta
-            test_vol = test_vol.swapaxes(0, 2)
-            max_val = np.max(test_vol)
-            min_val = np.min(test_vol)
+                volumetric_data = self.charge_data.beta
+            volumetric_data = volumetric_data.swapaxes(0, 2)
+
+            max_val = np.max(volumetric_data)
+            min_val = np.min(volumetric_data)
+
+            # create point grid
             pvgrid = pv.ImageData()
-            pvgrid.dimensions = test_vol.shape
+            pvgrid.dimensions = volumetric_data.shape
             pvgrid.origin = (0, 0, 0)
             pvgrid.spacing = tuple(self.charge_data.calculate_grid_spacings())
-            pvgrid.point_data["values"] = test_vol.flatten(order="F")
+            pvgrid.point_data["values"] = volumetric_data.flatten(order="F")
+
+            # create contours. If spin, create two - for positive and negative values
             if self.contour_type == "spin":
                 contours = pvgrid.contour([self.eps * max_val, self.eps * min_val])
             else:
                 contours = pvgrid.contour([self.eps * max_val])
 
+            # create colormap
             colors = pv.LookupTable()
             colors.scalar_range = (self.eps * min_val, self.eps * max_val)
             lightblue = np.array([0 / 256, 255 / 256, 254 / 256, 1.0])
@@ -160,30 +215,19 @@ class ChgcarVis(QWidget):
             mapping = np.linspace(self.eps * min_val, self.eps * max_val, 256)
             newcolors = np.empty((256, 4))
             newcolors[mapping >= 0] = yellow
-            #newcolors[mapping == 0] = black
             newcolors[mapping < 0] = lightblue
             my_colormap = ListedColormap(newcolors)
-            colors.cmap = ['red', 'red']
+
+            # add contours to a plotter
             try:
                 self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=my_colormap)
             except ValueError:
                 print("contour is empty - there is too large/small epsilon or - if You want to plot spin density - structure is non-magnetic")
 
     def clear_contours(self):
-        pvgrid = pv.ImageData()
-        pvgrid.dimensions=(10,10,10)
-        pvgrid.origin=(0,0,0)
-        pvgrid.spacing=(1,1,1)
-        data = np.random.rand(10,10,10)
-        pvgrid.point_data["values"]=data.flatten(order="F")
-        contours = pvgrid.contour()
-        self.plotter.add_mesh(contours, opacity=0, name='isosurface')
-
-    def add_structure(self):
-        for actor in self.structure_control_widget.plotter.actors.values():
-            self.chg_plotter.add_actor(actor)
-
-    def clear_contours(self):
+        """ removes the contours from plotter by adding zero volume contour
+        TODO: maybe it is possible to jsut delete actors?
+        """
         pvgrid = pv.ImageData()
         pvgrid.dimensions = (10, 10, 10)
         pvgrid.origin = (0, 0, 0)
@@ -192,8 +236,13 @@ class ChgcarVis(QWidget):
         pvgrid.point_data["values"] = data.flatten(order="F")
         contours = pvgrid.contour()
         self.chg_plotter.add_mesh(contours, opacity=0, name='isosurface')
+        print('cleared')
 
     def show_chg_dialog(self):
+        """functon to create window with charge density file choose. Right now it is just importin CHGCAR
+        TODO: let user which file to choose
+        """
+
         if self.chg_file_path:
             self.create_chgcar_data()
         else:
@@ -208,10 +257,12 @@ class ChgcarVis(QWidget):
             self.create_chgcar_data()
             self.w.close()
     def closeEvent(self, QCloseEvent):
+        """former closeEvent in case of many interactors"""
         super().closeEvent(QCloseEvent)
         self.chg_plotter.Finalize()
 
 if __name__ == "__main__":
+    """ just for building """
     app = QApplication(sys.argv)
     main_window = ChgcarVis("a")
     main_window.chg_file_path = "D:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\scripts_from_Krypton"

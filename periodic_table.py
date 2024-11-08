@@ -3,8 +3,26 @@ from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QVBoxL
 from PyQt5.QtCore import pyqtSignal
 
 class PeriodicTable(QWidget):
+    """
+    A QWidget subclass that represents a periodic table layout.
+
+    This class creates a 9x18 QTableWidget layout with clickable cells containing element symbols.
+    When an element is clicked, it emits a signal with the element's symbol.
+
+    Signals:
+        element_selected (pyqtSignal): Emitted when a cell with an element is clicked, sending the element symbol.
+
+    Methods:
+        __init__(): Initializes the table layout, populates element cells, and sets up event handling.
+        cell_was_clicked(row, col): Slot to handle cell click events, emitting the element symbol if a cell contains an element.
+    """
+
     element_selected = pyqtSignal(str)
     def __init__(self):
+        """
+        Initializes the PeriodicTable widget, setting up a QTableWidget with 9 rows and 18 columns,
+        and populates it with element symbols in their corresponding positions.
+        """
         super().__init__()
         # Create the table widget
         self.table = QTableWidget(self)
@@ -61,12 +79,25 @@ class PeriodicTable(QWidget):
         self.resize(880, 420)  # Adjusted size to make sure everything fits
 
     def cell_was_clicked(self, row, col):
-        # Get the clicked element
+        """
+        Handles cell click events on the table.
+
+        Parameters:
+            row (int):
+                The row number of the clicked cell.
+            col (int):
+                The column number of the clicked cell.
+
+        Emits:
+            element_selected (str): The symbol of the element in the clicked cell.
+        """
         item = self.table.item(row, col)
         if item:
             element_name = item.text()
             self.element_selected.emit(element_name)
             self.close()  # Close the window after clicking
+
+
 def main():
     app = QApplication(sys.argv)
     window = PeriodicTable()

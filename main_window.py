@@ -44,17 +44,23 @@ STYLE_SHEET = []
 
 
 class MainWindow(MainWindow):
-    '''main window class'''
+    """
+    This class initialize the PyQt5 main window - bars, icons, widgets and
+    all of the GUI stuff
+
+    """
     def __init__(self, parent=None, show=True):
+        """ Initialize GUI """
         QMainWindow.__init__(self, parent)
         super().__init__(parent)
         #self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
-        self.dir = self.create_data()
+        self.dir = self.get_working_dir()
         self.qmainwindow = QMainWindow()
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
         self.initUI()
 
     def initUI(self):
+        """ initialize all GUI widgets, sets titles, toolbars, layouts, actions """
         self.setWindowTitle('DOSWave v.0.0.0')
         self.resize(1400, 800)
 
@@ -120,7 +126,11 @@ class MainWindow(MainWindow):
 
         # Left tabs for plots
         left_tab_widget = QTabWidget()
+
+        # widget for Density of States plot
         self.dos_plot_widget = DosPlotWidget(self.data)
+
+        # widget for renderer interactor for plotting the structure
         self.structure_plot_interactor_widget = StructureViewer(self.data)
 
         left_tab_widget.addTab(self.dos_plot_widget, "DOS")
@@ -131,13 +141,19 @@ class MainWindow(MainWindow):
 
         # Right tabs for GUI
         right_tab_widget = QTabWidget()
+
+        # widget for controling the DOS plot
         self.dos_control_widget = DosControlWidget(self.data, self.dos_plot_widget)
         right_tab_widget.addTab(self.dos_control_widget, "DOS Parameters")
 
+        # topmost tab widget for all structure plot manipulations
         structure_tabs = QTabWidget()
+
+        #tab for controlling the rendering structure plot
         self.structure_plot_control_tab = StructureControlsWidget(self.structure_plot_interactor_widget)
         structure_tabs.addTab(self.structure_plot_control_tab, "Structure plot control")
 
+        # tab for controlling the crystal structure - position and properties of atoms
         self.structure_variable_control_tab = StructureVariableControls(self.structure_plot_control_tab)
         structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
@@ -145,6 +161,7 @@ class MainWindow(MainWindow):
         right_tab_widget.setCurrentIndex(1)
         structure_tabs.setCurrentIndex(1)
 
+        # tab for controlling the charge density plots
         self.chgcar_control_widget = ChgcarVis(self.structure_plot_control_tab)
         self.chgcar_control_widget.chg_file_path = self.dir
         structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
@@ -165,18 +182,21 @@ class MainWindow(MainWindow):
         # self.console_widget = ConsoleWidget()
         # main_layout.addWidget(self.console_widget)
         # self.console_widget.setFixedHeight(100)
-
+    '''
     def closeEvent(self, QCloseEvent):
+        """ gently close all tabs and interactors"""
         super().closeEvent(QCloseEvent)
-        self.structure_plot_interactor_widget.close()
-        self.structure_plot_control_tab.close()
-        self.structure_variable_control_tab.close()
+        self.structure_plot_interactor_widget.closeEvent()
+        self.structure_plot_control_tab.closeEvent()
+        self.structure_variable_control_tab.closeEvent()
+    '''
 
-    def create_data(self):
+    def get_working_dir(self):
+        """ gets the current working dir. Useful for building"""
         if platform.system() == 'Linux':
             dir = './'
         elif platform.system() == 'Windows':
-            path = "F:\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v2_half_O\\HJ_model_version_2 CASTEP Energy"
+            path = "F:\\syncme\\modelowanie DFT\\lobster_tests\\Mn"
             if os.path.isdir(path):
                 dir = path
             else:
@@ -193,7 +213,4 @@ if __name__ == '__main__':
     #app.setStyleSheet(STYLE_SHEET)
     window = MainWindow()
     window.show()
-    try:
-        sys.exit(app.exec_())
-    except:
-        print('goodbye!')
+    sys.exit(app.exec_())

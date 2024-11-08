@@ -1,4 +1,3 @@
-""" module to GUI control the structure plot"""
 import time
 tic = time.perf_counter()
 import numpy as np
@@ -18,6 +17,11 @@ toc = time.perf_counter()
 print(f'importing in structure controls, time: {toc - tic:0.4f} seconds')
 
 class StructureControlsWidget(QWidget):
+    """
+        A widget for managing and interacting with 3D structures within a PyQt5 and PyVista application.
+        This class provides controls for selecting, toggling, and adjusting structural elements
+        like atoms, bonds, and planes, along with managing display and interaction properties.
+    """
     selected_actors_changed = QtCore.pyqtSignal(list)
     def __init__(self, structure_plot_widget):
         super().__init__()
@@ -310,6 +314,7 @@ class StructureControlsWidget(QWidget):
 
         self.planes_frame_layout.addLayout(planes_layout)
         self.vlayout.addWidget(self.planes_frame)
+
     def energy_plot_layout(self):
         self.energy_plot_widget = pg.PlotWidget()
         self.update_scatter()
