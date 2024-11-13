@@ -44,7 +44,7 @@ class ReadNebData:
 
     def find_start_stop_dirs(self):
         for item in os.listdir(self.dir):
-            if os.path.isdir(os.path.join(self.dir, item)):
+            if os.path.isdir(os.path.join(self.dir, item)) and len(item) == 2:
                 self.neb_dirs.append(item)
         max_min_dirs = [min(self.neb_dirs), max(self.neb_dirs)]
         return max_min_dirs
@@ -62,8 +62,8 @@ class ReadNebData:
             neb_dir = os.path.join(self.dir, item)
             if os.path.isdir(neb_dir) and item in self.max_min_dirs:
                 self.data = VaspData(neb_dir)
-                self.start_stop_positions.append(self.data.coordinates)
-                self.start_stop_energies.append(self.data.outcar_energies)
+                self.start_stop_positions.append(self.data.outcar_coordinates[-1])
+                self.start_stop_energies.append(self.data.outcar_energies[-1])
 
 #####################################################################################################################
 
@@ -76,7 +76,7 @@ class NebWindow(MainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            dir = "D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.third"
+            dir = "D:\\test_fir_doswizard\\1.NEBS\\2.one_step_in_startstop\\"
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
@@ -186,8 +186,8 @@ class NebWindow(MainWindow):
     def update_energy_data(self):
         x = list(range(1, len(self.neb.neb_dirs) + 1))
         y = []
-        #y.append(self.neb.start_stop_energies[0])
-        y.append(float("-.42642023E+03"))
+        y.append(self.neb.start_stop_energies[0])
+        #y.append(float("-.42642023E+03")) ################ rememeber
         for i in range(len(self.neb.neb_energies)):
             lst = self.neb.neb_energies[i]
             y.append(lst[self.geo_slider.value()])
