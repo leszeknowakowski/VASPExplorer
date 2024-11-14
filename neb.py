@@ -79,8 +79,8 @@ class NebWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            #dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
-            dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\5.o2ads_o2vac_spindown\\2.NEB\\2.force_conv"
+            dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+            #dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\5.o2ads_o2vac_spindown\\2.NEB\\2.force_conv"
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
@@ -183,18 +183,44 @@ class NebWindow(QMainWindow):
             orientation_widget.On()
 
             self.plotters.append(ren)
+
+        self.last_renderer = None
+        self.widget.GetRenderWindow().GetInteractor().AddObserver("LeftButtonPressEvent", self.on_left_click)
+
         self.widget.Initialize()
         self.widget.Start()
         self.widget.GetRenderWindow().Render()
 
+    def on_left_click(self, obj, event):
+        # Get the position of the mouse click
+        x, y = self.widget.GetRenderWindow().GetInteractor().GetEventPosition()
+
+        # Find the renderer at the clicked position
+        renderer = self.widget.GetRenderWindow().GetInteractor().FindPokedRenderer(x, y)
+
+        # If a renderer is clicked, update highlighting
+        if renderer:
+            # Reset the previous renderer's background color
+            if self.last_renderer:
+                self.last_renderer.SetBackground((1,1,1))
+
+            # Set the new renderer's background to the highlight color
+            renderer.SetBackground((1.0, 1.0, 0.8) )
+
+            # Store the current renderer as the last clicked renderer
+            self.last_renderer = renderer
+
+            # Render the window to update the colors
+            self.widget.GetRenderWindow().Render()
+
     def add_table_widget(self):
         self.mag_table_widget = QTableWidget()
-        self.mag_table_widget.setRowCount(5)
+        self.mag_table_widget.setRowCount(7)
         columns_count = 2*len(self.neb.neb_dirs)
         self.mag_table_widget.setColumnCount(columns_count)
         for i in range(columns_count):
             self.mag_table_widget.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
-        rows = ['Co18', 'Co25', 'O71', 'O72']
+        rows = ['Co18', 'Co25', 'O71', 'O72', 'Co18-O71', 'Co25-O72', 'O71-O72']
         for column in range(0, columns_count, 2):
             for row, item in enumerate(rows):
                 self.mag_table_widget.setItem(row, column, QTableWidgetItem(item))
@@ -205,9 +231,23 @@ class NebWindow(QMainWindow):
             mags.append([self.neb.neb_magnetizations[i][0][j] for j in indices])
         mags.append([self.neb.start_stop_magnetizations[1][i] for i in indices])
 
+        bond_lengths = self.update_bond_lengths()
+        start_stop_bond_length = self.get_start_stop_bond_length()
+
+        bonds = []
+        bonds.append(start_stop_bond_length[0])
+        for i in range(len(bond_lengths)):
+            bonds.append(bond_lengths[i])
+        bonds.append(start_stop_bond_length[1])
+
         for column in range(1, columns_count, 2):
+            col = int((column-1)/2)
             for row in [0,1,2,3]:
-                self.mag_table_widget.setItem(row, column, QTableWidgetItem(str(mags[int((column-1)/2)][row])))
+                text = str(mags[col][row])
+                self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
+            for row in [4,5,6]:
+                text = f"{bonds[col][row-4]:.2f}"
+                self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
 
         self.mag_table_widget.resizeRowsToContents()
         self.mag_table_widget.resizeColumnsToContents()
@@ -230,9 +270,24 @@ class NebWindow(QMainWindow):
         # append stop magnetization
         mags.append([self.neb.start_stop_magnetizations[1][i] for i in indices])
 
+        bond_lengths = self.update_bond_lengths()
+        start_stop_bond_length = self.get_start_stop_bond_length()
+
+        bonds = []
+        bonds.append(start_stop_bond_length[0])
+        for i in range(len(bond_lengths)):
+            bonds.append(bond_lengths[i])
+        bonds.append(start_stop_bond_length[1])
+
         for column in range(1, columns_count, 2):
+            col = int((column - 1) / 2)
             for row in [0, 1, 2, 3]:
-                self.mag_table_widget.setItem(row, column, QTableWidgetItem(str(mags[int((column - 1) / 2)][row])))
+                text = str(mags[col][row])
+                self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
+            for row in [4, 5, 6]:
+                text = f"{bonds[col][row - 4]:.2f}"
+                self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
+
 
     def  add_label_and_button(self):
         self.label_and_btn_widget = QWidget()
@@ -247,12 +302,8 @@ class NebWindow(QMainWindow):
         self.label_and_btn_widget.setLayout(self.label_layout)
         self.splitter.addWidget(self.label_and_btn_widget)
 
-
     def copy_view(self):
-        print("i want to copy")
-        x = self.widget.GetRenderWindow().GetInteractor().GetEventPosition()[0]
-        y = self.widget.GetRenderWindow().GetInteractor().GetEventPosition()[1]
-        renderer = self.widget.GetRenderWindow().GetInteractor().FindPokedRenderer(x, y)
+        renderer = self.last_renderer
         original_camera = renderer.GetActiveCamera()
         for render in self.plotters:
             if render is not renderer:
@@ -396,6 +447,39 @@ class NebWindow(QMainWindow):
     def add_structure(self, coordinates, plotter):
         for idx, coord in enumerate(coordinates):
             self.add_sphere(coord, self.atom_colors[idx], 0.5, plotter)
+
+    def find_bond_length(self, coord1, coord2):
+        A = np.array([coord1[0], coord1[1], coord1[2]])
+        B = np.array([coord2[0], coord2[1], coord2[2]])
+        bond_length = np.linalg.norm(B-A)
+        return bond_length
+
+    def update_bond_lengths(self):
+        images = len(self.neb.neb_dirs)
+        coordinates = self.neb.neb_positions
+        image_coordinates = []
+        bond_lengths = []
+
+        for image in coordinates:
+            image_coordinates.append(image[self.geo_slider.value()])
+        for i in range(0, images-2): # loop for plotters
+            coords = image_coordinates[i]
+            co18o71 = self.find_bond_length(coords[17], coords[70])
+            co25o72 = self.find_bond_length(coords[24], coords[71])
+            o71o72 = self.find_bond_length(coords[70], coords[71])
+            bond_lengths.append([co18o71, co25o72, o71o72])
+        return bond_lengths
+
+    def get_start_stop_bond_length(self):
+        bond_lengths = []
+        coordinates = self.neb.start_stop_positions
+        for i in range(2):
+            coords = coordinates[i]
+            co18o71 = self.find_bond_length(coords[17], coords[70])
+            co25o72 = self.find_bond_length(coords[24], coords[71])
+            o71o72 = self.find_bond_length(coords[70], coords[71])
+            bond_lengths.append([co18o71, co25o72, o71o72])
+        return bond_lengths
 
     def add_start_end_structures(self):
         plotter1 = self.plotters[0]
