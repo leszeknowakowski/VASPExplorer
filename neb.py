@@ -61,7 +61,9 @@ class ReadNebData:
             self.neb_magnetizations.append(data.outcar_data.magnetizations)
 
     def parse_start_stop_dirs(self):
-        for item in os.listdir(self.dir):
+        dirs = os.listdir(self.dir)
+        dirs.sort()
+        for item in dirs:
             neb_dir = os.path.join(self.dir, item)
             if os.path.isdir(neb_dir) and item in self.max_min_dirs:
                 self.data = VaspData(neb_dir)
