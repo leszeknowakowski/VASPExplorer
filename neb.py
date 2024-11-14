@@ -4,7 +4,9 @@ from vasp_data import VaspData
 import os
 import sys
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout,QLabel, QHBoxLayout, QSlider,QSplitter
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QHBoxLayout,
+                             QSlider, QSplitter, QTableWidget, QTableWidgetItem, QHeaderView,
+                             QPushButton)
 
 from PyQt5.QtGui import QFont
 from PyQt5 import QtCore
@@ -16,12 +18,11 @@ from vtkmodules.vtkFiltersSources import vtkSphereSource,  vtkLineSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
 from vtkmodules.vtkInteractionWidgets import vtkCameraOrientationWidget
 from vtkmodules.vtkRenderingCore import vtkActor,  vtkRenderer, vtkPolyDataMapper
-import QVTKRenderWindowInteractor as QVTK
+import platform
 from vtk import vtkCamera
+import QVTKRenderWindowInteractor as QVTK
 QVTKRenderWindowInteractor = QVTK.QVTKRenderWindowInteractor
 colors = vtkNamedColors()
-import time
-import platform
 
 
 class ReadNebData:
@@ -31,8 +32,10 @@ class ReadNebData:
         self.max_min_dirs = self.find_start_stop_dirs()
         self.neb_energies = []
         self.neb_positions = []
+        self.neb_magnetizations = []
         self.start_stop_energies = []
         self.start_stop_positions = []
+        self.start_stop_magnetizations = []
 
         self.parse_middle_dirs()
         self.parse_start_stop_dirs()
@@ -55,6 +58,7 @@ class ReadNebData:
             data = VaspData(neb_dir)
             self.neb_energies.append(data.outcar_data.find_energy())
             self.neb_positions.append(data.outcar_data.find_coordinates())
+            self.neb_magnetizations.append(data.outcar_data.magnetizations)
 
     def parse_start_stop_dirs(self):
         for item in os.listdir(self.dir):
@@ -63,8 +67,8 @@ class ReadNebData:
                 self.data = VaspData(neb_dir)
                 self.start_stop_positions.append(self.data.outcar_coordinates[-1])
                 self.start_stop_energies.append(self.data.outcar_energies[-1])
+                self.start_stop_magnetizations.append(self.data.outcar_data.magnetizations[-1])
 
-#####################################################################################################################
 
 class NebWindow(QMainWindow):
     def __init__(self, parent=None, show=True):
@@ -75,7 +79,8 @@ class NebWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+            #dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+            dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\5.o2ads_o2vac_spindown\\2.NEB\\2.force_conv"
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
@@ -84,11 +89,7 @@ class NebWindow(QMainWindow):
             self.color_data = json.load(file)
         self.atom_colors = [self.color_data[self.neb.data.symbols[i]] for i in range(len(self.neb.data.atoms_symb_and_num))]
 
-
         self.init_UI()
-
-
-
 
     def init_UI(self):
         # Main widget
@@ -98,19 +99,45 @@ class NebWindow(QMainWindow):
         # Create main layout
         self.main_layout = QHBoxLayout()
         main_widget.setLayout(self.main_layout)
-        splitter = QSplitter(QtCore.Qt.Vertical)
-        self.main_layout.addWidget(splitter)
+        self.splitter = QSplitter(QtCore.Qt.Vertical)
+        self.main_layout.addWidget(self.splitter)
+
+        self.add_slider_widget()
+
+        self.topLayout = QHBoxLayout()
+        self.top_widget = QWidget()
+        self.top_widget.setLayout(self.topLayout)
+        self.splitter.addWidget(self.top_widget)
+
+        self.add_table_widget()
+        self.add_plotters()
+        self.add_label_and_button()
+
+        self.energy_plot_frame_layout = QVBoxLayout()
+        self.energy_plot_layout()
+
+        self.energy_plotWidget = QWidget()
+        self.energy_plotWidget.setLayout(self.energy_plot_frame_layout)
+        self.splitter.addWidget(self.energy_plotWidget)
+
+        self.add_start_end_structures()
+        self.add_intermediate_structures()
 
 
+        # Set main window properties
+        self.setWindowTitle("NEBviewer v0.0.1")
+        self.resize(1600, 800)
 
+    def add_slider_widget(self):
         self.geo_slider = QSlider()
         self.geo_slider.setOrientation(QtCore.Qt.Horizontal)
-        self.geo_slider.setMinimum(1)
-        self.geo_slider.setMaximum(len(self.neb.neb_positions[0]))
+        self.geo_slider.setMinimum(0)
+        self.geo_slider.setMaximum(len(self.neb.neb_positions[0])-1)
         self.geo_slider.setValue(1)
         self.geo_slider.valueChanged.connect(self.update_chart)
         self.geo_slider.valueChanged.connect(self.update_intermediate_structures)
         self.geo_slider.valueChanged.connect(self.update_slider_label)
+        self.geo_slider.valueChanged.connect(self.update_table)
         self.sliderLayout = QHBoxLayout()
 
         self.slider_count_label = QLabel()
@@ -121,40 +148,14 @@ class NebWindow(QMainWindow):
         slider_widget=QWidget()
         slider_widget.setLayout(self.sliderLayout)
 
-        splitter.addWidget(slider_widget)
-
-        self.topLayout = QHBoxLayout()
-
-        self.add_plotters()
-
-        self.top_widget = QWidget()
-        self.top_widget.setLayout(self.topLayout)
-        splitter.addWidget(self.top_widget)
-
-        self.energy_plot_frame_layout = QVBoxLayout()
-        self.energy_plot_layout()
-
-        self.label = QLabel("text")
-        splitter.addWidget(self.label)
-
-        self.energy_plotWidget = QWidget()
-        self.energy_plotWidget.setLayout(self.energy_plot_frame_layout)
-        splitter.addWidget(self.energy_plotWidget)
-
-        self.add_start_end_structures()
-        self.add_intermediate_structures()
-
-
-        # Set main window properties
-        self.setWindowTitle("PyQt5 with PyVistaQt")
-        self.resize(1600, 800)
+        self.splitter.addWidget(slider_widget)
 
     def add_plotters(self):
         self.plotters = []
-        widget = QVTKRenderWindowInteractor() # maybe add parent
-        self.topLayout.addWidget(widget)
+        self.widget = QVTKRenderWindowInteractor() # maybe add parent
+        self.topLayout.addWidget(self.widget)
         style = vtkInteractorStyleTrackballCamera()
-        widget.GetRenderWindow().GetInteractor().SetInteractorStyle(style)
+        self.widget.GetRenderWindow().GetInteractor().SetInteractorStyle(style)
 
         x = list(np.linspace(0, 1, len(self.neb.neb_dirs)+1))
         for i in range(len(self.neb.neb_dirs)):
@@ -173,7 +174,7 @@ class NebWindow(QMainWindow):
             ren.SetActiveCamera(self.camera)
             ren.ResetCamera()
 
-            widget.GetRenderWindow().AddRenderer(ren)
+            self.widget.GetRenderWindow().AddRenderer(ren)
 
             orientation_widget = vtkCameraOrientationWidget()
             orientation_widget.SetParentRenderer(ren)
@@ -182,15 +183,95 @@ class NebWindow(QMainWindow):
             orientation_widget.On()
 
             self.plotters.append(ren)
-        widget.Initialize()
-        widget.Start()
-        widget.GetRenderWindow().Render()
+        self.widget.Initialize()
+        self.widget.Start()
+        self.widget.GetRenderWindow().Render()
+
+    def add_table_widget(self):
+        self.mag_table_widget = QTableWidget()
+        self.mag_table_widget.setRowCount(5)
+        columns_count = 2*len(self.neb.neb_dirs)
+        self.mag_table_widget.setColumnCount(columns_count)
+        for i in range(columns_count):
+            self.mag_table_widget.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
+        rows = ['Co18', 'Co25', 'O71', 'O72']
+        for column in range(0, columns_count, 2):
+            for row, item in enumerate(rows):
+                self.mag_table_widget.setItem(row, column, QTableWidgetItem(item))
+        mags = []
+        indices = (17,24,70,71)
+        mags.append([self.neb.start_stop_magnetizations[0][i] for i in indices])
+        for i in range(int(columns_count/2 -2)):
+            mags.append([self.neb.neb_magnetizations[i][0][j] for j in indices])
+        mags.append([self.neb.start_stop_magnetizations[1][i] for i in indices])
+
+        for column in range(1, columns_count, 2):
+            for row in [0,1,2,3]:
+                self.mag_table_widget.setItem(row, column, QTableWidgetItem(str(mags[int((column-1)/2)][row])))
+
+        self.mag_table_widget.resizeRowsToContents()
+        self.mag_table_widget.resizeColumnsToContents()
+        self.splitter.addWidget(self.mag_table_widget)
+
+    def update_table(self):
+        columns_count = 2 * len(self.neb.neb_dirs)
+        mags = []
+        # indices of atoms to choose magnetization from (num of atom - 1 )
+        indices = (17, 24, 70, 71)
+
+        # append start magnetization
+        mags.append([self.neb.start_stop_magnetizations[0][i] for i in indices])
+        val = self.geo_slider.value()
+
+        # append middle magnetizations
+        for i in range(int(columns_count / 2 - 2)):
+            mags.append([self.neb.neb_magnetizations[i][val][j] for j in indices])
+
+        # append stop magnetization
+        mags.append([self.neb.start_stop_magnetizations[1][i] for i in indices])
+
+        for column in range(1, columns_count, 2):
+            for row in [0, 1, 2, 3]:
+                self.mag_table_widget.setItem(row, column, QTableWidgetItem(str(mags[int((column - 1) / 2)][row])))
+
+    def  add_label_and_button(self):
+        self.label_and_btn_widget = QWidget()
+        self.label_layout = QHBoxLayout()
+
+        self.label = QLabel()
+        self.button = QPushButton("copy view from 1st window")
+        self.button.clicked.connect(self.copy_view)
+        self.label_layout.addWidget(self.label)
+        self.label_layout.addWidget(self.button)
+
+        self.label_and_btn_widget.setLayout(self.label_layout)
+        self.splitter.addWidget(self.label_and_btn_widget)
+
+
+    def copy_view(self):
+        print("i want to copy")
+        x = self.widget.GetRenderWindow().GetInteractor().GetEventPosition()[0]
+        y = self.widget.GetRenderWindow().GetInteractor().GetEventPosition()[1]
+        renderer = self.widget.GetRenderWindow().GetInteractor().FindPokedRenderer(x, y)
+        original_camera = renderer.GetActiveCamera()
+        for render in self.plotters:
+            if render is not renderer:
+                new_camera = render.GetActiveCamera()
+                new_camera.SetPosition(original_camera.GetPosition())
+                new_camera.SetFocalPoint(original_camera.GetFocalPoint())
+                new_camera.SetViewUp(original_camera.GetViewUp())
+                new_camera.SetClippingRange(original_camera.GetClippingRange())
+                new_camera.SetParallelScale(original_camera.GetParallelScale())
+                new_camera.SetViewAngle(original_camera.GetViewAngle())
+                render.ResetCameraClippingRange()
+        self.widget.GetRenderWindow().Render()
+
 
     def energy_plot_layout(self):
         self.graphics_layout_widget = pg.GraphicsLayoutWidget()
         self.energy_plot_widget = self.graphics_layout_widget.addPlot(row=0)
         self.energy_plot_widget.setAutoVisible(y=True)
-        #self.energy_plot_widget = pg.PlotWidget()
+
         my_font = QFont("Times", 15, QFont.Bold)
         self.energy_plot_widget.setLabel('bottom', "image")
         self.energy_plot_widget.setLabel('left', "energy")
@@ -201,26 +282,18 @@ class NebWindow(QMainWindow):
         self.energy_plot_widget.getAxis("bottom").setTickFont(my_font)
         self.energy_plot_widget.getAxis("left").setTickFont(my_font)
 
-        #self.label = pg.LabelItem()
-        #self.energy_plot_widget.addItem(self.label)
-
         self.vLine = pg.InfiniteLine(angle=90, movable=False)
         self.hLine = pg.InfiniteLine(angle=0, movable=False)
         self.energy_plot_widget.addItem(self.vLine, ignoreBounds=True)
         self.energy_plot_widget.addItem(self.hLine, ignoreBounds=True)
 
-
         self.vb = self.energy_plot_widget.vb
-
-
 
         self.update_chart()
         self.energy_plot_widget.scene().sigMouseMoved.connect(self.mouseMoved)
         x, y = self.update_energy_data()
         self.energy_plot_widget.plot(x,y)
-
         self.energy_plot_frame_layout.addWidget(self.graphics_layout_widget)
-        #self.main_layout.addWidget(self.energy_plot_frame)
 
     def mouseMoved(self, evt):
         pos = evt
@@ -238,7 +311,6 @@ class NebWindow(QMainWindow):
         x = list(range(1, len(self.neb.neb_dirs) + 1))
         y = []
         y.append(self.neb.start_stop_energies[0])
-        #y.append(float("-.42642023E+03")) ################ rememeber
         for i in range(len(self.neb.neb_energies)):
             lst = self.neb.neb_energies[i]
             y.append(lst[self.geo_slider.value()])
@@ -255,7 +327,7 @@ class NebWindow(QMainWindow):
         self.scatter_plot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
         self.scatter_plot.addPoints(x=x, y=y)
         self.energy_plot_widget.addItem(self.scatter_plot)
-        print('updated')
+
 
     def update_slider_label(self):
         self.slider_count_label.setText(f"Steps: {self.geo_slider.value()}")
@@ -351,7 +423,6 @@ class NebWindow(QMainWindow):
         images = len(self.neb.neb_dirs)
         coordinates = self.neb.neb_positions
         image_coordinates = []
-        tic = time.perf_counter()
         for i in range(0, images-2):
             plotter = self.plotters[i+1]
             for actor in list(plotter.GetActors()):
@@ -365,14 +436,7 @@ class NebWindow(QMainWindow):
             self.add_bonds(image_coordinates[i], plotter)
         for i in range(0, images - 2):  # loop for plotters
             plotter.GetRenderWindow().Render()
-        toc = time.perf_counter()
-        print(toc-tic)
-'''
-    def closeEvent(self, QCloseEvent):
-        super().closeEvent(QCloseEvent)
-        for plotter in self.plotters:
-            plotter.Finalize()
-'''
+
 
 if __name__ == "__main__":
     dir = ("D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1"
