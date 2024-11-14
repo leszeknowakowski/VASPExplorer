@@ -50,10 +50,11 @@ class ReadNebData:
             neb_dir = os.path.join(self.dir, item)
             if os.path.isdir(neb_dir) and item not in self.max_min_dirs:
                 middle_neb_dirs.append(neb_dir)
-            for neb_dir in middle_neb_dirs.sort():
-                data = VaspData(neb_dir)
-                self.neb_energies.append(data.outcar_data.find_energy())
-                self.neb_positions.append(data.outcar_data.find_coordinates())
+        middle_neb_dirs.sort()
+        for neb_dir in middle_neb_dirs:
+            data = VaspData(neb_dir)
+            self.neb_energies.append(data.outcar_data.find_energy())
+            self.neb_positions.append(data.outcar_data.find_coordinates())
 
     def parse_start_stop_dirs(self):
         for item in os.listdir(self.dir):
