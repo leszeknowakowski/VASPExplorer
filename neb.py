@@ -138,6 +138,7 @@ class NebWindow(QMainWindow):
         self.geo_slider.valueChanged.connect(self.update_intermediate_structures)
         self.geo_slider.valueChanged.connect(self.update_slider_label)
         self.geo_slider.valueChanged.connect(self.update_table)
+        self.geo_slider.valueChanged.connect(self.set_Eakt_label)
         self.sliderLayout = QHBoxLayout()
 
         self.slider_count_label = QLabel()
@@ -289,14 +290,17 @@ class NebWindow(QMainWindow):
                 self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
 
 
-    def  add_label_and_button(self):
+    def add_label_and_button(self):
         self.label_and_btn_widget = QWidget()
         self.label_layout = QHBoxLayout()
 
         self.label = QLabel()
         self.button = QPushButton("copy view from 1st window")
         self.button.clicked.connect(self.copy_view)
+        self.Eakt_label = QLabel()
+        self.set_Eakt_label()
         self.label_layout.addWidget(self.label)
+        self.label_layout.addWidget(self.Eakt_label)
         self.label_layout.addWidget(self.button)
 
         self.label_and_btn_widget.setLayout(self.label_layout)
@@ -316,7 +320,6 @@ class NebWindow(QMainWindow):
                 new_camera.SetViewAngle(original_camera.GetViewAngle())
                 render.ResetCameraClippingRange()
         self.widget.GetRenderWindow().Render()
-
 
     def energy_plot_layout(self):
         self.graphics_layout_widget = pg.GraphicsLayoutWidget()
@@ -520,8 +523,18 @@ class NebWindow(QMainWindow):
             self.add_bonds(image_coordinates[i], plotter)
         for i in range(0, images - 2):  # loop for plotters
             plotter.GetRenderWindow().Render()
-
-
+    def set_Eakt_label(self):
+        x, y = self.update_energy_data()
+        start = y[0]
+        stop = stop = y[-1]
+        max = np.max(y)
+        eakt_right = max - start
+        eakt_left = max - stop
+        self.Eakt_label.setText(
+            f"Eakt --> : {eakt_right:.2f},  Eakt <-- : {eakt_left:.2f}"
+        )
+        my_font = QFont("Calibri", 18, QFont.Bold)
+        self.Eakt_label.setFont(my_font)
 if __name__ == "__main__":
     dir = ("D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1"
            ".2ominus_o2ads\\2.second")
