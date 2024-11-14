@@ -1,26 +1,21 @@
 import pyqtgraph as pg
-import pyvista as pv
-from pyvista.plotting import plotter
-from pyvistaqt import QtInteractor, MainWindow
+
 from vasp_data import VaspData
 import os
 import sys
 import json
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout,QLabel, QHBoxLayout, QFrame, QSlider
-from PyQt5.QtGui import QCloseEvent, QIcon
-from functools import reduce
-import operator
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout,QLabel, QHBoxLayout, QSlider,QSplitter
+
+from PyQt5.QtGui import QFont
 from PyQt5 import QtCore
 from scipy.spatial.distance import pdist, squareform
 import numpy as np
 
-import vtkmodules.vtkRenderingOpenGL2
 from vtkmodules.vtkCommonColor import vtkNamedColors
-from vtkmodules.vtkCommonDataModel import vtkPolyData
-from vtkmodules.vtkFiltersSources import vtkPointSource, vtkSphereSource, vtkConeSource, vtkLineSource
+from vtkmodules.vtkFiltersSources import vtkSphereSource,  vtkLineSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
 from vtkmodules.vtkInteractionWidgets import vtkCameraOrientationWidget
-from vtkmodules.vtkRenderingCore import vtkActor, vtkGlyph3DMapper, vtkRenderWindow, vtkRenderWindowInteractor, vtkRenderer, vtkPolyDataMapper
+from vtkmodules.vtkRenderingCore import vtkActor,  vtkRenderer, vtkPolyDataMapper
 import QVTKRenderWindowInteractor as QVTK
 from vtk import vtkCamera
 QVTKRenderWindowInteractor = QVTK.QVTKRenderWindowInteractor
@@ -67,7 +62,7 @@ class ReadNebData:
 
 #####################################################################################################################
 
-class NebWindow(MainWindow):
+class NebWindow(QMainWindow):
     def __init__(self, parent=None, show=True):
         """ Initialize GUI """
         super().__init__()
@@ -76,7 +71,7 @@ class NebWindow(MainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            dir = "D:\\test_fir_doswizard\\1.NEBS\\2.one_step_in_startstop\\"
+            dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
@@ -97,10 +92,13 @@ class NebWindow(MainWindow):
         self.setCentralWidget(main_widget)
 
         # Create main layout
-        self.main_layout = QVBoxLayout()
+        self.main_layout = QHBoxLayout()
         main_widget.setLayout(self.main_layout)
+        splitter = QSplitter(QtCore.Qt.Vertical)
+        self.main_layout.addWidget(splitter)
 
-        self.sliderLayout = QHBoxLayout()
+
+
         self.geo_slider = QSlider()
         self.geo_slider.setOrientation(QtCore.Qt.Horizontal)
         self.geo_slider.setMinimum(1)
@@ -108,26 +106,36 @@ class NebWindow(MainWindow):
         self.geo_slider.setValue(1)
         self.geo_slider.valueChanged.connect(self.update_chart)
         self.geo_slider.valueChanged.connect(self.update_intermediate_structures)
+        self.geo_slider.valueChanged.connect(self.update_slider_label)
+        self.sliderLayout = QHBoxLayout()
+
+        self.slider_count_label = QLabel()
+        self.slider_count_label.setText(f"Steps: {self.geo_slider.value()}")
+
+        self.sliderLayout.addWidget(self.slider_count_label)
         self.sliderLayout.addWidget(self.geo_slider)
+        slider_widget=QWidget()
+        slider_widget.setLayout(self.sliderLayout)
 
-        self.main_layout.addLayout(self.sliderLayout)
+        splitter.addWidget(slider_widget)
 
-        # Top layout with QVTKRenderWindowInteractor
         self.topLayout = QHBoxLayout()
 
         self.add_plotters()
 
-        self.main_layout.addLayout(self.topLayout)
+        self.top_widget = QWidget()
+        self.top_widget.setLayout(self.topLayout)
+        splitter.addWidget(self.top_widget)
 
-        ## energy plot frame
-        self.energy_plot_frame = QFrame(self)
-        self.energy_plot_frame.setFrameShape(QFrame.Panel)
-        self.energy_plot_frame.setFrameShadow(QFrame.Raised)
-        self.energy_plot_frame.setStyleSheet("background-color: #1e1f22; color: #cbcdd2;")
-        self.energy_plot_frame.setLineWidth(10)
-        self.energy_plot_frame.setMaximumHeight(300)
-        self.energy_plot_frame_layout = QVBoxLayout(self.energy_plot_frame)
+        self.energy_plot_frame_layout = QVBoxLayout()
         self.energy_plot_layout()
+
+        self.label = QLabel("text")
+        splitter.addWidget(self.label)
+
+        self.energy_plotWidget = QWidget()
+        self.energy_plotWidget.setLayout(self.energy_plot_frame_layout)
+        splitter.addWidget(self.energy_plotWidget)
 
         self.add_start_end_structures()
         self.add_intermediate_structures()
@@ -175,13 +183,52 @@ class NebWindow(MainWindow):
         widget.GetRenderWindow().Render()
 
     def energy_plot_layout(self):
-        self.energy_plot_widget = pg.PlotWidget()
+        self.graphics_layout_widget = pg.GraphicsLayoutWidget()
+        self.energy_plot_widget = self.graphics_layout_widget.addPlot(row=0)
+        self.energy_plot_widget.setAutoVisible(y=True)
+        #self.energy_plot_widget = pg.PlotWidget()
+        my_font = QFont("Times", 15, QFont.Bold)
+        self.energy_plot_widget.setLabel('bottom', "image")
+        self.energy_plot_widget.setLabel('left', "energy")
+
+        # Set your custom font for both axes
+        self.energy_plot_widget.getAxis("bottom").label.setFont(my_font)
+        self.energy_plot_widget.getAxis("left").label.setFont(my_font)
+        self.energy_plot_widget.getAxis("bottom").setTickFont(my_font)
+        self.energy_plot_widget.getAxis("left").setTickFont(my_font)
+
+        #self.label = pg.LabelItem()
+        #self.energy_plot_widget.addItem(self.label)
+
+        self.vLine = pg.InfiniteLine(angle=90, movable=False)
+        self.hLine = pg.InfiniteLine(angle=0, movable=False)
+        self.energy_plot_widget.addItem(self.vLine, ignoreBounds=True)
+        self.energy_plot_widget.addItem(self.hLine, ignoreBounds=True)
+
+
+        self.vb = self.energy_plot_widget.vb
+
+
+
         self.update_chart()
+        self.energy_plot_widget.scene().sigMouseMoved.connect(self.mouseMoved)
         x, y = self.update_energy_data()
         self.energy_plot_widget.plot(x,y)
 
-        self.energy_plot_frame_layout.addWidget(self.energy_plot_widget)
-        self.main_layout.addWidget(self.energy_plot_frame)
+        self.energy_plot_frame_layout.addWidget(self.graphics_layout_widget)
+        #self.main_layout.addWidget(self.energy_plot_frame)
+
+    def mouseMoved(self, evt):
+        pos = evt
+        if self.energy_plot_widget.sceneBoundingRect().contains(pos):
+            mousePoint = self.vb.mapSceneToView(pos)
+            index = int(mousePoint.x())
+            if index > 0 and index < len(self.update_energy_data()[0]):
+                self.label.setText(
+                    "<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%1f</span>" % (
+                    mousePoint.x(), mousePoint.y()))
+            self.vLine.setPos(mousePoint.x())
+            self.hLine.setPos(mousePoint.y())
 
     def update_energy_data(self):
         x = list(range(1, len(self.neb.neb_dirs) + 1))
@@ -196,12 +243,18 @@ class NebWindow(MainWindow):
         return x, y
 
     def update_chart(self):
-        self.energy_plot_widget.clear()
+        for item in self.energy_plot_widget.listDataItems():
+            if isinstance(item, pg.graphicsItems.PlotDataItem.PlotDataItem) or isinstance(item, pg.graphicsItems.ScatterPlotItem.ScatterPlotItem):
+                self.energy_plot_widget.removeItem(item)
         x, y = self.update_energy_data()
         self.energy_plot_widget.plot(x, y)
         self.scatter_plot = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
         self.scatter_plot.addPoints(x=x, y=y)
         self.energy_plot_widget.addItem(self.scatter_plot)
+        print('updated')
+
+    def update_slider_label(self):
+        self.slider_count_label.setText(f"Steps: {self.geo_slider.value()}")
 
     def add_sphere(self, coord, col, radius, plotter):
         sphereSource = vtkSphereSource()
