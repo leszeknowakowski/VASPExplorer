@@ -304,6 +304,7 @@ class StructureVariableControls(QWidget):
             if header in ["X", "Y", "Z"]:
                 self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 3] = float(new_value)
             if header in ["Move X", "Move Y", "Move Z"]:
+                new.value = self.tableWidget.item(row, column).text()
                 if new_value.upper() in ['T', 'F', 'N/A']:
                     self.structure_control_widget.structure_plot_widget.data.all_constrains[row][
                         column - 4] = new_value.upper()
