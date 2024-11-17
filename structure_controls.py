@@ -67,6 +67,7 @@ class StructureControlsWidget(QWidget):
         self.structure_slider_widget()
         self.planes_layout()
         self.energy_plot_layout()
+        self.bond_length_actors = []
 
         #self.add_symbol_and_number()
         self.add_bonds()
@@ -356,7 +357,7 @@ class StructureControlsWidget(QWidget):
         self.sphere_radius_label.setText(f"Sphere radius: {self.sphere_radius}")
 
     def add_sphere(self):
-        """adds atoms from single geometry as spheres to renderer.
+        """adds atoms from single geometry step as spheres to renderer.
          Using VTK code because it is 100x faster than pyvista
          """
         for actor in self.structure_plot_widget.sphere_actors:
@@ -637,14 +638,15 @@ class StructureControlsWidget(QWidget):
         return self.structure_plot_widget.data.constrains
 
     def get_table_data(self):
-        symb = self.structure_plot_widget.data.atoms_symb_and_num
+        symb = self.structure_plot_widget.data.symbols
         if len(self.structure_plot_widget.data.outcar_coordinates) == 1:
             coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
         else:
             coord = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
         const = self.structure_plot_widget.data.all_constrains
         magmoms = self.structure_plot_widget.data.magmoms
-        return symb, coord, const, magmoms
+        suffixes = self.structure_plot_widget.data.suffixes
+        return symb, coord, const, magmoms, suffixes
 
     def update_row(self, row, atom_num_and_symb, coordinates, constraints):
         self.structure_plot_widget.data.atoms_symb_and_num[row] = atom_num_and_symb
@@ -681,6 +683,24 @@ class StructureControlsWidget(QWidget):
         else:
             self.shift_pressed = True
             self.plotter.renderer.GetRenderWindow().SetCurrentCursor(10)
+
+    def add_bond_length(self):
+        if len(self.selected_actors) == 2:
+            colors = vtkNamedColors()
+            ac1 = self.selected_actors[0]
+            ac2 = self.selected_actors[1]
+            line_source = vtkLineSource()
+            line_source.SetPoint1(ac1.GetCenter())
+            line_source.SetPoint2(ac2.GetCenter())
+            mapper = vtkPolyDataMapper()
+            mapper.SetInputConnection(line_source.GetOutputPort())
+            actor = vtkActor()
+            actor.SetMapper(mapper)
+            actor.GetProperty().SetLineWidth(10)
+            actor.GetProperty().SetColor(colors.GetColor3d('Green'))
+
+            self.structure_plot_widget.plotter.add_actor(actor)
+            self.bond_length_actors.append(actor)
 
     def end_geometry(self):
         last = len(self.structure_plot_widget.data.outcar_coordinates)

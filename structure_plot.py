@@ -30,16 +30,18 @@ class StructureViewer(QWidget):
         self.data = data
         self.coordinates = self.data.init_coordinates
         self.sphere_actors = []
+        self.symbol_mapping = None
         script_dir = os.path.dirname(__file__)
         colors_file = os.path.join(script_dir, 'elementColorSchemes.json')
         with open(colors_file, 'r') as file:
             self.color_data = json.load(file)
-        self.atom_colors = [self.color_data[self.data.symbols[i]] for i in range(len(self.data.atoms_symb_and_num))]
+        self.assign_missing_colors()
         self.coord_pairs = []  # pairs of points connected by a bond
         self.bond_actors = []  # list of bond actors
         self.sphere_actors = []  # list of sphere actors
         self.geometry_actors = []  # list of geometries, each with actors list
         self.constrain_actor = None
+
         self.planeSource = None
         self.plane_position = int(self.data.z / 2) * 100
         self.plane_actor = None
@@ -65,6 +67,8 @@ class StructureViewer(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.plotter = QtInteractor()
+
+
         self.plotter.set_background(color="#1e1f22")
         self.plotter.add_camera_orientation_widget()
 
@@ -76,6 +80,31 @@ class StructureViewer(QWidget):
         self.setLayout(self.layout)
         #self.add_structure()
         self.add_unit_cell(self.data.x,self.data.y,self.data.z)
+
+    def assign_missing_colors(self):
+        stripped_symbols = [''.join([char for char in input_string if char.isalpha()]) for input_string in self.data.symbols]
+        missing_symbols = set(stripped_symbols) - set(self.color_data.keys())
+
+        # Create a mapping of missing symbols to known elements
+        if self.symbol_mapping is None:
+            self.symbol_mapping = {}
+
+            for missing_symbol in missing_symbols:
+                print(f"The symbol '{missing_symbol}' is not in self.color_data.")
+                while True:
+                    user_input = input(
+                        f"Please provide a known element name for '{missing_symbol}' (e.g., 'O', 'C', etc.): ").strip()
+                    if user_input in self.color_data:
+                        self.symbol_mapping[missing_symbol] = user_input
+                        break
+                    else:
+                        print(f"'{user_input}' is not in self.color_data. Please try again.")
+
+        # Assign colors to atoms based on the mapping or directly from self.color_data
+        self.atom_colors = [
+            self.color_data[self.symbol_mapping[symbol]] if symbol in self.symbol_mapping else self.color_data[symbol]
+            for symbol in stripped_symbols
+        ]
 
     def update_atom_colors(self):
         self.atom_colors = [self.color_data[self.data.symbols[i]] for i in range(len(self.data.atoms_symb_and_num))]

@@ -45,6 +45,7 @@ class OutcarParser:
                 voluntary = 'Voluntary context switches:'
                 position_of_ions = 'position of ions in cartesian'
                 magmom = 'MAGMOM'
+                ml = '(ML)'
             if binary:
                 position = b"POSITION"
                 free_energy = b'FREE ENERGIE'
@@ -53,8 +54,9 @@ class OutcarParser:
                 voluntary = b'Voluntary context switches:'
                 position_of_ions = b'position of ions in cartesian'
                 magmom = b'magmom'
+                ml = b"(ML)"
 
-            if line.startswith(position) and line.endswith("(ML)"):
+            if line.startswith(position) and line.endswith(ml):
                 mlff = True
                 self.section_position = []
                 i += 2
@@ -243,7 +245,8 @@ class PoscarParser:
         def extract_letters(input_string):
             return ''.join([char for char in input_string if char.isalpha()])
 
-        return [extract_letters(s) for s in atom_symbols]
+        #return [extract_letters(s) for s in atom_symbols]
+        return  atom_symbols
 
     def list_atomic_symbols(self):
         symbol_list = [s for s, c in zip(self.atomic_symbols(), self.atom_counts()) for _ in range(c)]

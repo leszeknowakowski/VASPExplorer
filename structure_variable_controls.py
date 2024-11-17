@@ -14,6 +14,114 @@ from itertools import groupby
 toc = time.perf_counter()
 print(f'importing in structure variable controls: {toc - tic:0.4f}')
 
+import sys
+import numpy as np
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QDropEvent
+from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QWidget, QHBoxLayout, \
+    QApplication
+
+
+class TableWidgetDragRows(QTableWidget):
+    def __init__(self, structureControlWidget):
+        super().__init__(structureControlWidget)
+
+        self.structure_control_widget = structureControlWidget
+        self.control = self.structure_control_widget.structure_control_widget
+        self.plot = self.control.structure_plot_widget
+
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.viewport().setAcceptDrops(True)
+        self.setDragDropOverwriteMode(False)
+        self.setDropIndicatorShown(True)
+
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setDragDropMode(QAbstractItemView.InternalMove)
+        
+    def dropEvent(self, event: QDropEvent):
+        self.blockSignals(True)
+        if not event.isAccepted() and event.source() == self:
+            drop_row = self.drop_on(event)
+
+            rows = sorted(set(item.row() for item in self.selectedItems()))
+            rows_to_move = [[QTableWidgetItem(self.item(row_index, column_index)) for column_index in range(self.columnCount())]
+                            for row_index in rows]
+            for row_index in reversed(rows):
+                self.removeRow(row_index)
+                if row_index < drop_row:
+                    drop_row -= 1
+
+            for row_index, data in enumerate(rows_to_move):
+                row_index += drop_row
+                self.insertRow(row_index)
+                for column_index, column_data in enumerate(data):
+                    self.setItem(row_index, column_index, column_data)
+            event.accept()
+            for row_index in range(len(rows_to_move)):
+                self.item(drop_row + row_index, 0).setSelected(True)
+                self.item(drop_row + row_index, 1).setSelected(True)
+        super().dropEvent(event)
+
+        self.update_all_data()
+
+        self.blockSignals(False)
+        self.structure_control_widget.change_table_when_atom_added()
+
+    def update_all_data(self):
+        for column in range(self.columnCount()):
+            text = self.horizontalHeaderItem(column).text()
+            for row in range(self.rowCount()):
+                if text == "MagMom":
+                    self.plot.data.magmoms[row] = self.item(row, column).text()
+                if text == "Tag":
+                    self.plot.data.suffixes[row] = self.item(row, column).text()
+                if text == 'Atom':
+                    self.plot.data.symbols[row] = self.item(row, column).text()
+                if text in ['X', 'Y', 'Z']:
+                    new_value = float(self.item(row, column).text())
+                    self.plot.data.outcar_coordinates[self.control.geometry_slider.value()][row][column - 3] = new_value
+                elif text in ["Move X", "Move Y", "Move Z"]: # Move X, Move Y, Move Z columns (T or F)
+                    new_value = self.item(row, column).text()
+                    self.plot.data.all_constrains[row][
+                            column - 6] = new_value.upper()
+
+    def drop_on(self, event):
+        index = self.indexAt(event.pos())
+        if not index.isValid():
+            return self.rowCount()
+
+        return index.row() + 1 if self.is_below(event.pos(), index) else index.row()
+
+    def is_below(self, pos, index):
+        rect = self.visualRect(index)
+        margin = 2
+        if pos.y() - rect.top() < margin:
+            return False
+        elif rect.bottom() - pos.y() < margin:
+            return True
+        # noinspection PyTypeChecker
+        return rect.contains(pos, True) and not (int(self.model().flags(index)) & Qt.ItemIsDropEnabled) and pos.y() >= rect.center().y()
+
+    def keyPressEvent(self, event):
+        #super().keyPressEvent(event)
+        if event.key() == Qt.Key_C: # and (event.modifiers() & Qt.ControlModifier):
+            copied_cells = sorted(self.selectedIndexes())
+
+            copy_text = ''
+            max_column = copied_cells[-1].column()
+            for c in copied_cells:
+                copy_text += self.item(c.row(), c.column()).text()
+                if c.column() == max_column:
+                    copy_text += '\n'
+                else:
+                    copy_text += '\t'
+
+            QApplication.clipboard().setText(copy_text)
+            print("copied")
+
+
 
 class StructureVariableControls(QWidget):
 
@@ -38,17 +146,17 @@ class StructureVariableControls(QWidget):
         self.delete_atoms_btn.clicked.connect(self.delete_atoms)
 
         self.x_t_btn = QPushButton("T")
-        self.x_t_btn.clicked.connect(lambda: self.change_constrain(4, "T"))
+        self.x_t_btn.clicked.connect(lambda: self.change_constrain(6, "T"))
         self.x_f_btn = QPushButton("F")
-        self.x_f_btn.clicked.connect(lambda: self.change_constrain(4, "F"))
+        self.x_f_btn.clicked.connect(lambda: self.change_constrain(6, "F"))
         self.y_t_btn = QPushButton("T")
-        self.y_t_btn.clicked.connect(lambda: self.change_constrain(5, "T"))
+        self.y_t_btn.clicked.connect(lambda: self.change_constrain(7, "T"))
         self.y_f_btn = QPushButton("F")
-        self.y_f_btn.clicked.connect(lambda: self.change_constrain(5, "F"))
+        self.y_f_btn.clicked.connect(lambda: self.change_constrain(7, "F"))
         self.z_t_btn = QPushButton("T")
-        self.z_t_btn.clicked.connect(lambda: self.change_constrain(6, "T"))
+        self.z_t_btn.clicked.connect(lambda: self.change_constrain(8, "T"))
         self.z_f_btn = QPushButton("F")
-        self.z_f_btn.clicked.connect(lambda: self.change_constrain(6, "F"))
+        self.z_f_btn.clicked.connect(lambda: self.change_constrain(8, "F"))
 
         # add buttons to layout
         btns = [self.x_t_btn, self.x_f_btn, self.y_t_btn, self.y_f_btn, self.z_t_btn, self.z_f_btn]
@@ -66,7 +174,7 @@ class StructureVariableControls(QWidget):
 
         self.layout.addLayout(self.btns_layout)
 
-        # create second row of buttons
+        # row of selection
         self.selected_atoms_btn_layout = QHBoxLayout()
         self.print_selected_atoms_btn = QPushButton("print")
         self.add_selection_input_field = QLineEdit()
@@ -82,14 +190,12 @@ class StructureVariableControls(QWidget):
 
         self.layout.addLayout(self.selected_atoms_btn_layout)
 
-        #create another row of buttons
+        # row of magmoms
         self.another_btn_layout = QHBoxLayout()
         self.print_magmom_btn = QPushButton("print magmoms")
         self.set_magmom_input_field = QLineEdit()
         self.set_magmom_input_field.setMaximumWidth(800)
         self.set_magmom_btn = QPushButton("set magmom")
-
-
 
         self.print_magmom_btn.clicked.connect(self.print_magmoms)
         self.set_magmom_btn.clicked.connect(self.set_magmoms)
@@ -99,6 +205,24 @@ class StructureVariableControls(QWidget):
         self.another_btn_layout.addWidget(self.set_magmom_btn)
         self.layout.addLayout(self.another_btn_layout)
 
+        # row of tags
+        self.tags_btn_layout = QHBoxLayout()
+        self.sort_by_tags_btn = QPushButton("sort")
+        self.set_tags_btn = QPushButton("set tags")
+        self.rattle_btn = QPushButton("rattle")
+        self.set_tags_input_field = QLineEdit()
+
+        self.set_tags_btn.clicked.connect(self.set_tags)
+        self.sort_by_tags_btn.clicked.connect(self.sort_by_tags)
+        self.rattle_btn.clicked.connect(self.rattle)
+
+        self.tags_btn_layout.addWidget(self.sort_by_tags_btn)
+        self.tags_btn_layout.addWidget(self.rattle_btn)
+        self.tags_btn_layout.addWidget(self.set_tags_input_field)
+        self.tags_btn_layout.addWidget(self.set_tags_btn)
+        self.layout.addLayout(self.tags_btn_layout)
+
+
         self.layout.addWidget(self.tableWidget)
 
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
@@ -106,66 +230,117 @@ class StructureVariableControls(QWidget):
 
 
     def createTable(self):
-        self.tableWidget = QTableWidget()
+        self.tableWidget = TableWidgetDragRows(self)
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
         self.tableWidget.setSelectionMode(QAbstractItemView.MultiSelection)
 
+        self.tableWidget.setSortingEnabled(True)
+        self.tableWidget.horizontalHeader().sortIndicatorChanged.connect(self.sort_by_column)
+
         # Get data from the data manager
-        atom_num_and_symb, coordinates, constraints, magmoms = self.structure_control_widget.get_table_data()
+        atom_num_and_symb, coordinates, constraints, magmoms, suffixes = self.structure_control_widget.get_table_data()
 
         # Set row count based on the data
         num_atoms = len(atom_num_and_symb)
         self.tableWidget.setRowCount(num_atoms)
-        self.tableWidget.setColumnCount(8)  # Extra columns for constraints and delete button
+        self.tableWidget.setColumnCount(10)  # Extra columns for constraints and delete button
 
         # Set table headers
-        headers = ["Atom", "X", "Y", "Z", "Move X", "Move Y", "Move Z", "MagMom"]
+        headers = ["Atom", "Number", "Tag", "X", "Y", "Z", "Move X", "Move Y", "Move Z", "MagMom"]
         self.tableWidget.setHorizontalHeaderLabels(headers)
-        header = self.tableWidget.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        #header = self.tableWidget.horizontalHeader()
+        #header.setSectionResizeMode(QHeaderView.ResizeToContents)
+        #header.setSectionResizeMode(0, QHeaderView.Stretch)
 
+        for i in range(self.tableWidget.columnCount()):
+            self.tableWidget.horizontalHeader().setSectionResizeMode(i,QHeaderView.Stretch)
+        #resizeSection(logicalIndex, size)
         # Add data to the table
         for row in range(num_atoms):
             atom = atom_num_and_symb[row]
             x, y, z = coordinates[row]
             move_x, move_y, move_z = constraints[row]
             magmom =magmoms[row]
+            suffix = suffixes[row]
 
             self.tableWidget.setItem(row, 0, QTableWidgetItem(atom))
-            self.tableWidget.setItem(row, 1, QTableWidgetItem(str(f'{x:.2f}')))
-            self.tableWidget.setItem(row, 2, QTableWidgetItem(str(f'{y:.2f}')))
-            self.tableWidget.setItem(row, 3, QTableWidgetItem(str(f'{z:.2f}')))
-            self.tableWidget.setItem(row, 4, QTableWidgetItem(move_x))
-            self.tableWidget.setItem(row, 5, QTableWidgetItem(move_y))
-            self.tableWidget.setItem(row, 6, QTableWidgetItem(move_z))
-
-
-            self.tableWidget.setItem(row, 7, QTableWidgetItem(str(magmom)))
+            self.tableWidget.setItem(row, 1, QTableWidgetItem(str(row+1)))
+            self.tableWidget.setItem(row, 2, QTableWidgetItem(suffix))
+            self.tableWidget.setItem(row, 3, QTableWidgetItem(str(f'{x:.2f}')))
+            self.tableWidget.setItem(row, 4, QTableWidgetItem(str(f'{y:.2f}')))
+            self.tableWidget.setItem(row, 5, QTableWidgetItem(str(f'{z:.2f}')))
+            self.tableWidget.setItem(row, 6, QTableWidgetItem(move_x))
+            self.tableWidget.setItem(row, 7, QTableWidgetItem(move_y))
+            self.tableWidget.setItem(row, 8, QTableWidgetItem(move_z))
+            self.tableWidget.setItem(row, 9, QTableWidgetItem(str(magmom)))
 
         # Connect the cellChanged signal to the updateData method
         self.tableWidget.cellChanged.connect(self.updateData)
         self.tableWidget.itemSelectionChanged.connect(self.on_selection_changed)
-
+        self.tableWidget.horizontalHeader().setResizeContentsPrecision(-1)
         self.structure_control_widget.structure_plot_widget.plotter.add_key_event('Delete', self.delete_atoms)
+
+    def find_headers(self, row, column):
+        header = self.tableWidget.horizontalHeaderItem(column).text()  # Get the header of the changed column
+        new_value = self.tableWidget.item(row, column).text()  # Get the new value from the cell
+        labels = []
+        for num in range(self.tableWidget.columnCount()):
+            item = self.tableWidget.horizontalHeaderItem(num).text()
+            labels.append(item)
+
+        # Assuming each row in self.data corresponds to a list and headers are keys
+        # Update the correct field in your data list
+        header_to_index = {header: idx for idx, header in enumerate(labels)}
+        return header_to_index
 
     @pyqtSlot(int, int)
     def updateData(self, row, column):
+        """Update the data list based on the table cell change."""
+        header = self.tableWidget.horizontalHeaderItem(column).text()
+        header_to_index = self.find_headers(row, column)
 
+        if header in header_to_index:
+            # number of column which were updated
+            if header in ["X", "Y", "Z"]:
+                self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 3] = float(new_value)
+            if header in ["Move X", "Move Y", "Move Z"]:
+                if new_value.upper() in ['T', 'F', 'N/A']:
+                    self.structure_control_widget.structure_plot_widget.data.all_constrains[row][
+                        column - 4] = new_value.upper()
+                else:
+                    raise ValueError("Movement constraint must be 'T' , 'F' or 'N/A'. Resetting to latter")
+                    self.structure_control_widget.structure_plot_widget.data.all_constrains[row][
+                        column - 6] = 'N/A'
+            if header in ["MagMom"]:
+                pass
+            if header in ["Atom"]:
+                pass
+            if header in ["Tag"]:
+                pass
+            self.structure_control_widget.add_sphere()
+            self.structure_control_widget.add_bonds()
+
+            '''
+            self.data[row][field_index] = new_value  # Update the data list with the new value
+            print(f"Updated data[{row}]['{header}'] to {new_value}")
+            
+            
+            
+            
         if column in [1, 2, 3, 4, 5, 6]:  # Only update if X, Y, Z, Move X, Move Y, or Move Z columns are edited
             try:
                 if column in [1, 2, 3]:  # X, Y, Z columns (float)
                     new_value = float(self.tableWidget.item(row, column).text())
                     self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 1] = new_value
-                    self.structure_control_widget.add_sphere()
-                    self.structure_control_widget.add_bonds()
-                else:  # Move X, Move Y, Move Z columns (T or F)
+
+                elif column in  [4,5,6]:  # Move X, Move Y, Move Z columns (T or F)
                     new_value = self.tableWidget.item(row, column).text()
-                    if new_value.upper() in ['T', 'F']:
+                    if new_value.upper() in ['T', 'F', 'N/A']:
                         self.structure_control_widget.structure_plot_widget.data.all_constrains[row][column - 4] = new_value.upper()
                     else:
                         raise ValueError("Movement constraint must be 'T' or 'F'.")
-
+                self.structure_control_widget.add_sphere()
+                self.structure_control_widget.add_bonds()
             except ValueError:
                 print("Invalid input.")
                 # Revert to the old value
@@ -176,6 +351,7 @@ class StructureVariableControls(QWidget):
                 self.tableWidget.blockSignals(True)
                 self.tableWidget.setItem(row, column, QTableWidgetItem(str(old_value)))
                 self.tableWidget.blockSignals(False)
+            '''
 
     def deleteRow(self, row):
         # Call delete_row method from data manager
@@ -241,6 +417,8 @@ class StructureVariableControls(QWidget):
         y = self.structure_control_widget.structure_plot_widget.data.y
         z = self.structure_control_widget.structure_plot_widget.data.z
         atoms_list = self.structure_control_widget.structure_plot_widget.data.symbols
+        tags_list = self.structure_control_widget.structure_plot_widget.data.suffixes
+        atoms_list = [a + b for a, b in zip(atoms_list, tags_list)]
         count_dict = OrderedDict()
         for element in atoms_list:
             if element in count_dict:
@@ -286,7 +464,7 @@ class StructureVariableControls(QWidget):
         self.atom_choose_window.sig.connect(self.change_data_when_atom_added)
 
     def change_data_when_atom_added(self):
-        name,  x,  y,  z,  x_constr,  y_constr,  z_constr,  magmom = self.atom_choose_window.get_atom_and_coords()
+        name,  x,  y,  z,  x_constr,  y_constr,  z_constr,  magmom , suffix = self.atom_choose_window.get_atom_and_coords()
         names = self.structure_control_widget.structure_plot_widget.data.symbols
         if  name in names:
             pos = next(i for i in reversed(range(len(names))) if names[i] ==  name)
@@ -306,6 +484,7 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.structure_plot_widget.data.all_constrains.insert(pos + 1, [ x_constr,  y_constr,  z_constr])
         self.structure_control_widget.structure_plot_widget.data.constrains.insert(pos + 1,  x_constr)
         self.structure_control_widget.structure_plot_widget.data.magmoms.insert(pos + 1, magmom)
+        self.structure_control_widget.structure_plot_widget.data.suffixes.insert(pos + 1, suffix)
 
         self.change_table_when_atom_added()
         print("added")
@@ -321,7 +500,7 @@ class StructureVariableControls(QWidget):
 
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
-        self.structure_control_widget.structure_plot_widget.update_atom_colors()
+        self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_sphere()
         self.structure_control_widget.add_bonds()
 
@@ -373,11 +552,16 @@ class StructureVariableControls(QWidget):
         selected_rows = self.get_selected_rows()
 
         for actor, row in zip(self.structure_control_widget.selected_actors, selected_rows):
+
             actor.mapper.dataset.points += translation_vector
             coordinates[row][0] = actor.center[0]
             coordinates[row][1] = actor.center[1]
             coordinates[row][2] = actor.center[2]
-
+            """
+            coordinates[row][0] += translation_vector[0]
+            coordinates[row][1] += translation_vector[1]
+            coordinates[row][2] += translation_vector[2]
+            """
         self.tableWidget.blockSignals(True)
         self.tableWidget.clearContents()
         self.layout.removeWidget(self.tableWidget)
@@ -392,7 +576,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget.clearSelection()
         for row in selected_rows:
             self.tableWidget.selectRow(row)
-
+        #self.structure_control_widget.add_sphere()
         self.structure_control_widget.add_bonds()
 
         # Update the plotter
@@ -433,8 +617,64 @@ class StructureVariableControls(QWidget):
     def set_magmoms(self):
         indexes = self.tableWidget.selectionModel().selectedRows()
         for index in sorted(indexes):
-            self.tableWidget.setItem(index.row(), 7, QTableWidgetItem(self.set_magmom_input_field.text()))
-            self.updateData(index.row(), 7)
+            self.tableWidget.setItem(index.row(), 9, QTableWidgetItem(self.set_magmom_input_field.text()))
+            self.updateData(index.row(), 9) # TODO: error with column numbers, change permanently to header lookup
+
+    def set_tags(self): #TODO: very long, it may be shorter to create new table
+        tic = time.perf_counter()
+        indexes = self.tableWidget.selectionModel().selectedRows()
+        self.tableWidget.blockSignals(True)
+        for index in sorted(indexes):
+            self.tableWidget.setItem(index.row(), 2, QTableWidgetItem(self.set_tags_input_field.text()))
+            #self.updateData(index.row(), 2)
+        self.tableWidget.update_all_data()
+        self.tableWidget.blockSignals(False)
+        toc = time.perf_counter()
+        print(f"setting tags: {toc-tic:0.4f} seconds")
+
+    def sort_by_tags(self):
+        self.tableWidget.blockSignals(True)
+        self.tableWidget.sortByColumn(2, Qt.AscendingOrder)
+        self.tableWidget.sortByColumn(0, Qt.AscendingOrder)
+        self.tableWidget.update_all_data()
+        self.tableWidget.blockSignals(False)
+        self.structure_control_widget.structure_plot_widget.assign_missing_colors()
+        self.structure_control_widget.add_bonds()
+        self.structure_control_widget.add_sphere()
+
+    def sort_by_column(self):
+        self.tableWidget.blockSignals(True)
+        self.tableWidget.update_all_data()
+        self.tableWidget.blockSignals(False)
+        self.structure_control_widget.structure_plot_widget.assign_missing_colors()
+        self.structure_control_widget.add_bonds()
+        self.structure_control_widget.add_sphere()
+
+    def rattle(self):
+        coords = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()]
+        selected_rows = []
+        new_coords = []
+        indexes = self.tableWidget.selectionModel().selectedRows()
+        for index in sorted(indexes):
+            selected_rows.append(index.row())
+        rng = np.random.RandomState()
+        displacement = rng.normal(scale=0.05, size=np.array(coords).shape)
+        for i in range(len(coords)):
+            if i in selected_rows:
+                new_coords.append(np.array(coords[i]) + displacement[i])
+            else:
+                new_coords.append(np.array(coords[i]))
+
+        #new_coords = np.array(selected_coords + displacement).tolist()
+        self.tableWidget.blockSignals(True)
+        for column in range(3,6):
+            for row in range(self.tableWidget.rowCount()):
+                self.tableWidget.setItem(row, column, QTableWidgetItem(str(f"{new_coords[row][column-3]:.2f}")))
+        self.tableWidget.update_all_data()
+        self.tableWidget.blockSignals(False)
+        self.structure_control_widget.structure_plot_widget.assign_missing_colors()
+        self.structure_control_widget.add_bonds()
+        self.structure_control_widget.add_sphere()
 
 class AtomChooseWindow(QWidget):
     sig = pyqtSignal()
@@ -508,8 +748,9 @@ class AtomChooseWindow(QWidget):
         y_constr = self.coords_table.item(2, 2).text()
         z_constr = self.coords_table.item(2, 3).text()
         magmom = self.coords_table.item(3, 1).text()
+        suffix = ""
 
-        return name, x, y, z, x_constr, y_constr, z_constr, magmom
+        return name, x, y, z, x_constr, y_constr, z_constr, magmom, suffix
 
     def add_atom(self):
         try:

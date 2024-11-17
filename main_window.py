@@ -99,8 +99,9 @@ class MainWindow(MainWindow):
         out_action = QAction(QIcon(os.path.join(icon_path, "out-of-plane.png")), "Move atoms away from screen", self)
         delete_action = QAction(QIcon(os.path.join(icon_path, "delete.png")), "delete atoms", self)
         add_action = QAction(QIcon(os.path.join(icon_path, "add.png")), "add atoms", self)
+        render_bond_distance_action = QAction(QIcon(os.path.join(icon_path, "add_bond.png")), "Bond distance", self)
         # Add action to toolbar
-        actions = [new_action, open_action, save_action, right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action]
+        actions = [new_action, open_action, save_action, right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action, render_bond_distance_action]
         toolbar.addActions(actions)
 
         # menu bar
@@ -178,6 +179,7 @@ class MainWindow(MainWindow):
         out_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction="in"))
         delete_action.triggered.connect(self.structure_variable_control_tab.delete_atoms)
         add_action.triggered.connect(self.structure_variable_control_tab.add_atom)
+        render_bond_distance_action.triggered.connect(self.structure_plot_control_tab.add_bond_length)
 
         # self.console_widget = ConsoleWidget()
         # main_layout.addWidget(self.console_widget)
@@ -200,10 +202,11 @@ class MainWindow(MainWindow):
             if os.path.isdir(path):
                 dir = path
             else:
-                #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                #Odir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
+                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_full\\5.1.Ceria_bulk_full_1.016_new"
+                dir = "C:\\Users\\lesze\\OneDrive\\Dokumenty"
             #print("can't resolve operating system")
         self.data = VaspData(dir)
         return dir

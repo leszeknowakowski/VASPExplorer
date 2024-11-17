@@ -123,10 +123,11 @@ class VaspData():
         self.symbols = self.poscar.list_atomic_symbols()
         self.constrains = self.poscar.constrains()
         self.all_constrains = self.poscar.all_constrains()
+        self.suffixes = ["" for _ in range(self.number_of_atoms)]
 
         # Partition the original list
         for item in self.atoms_symb_and_num:
-            for i, atom in enumerate(self.atomic_symbols):
+            for i, atom in enumerate(self.atomic_symbols): # TODO: doesn't work good, put C and Ce in same list
                 if item.startswith(atom):
                     self.partitioned_lists[i].append(item)
                     break  # Once found, no need to continue checking other atoms
