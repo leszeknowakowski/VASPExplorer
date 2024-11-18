@@ -21,6 +21,15 @@ from PyQt5.QtGui import QDropEvent
 from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QWidget, QHBoxLayout, \
     QApplication
 
+def timer_decorator(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()  # Record the start time
+        result = func(*args, **kwargs)  # Call the original function
+        end_time = time.time()  # Record the end time
+        execution_time = end_time - start_time
+        print(f"Function '{func.__name__}' executed in {execution_time:.4f} seconds.")
+        return result  # Return the original function's result
+    return wrapper
 
 class TableWidgetDragRows(QTableWidget):
     def __init__(self, structureControlWidget):
@@ -107,9 +116,13 @@ class TableWidgetDragRows(QTableWidget):
     def keyPressEvent(self, event):
         #super().keyPressEvent(event)
         if event.key() == Qt.Key_C: # and (event.modifiers() & Qt.ControlModifier):
-            copied_cells = sorted(self.selectedIndexes())
+            self.copy_table()
 
-            copy_text = ''
+    def copy_table(self):
+        copied_cells = sorted(self.selectedIndexes())
+
+        copy_text = ''
+        try:
             max_column = copied_cells[-1].column()
             for c in copied_cells:
                 copy_text += self.item(c.row(), c.column()).text()
@@ -117,10 +130,10 @@ class TableWidgetDragRows(QTableWidget):
                     copy_text += '\n'
                 else:
                     copy_text += '\t'
-
             QApplication.clipboard().setText(copy_text)
             print("copied")
-
+        except IndexError:
+            print("No selected rows!")
 
 
 class StructureVariableControls(QWidget):
@@ -304,10 +317,10 @@ class StructureVariableControls(QWidget):
             if header in ["X", "Y", "Z"]:
                 self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 3] = float(new_value)
             if header in ["Move X", "Move Y", "Move Z"]:
-                new.value = self.tableWidget.item(row, column).text()
+                new_value = self.tableWidget.item(row, column).text()
                 if new_value.upper() in ['T', 'F', 'N/A']:
                     self.structure_control_widget.structure_plot_widget.data.all_constrains[row][
-                        column - 4] = new_value.upper()
+                        column - 6] = new_value.upper()
                 else:
                     raise ValueError("Movement constraint must be 'T' , 'F' or 'N/A'. Resetting to latter")
                     self.structure_control_widget.structure_plot_widget.data.all_constrains[row][
@@ -318,8 +331,6 @@ class StructureVariableControls(QWidget):
                 pass
             if header in ["Tag"]:
                 pass
-            self.structure_control_widget.add_sphere()
-            self.structure_control_widget.add_bonds()
 
             '''
             self.data[row][field_index] = new_value  # Update the data list with the new value
@@ -354,6 +365,10 @@ class StructureVariableControls(QWidget):
                 self.tableWidget.blockSignals(False)
             '''
 
+    def after_update_data(self):
+        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_bonds()
+
     def deleteRow(self, row):
         # Call delete_row method from data manager
         self.structure_control_widget.delete_row(row)
@@ -370,6 +385,7 @@ class StructureVariableControls(QWidget):
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
 
+    @timer_decorator
     def on_selection_changed(self):
         actors = self.structure_control_widget.structure_plot_widget.sphere_actors
         self.structure_control_widget.selected_actors = []
@@ -412,7 +428,7 @@ class StructureVariableControls(QWidget):
     def save_poscar(self):
         # Open a file dialog to save the text file
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Spheres Data", "", "All Files (*)", options=options)
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "", "All Files (*)", options=options)
 
         x = self.structure_control_widget.structure_plot_widget.data.x
         y = self.structure_control_widget.structure_plot_widget.data.y
@@ -438,7 +454,7 @@ class StructureVariableControls(QWidget):
             if '.' in file_name:
                 file_name = file_name.rsplit('.', 1)[0]
             with open(file_name, 'w') as file:
-                file.write("created by Leszek Nowakowski with VASPexplorer/DOSwizard \n")
+                file.write("created by Leszek Nowakowski with DOSwizard \n")
                 file.write("1.0000000000000\n")
                 file.write(f" {x:.6f}\t0.000000 0.000000\n")
                 file.write(f" 0.0000000 {y:.6f} 0.000000\n")
@@ -510,6 +526,7 @@ class StructureVariableControls(QWidget):
         for index in sorted(indexes):
             self.tableWidget.setItem(index.row(), column, QTableWidgetItem(constrain))
             self.updateData(index.row(), column)
+            self.structure_control_widget.structure_plot_widget.data.constrains[index.row()] = constrain
 
     def translate_object(self, direction):
         camera = self.structure_control_widget.plotter.camera
@@ -619,15 +636,15 @@ class StructureVariableControls(QWidget):
         indexes = self.tableWidget.selectionModel().selectedRows()
         for index in sorted(indexes):
             self.tableWidget.setItem(index.row(), 9, QTableWidgetItem(self.set_magmom_input_field.text()))
-            self.updateData(index.row(), 9) # TODO: error with column numbers, change permanently to header lookup
+            self.updateData(index.row(), 9)
+        self.after_update_data()
 
-    def set_tags(self): #TODO: very long, it may be shorter to create new table
+    def set_tags(self):
         tic = time.perf_counter()
         indexes = self.tableWidget.selectionModel().selectedRows()
         self.tableWidget.blockSignals(True)
         for index in sorted(indexes):
             self.tableWidget.setItem(index.row(), 2, QTableWidgetItem(self.set_tags_input_field.text()))
-            #self.updateData(index.row(), 2)
         self.tableWidget.update_all_data()
         self.tableWidget.blockSignals(False)
         toc = time.perf_counter()

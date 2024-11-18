@@ -16,6 +16,16 @@ from PyQt5 import QtGui
 toc = time.perf_counter()
 print(f'importing in structure controls, time: {toc - tic:0.4f} seconds')
 
+def timer_decorator(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()  # Record the start time
+        result = func(*args, **kwargs)  # Call the original function
+        end_time = time.time()  # Record the end time
+        execution_time = end_time - start_time
+        print(f"Function '{func.__name__}' executed in {execution_time:.4f} seconds.")
+        return result  # Return the original function's result
+    return wrapper
+
 class StructureControlsWidget(QWidget):
     """
         A widget for managing and interacting with 3D structures within a PyQt5 and PyVista application.
@@ -663,6 +673,7 @@ class StructureControlsWidget(QWidget):
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors.pop(row)
 
+    @timer_decorator
     def on_selection(self, RectangleSelection):
         self.selected_actors = []
         actors = self.structure_plot_widget.sphere_actors

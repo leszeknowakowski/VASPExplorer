@@ -171,6 +171,9 @@ class MainWindow(MainWindow):
         splitter.setStretchFactor(0,5)
         splitter.setStretchFactor(1,10)
 
+        save_action.triggered.connect(self.structure_variable_control_tab.save_poscar)
+        copy_action.triggered.connect(self.structure_variable_control_tab.tableWidget.copy_table)
+
         right_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='right'))
         left_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='left'))
         down_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='down'))
@@ -184,14 +187,6 @@ class MainWindow(MainWindow):
         # self.console_widget = ConsoleWidget()
         # main_layout.addWidget(self.console_widget)
         # self.console_widget.setFixedHeight(100)
-    '''
-    def closeEvent(self, QCloseEvent):
-        """ gently close all tabs and interactors"""
-        super().closeEvent(QCloseEvent)
-        self.structure_plot_interactor_widget.closeEvent()
-        self.structure_plot_control_tab.closeEvent()
-        self.structure_variable_control_tab.closeEvent()
-    '''
 
     def get_working_dir(self):
         """ gets the current working dir. Useful for building"""
@@ -205,7 +200,7 @@ class MainWindow(MainWindow):
                 #Odir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_full\\5.1.Ceria_bulk_full_1.016_new"
+                #dir = ""D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn""
                 dir = "C:\\Users\\lesze\\OneDrive\\Dokumenty"
             #print("can't resolve operating system")
         self.data = VaspData(dir)
@@ -213,7 +208,6 @@ class MainWindow(MainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    #app.setStyleSheet(STYLE_SHEET)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
