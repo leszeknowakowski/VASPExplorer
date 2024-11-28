@@ -1,5 +1,3 @@
-import pyqtgraph as pg
-
 from vasp_data import VaspData
 import os
 import sys
@@ -12,7 +10,7 @@ from PyQt5.QtGui import QFont
 from PyQt5 import QtCore
 from scipy.spatial.distance import pdist, squareform
 import numpy as np
-
+import pyqtgraph as pg
 from vtkmodules.vtkCommonColor import vtkNamedColors
 from vtkmodules.vtkFiltersSources import vtkSphereSource,  vtkLineSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera

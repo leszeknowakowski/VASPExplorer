@@ -33,7 +33,7 @@ class OutcarParser:
                 text = False
         lenght = len(lines)
         for i in range(lenght):
-            if i < 1000000:
+            if length < 1000000:
                 if i % 10000 == 0:
                     print('reading OUTCAR file; line: ', i, f' out of {lenght}', end='\r')
             else:
