@@ -537,6 +537,8 @@ class NebWindow(QMainWindow):
         )
         my_font = QFont("Calibri", 18, QFont.Bold)
         self.Eakt_label.setFont(my_font)
+
+
 if __name__ == "__main__":
     dir = ("D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1"
            ".2ominus_o2ads\\2.second")
