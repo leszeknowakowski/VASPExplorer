@@ -80,7 +80,7 @@ class NebWindow(QMainWindow):
             dir = './'
         else:
             #dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
-            dir = "X:\\999.tests\\8.o2_activation_spinel_zasada\\2.CoO-CoO_activation\\2.TS_search"
+            dir = "D:\\test_fir_doswizard\\1.NEBS\\4.from_zasada\\4.Peroxy_desorption\\2.TS_search"
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
@@ -226,11 +226,19 @@ class NebWindow(QMainWindow):
             for row, item in enumerate(rows):
                 self.mag_table_widget.setItem(row, column, QTableWidgetItem(item))
         mags = []
-        indices = (17,24,70,71)
-        mags.append([self.neb.start_stop_magnetizations[0][i] for i in indices])
+
+        #indices of atoms to add information to table, further to imporove with user input or DOSwizard input
+        self.indices = (17,24,70,71)
+        try:
+            mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
+        except IndexError:
+            input_indices = input("Write indices of atoms to show separates by commas : ")
+            self.indices = tuple(int(x) for x in input_indices.split(','))
+            mags = []
+        mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
         for i in range(int(columns_count/2 -2)):
-            mags.append([self.neb.neb_magnetizations[i][0][j] for j in indices])
-        mags.append([self.neb.start_stop_magnetizations[1][i] for i in indices])
+            mags.append([self.neb.neb_magnetizations[i][0][j] for j in self.indices])
+        mags.append([self.neb.start_stop_magnetizations[1][i] for i in self.indices])
 
         bond_lengths = self.update_bond_lengths()
         start_stop_bond_length = self.get_start_stop_bond_length()
@@ -258,18 +266,18 @@ class NebWindow(QMainWindow):
         columns_count = 2 * len(self.neb.neb_dirs)
         mags = []
         # indices of atoms to choose magnetization from (num of atom - 1 )
-        indices = (17, 24, 70, 71)
+        #self.indices = (17, 24, 70, 71)
 
         # append start magnetization
-        mags.append([self.neb.start_stop_magnetizations[0][i] for i in indices])
+        mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
         val = self.geo_slider.value()
 
         # append middle magnetizations
         for i in range(int(columns_count / 2 - 2)):
-            mags.append([self.neb.neb_magnetizations[i][val][j] for j in indices])
+            mags.append([self.neb.neb_magnetizations[i][val][j] for j in self.indices])
 
         # append stop magnetization
-        mags.append([self.neb.start_stop_magnetizations[1][i] for i in indices])
+        mags.append([self.neb.start_stop_magnetizations[1][i] for i in self.indices])
 
         bond_lengths = self.update_bond_lengths()
         start_stop_bond_length = self.get_start_stop_bond_length()
@@ -462,25 +470,33 @@ class NebWindow(QMainWindow):
         coordinates = self.neb.neb_positions
         image_coordinates = []
         bond_lengths = []
+        co1 = self.indices[0]
+        co2 = self.indices[1]
+        o1 = self.indices[2]
+        o2 = self.indices[3]
 
         for image in coordinates:
             image_coordinates.append(image[self.geo_slider.value()])
         for i in range(0, images-2): # loop for plotters
             coords = image_coordinates[i]
-            co18o71 = self.find_bond_length(coords[17], coords[70])
-            co25o72 = self.find_bond_length(coords[24], coords[71])
-            o71o72 = self.find_bond_length(coords[70], coords[71])
+            co18o71 = self.find_bond_length(coords[co1], coords[o1])
+            co25o72 = self.find_bond_length(coords[co2], coords[o2])
+            o71o72 = self.find_bond_length(coords[o1], coords[o2])
             bond_lengths.append([co18o71, co25o72, o71o72])
         return bond_lengths
 
     def get_start_stop_bond_length(self):
         bond_lengths = []
         coordinates = self.neb.start_stop_positions
+        co1 = self.indices[0]
+        co2 = self.indices[1]
+        o1 = self.indices[2]
+        o2 = self.indices[3]
         for i in range(2):
             coords = coordinates[i]
-            co18o71 = self.find_bond_length(coords[17], coords[70])
-            co25o72 = self.find_bond_length(coords[24], coords[71])
-            o71o72 = self.find_bond_length(coords[70], coords[71])
+            co18o71 = self.find_bond_length(coords[co1], coords[o1])
+            co25o72 = self.find_bond_length(coords[co2], coords[o2])
+            o71o72 = self.find_bond_length(coords[o1], coords[o2])
             bond_lengths.append([co18o71, co25o72, o71o72])
         return bond_lengths
 
