@@ -33,7 +33,7 @@ class OutcarParser:
                 text = False
         lenght = len(lines)
         for i in range(lenght):
-            if length < 1000000:
+            if lenght < 1000000:
                 if i % 10000 == 0:
                     print('reading OUTCAR file; line: ', i, f' out of {lenght}', end='\r')
             else:
@@ -224,10 +224,13 @@ class PoscarParser:
         atom_symbols = []
         if PoscarParser.is_integer(self.lines[5].split()[0]):
             self.atom_symbols_exists = False
-            if os.path.exists('POTCAR'):
-                potcar = 'POTCAR'
-            elif os.path.exists('../POTCAR'):
-                potcar = '../POTCAR'
+            potcar_path = os.path.join(os.path.dirname(self.filename),'POTCAR')
+            potcar_dir = os.path.dirname(potcar_path)
+            potcar_parent_dir = os.path.dirname(potcar_dir)
+            if os.path.exists(potcar_path):
+                potcar = potcar_path
+            elif os.path.exists(os.path.join(potcar_parent_dir,'POTCAR')):
+                potcar = os.path.join(potcar_parent_dir,'POTCAR')
             else:
                 raise FileNotFoundError('Error! No POTCAR file found!')
             with open(potcar, 'r') as file:
