@@ -1,9 +1,7 @@
 import time
 
 if True:  # noqa: E402
-
     import sys
-
 
     tic = time.perf_counter()
     from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
@@ -12,8 +10,6 @@ if True:  # noqa: E402
     from PyQt5 import QtCore
     toc = time.perf_counter()
     print(f'import PyQt5.QtWidgets in main: {toc - tic:0.4f}')
-
-
 
     tic = time.perf_counter()
     import pyqtgraph as pg
@@ -40,9 +36,6 @@ pg.setConfigOptions(antialias=True)
 
 STYLE_SHEET = []
 
-
-
-
 class MainWindow(MainWindow):
     """
     This class initialize the PyQt5 main window - bars, icons, widgets and
@@ -54,7 +47,8 @@ class MainWindow(MainWindow):
         QMainWindow.__init__(self, parent)
         super().__init__(parent)
         #self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
-        self.dir = self.get_working_dir()
+        self.dir = self.set_working_dir()
+        self.create_data()
         self.qmainwindow = QMainWindow()
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
         self.initUI()
@@ -85,11 +79,13 @@ class MainWindow(MainWindow):
         quit_action.setShortcut("Ctrl+Q")
 
         copy_action = QAction(QIcon(os.path.join(icon_path, "copy.png")), "Copy", self)
-        copy_action.setShortcut('Ctrl+C')
+        #copy_action.setShortcut('Ctrl+C')
         cut_action = QAction(QIcon(os.path.join(icon_path, "cut.png")), "Cut", self)
         cut_action.setShortcut("Ctrl+X")
         paste_action = QAction(QIcon(os.path.join(icon_path, "paste.png")), "Paste", self)
         paste_action.setShortcut("Ctrl+V")
+
+        modify_constraints_action = QAction("Modify Constraints", self)
 
         right_action = QAction(QIcon(os.path.join(icon_path, "right_arrow.png")), "Move atoms to the right", self)
         left_action = QAction(QIcon(os.path.join(icon_path, "left-arrow.png")), "Move atoms to the left", self)
@@ -121,6 +117,9 @@ class MainWindow(MainWindow):
         edit_menu.addAction(copy_action)
         edit_menu.addAction(cut_action)
         edit_menu.addAction(paste_action)
+
+        modify_menu = menubar.addMenu('Modify')
+        modify_menu.addAction(modify_constraints_action)
 
         splitter = QSplitter()
         main_layout.addWidget(splitter)
@@ -184,11 +183,13 @@ class MainWindow(MainWindow):
         add_action.triggered.connect(self.structure_variable_control_tab.add_atom)
         render_bond_distance_action.triggered.connect(self.structure_plot_control_tab.add_bond_length)
 
+        modify_constraints_action.triggered.connect(self.structure_variable_control_tab.modify_constraints)
+
         # self.console_widget = ConsoleWidget()
         # main_layout.addWidget(self.console_widget)
         # self.console_widget.setFixedHeight(100)
 
-    def get_working_dir(self):
+    def set_working_dir(self):
         """ gets the current working dir. Useful for building"""
         if platform.system() == 'Linux':
             dir = './'
@@ -197,14 +198,17 @@ class MainWindow(MainWindow):
             if os.path.isdir(path):
                 dir = path
             else:
-                #Odir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                #dir = ""D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn""
-                dir = "C:\\Users\\lesze\\OneDrive\\Dokumenty"
+                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
+                #dir = "C:\\Users\\lesze\\OneDrive\\Dokumenty"
             #print("can't resolve operating system")
-        self.data = VaspData(dir)
         return dir
+
+    def create_data(self):
+        dir = self.set_working_dir()
+        self.data = VaspData(dir)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

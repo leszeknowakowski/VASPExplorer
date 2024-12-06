@@ -1,25 +1,23 @@
 import time
 tic = time.perf_counter()
-from PyQt5.QtGui import QCloseEvent
+from PyQt5.QtGui import QCloseEvent,QDropEvent
 from structure_plot import StructureViewer
 from structure_controls import StructureControlsWidget
-import sys
+import sys, platform, os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
-    QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel,QLineEdit
+    QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
+    QDialog, QDialogButtonBox
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from collections import OrderedDict
 import numpy as np
 from periodic_table import PeriodicTable
-from itertools import groupby
+from itertools import groupby, combinations
+import numpy as np
+from ase.io import read
+from ase.neighborlist import NeighborList, natural_cutoffs
+from ase.constraints import FixAtoms, FixBondLength, FixLinearTriatomic
 toc = time.perf_counter()
 print(f'importing in structure variable controls: {toc - tic:0.4f}')
-
-import sys
-import numpy as np
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QDropEvent
-from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QWidget, QHBoxLayout, \
-    QApplication
 
 def timer_decorator(func):
     def wrapper(*args, **kwargs):
@@ -385,7 +383,6 @@ class StructureVariableControls(QWidget):
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
 
-    @timer_decorator
     def on_selection_changed(self):
         actors = self.structure_control_widget.structure_plot_widget.sphere_actors
         self.structure_control_widget.selected_actors = []
@@ -599,10 +596,13 @@ class StructureVariableControls(QWidget):
 
         # Update the plotter
         #self.plotter.update()
+
     def print_selected_atoms(self):
         selected_rows = self.get_selected_rows()
+        selected_atoms = [x + 1 for x in selected_rows]
         print("Selected atoms numbers:")
-        print([x + 1 for x in selected_rows])
+        print(selected_atoms)
+        return selected_atoms
 
     def add_input_to_selection(self):
         def strip_if_not_number(s):
@@ -619,7 +619,7 @@ class StructureVariableControls(QWidget):
         for number in atoms:
             self.tableWidget.selectRow(number)
 
-    def print_magmoms(self):
+    def print_magmoms(self): #TODO fix wrong column print
         mags = []
         for row in range(self.tableWidget.rowCount()):
             mags.append(self.tableWidget.item(row, 7).text())
@@ -693,6 +693,10 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
         self.structure_control_widget.add_sphere()
+
+    def modify_constraints(self):
+        self.atom_choose_window = ConstraintsWindow(self)
+        self.atom_choose_window.show()
 
 class AtomChooseWindow(QWidget):
     sig = pyqtSignal()
@@ -786,3 +790,177 @@ class MovementRangeWindow(QWidget):
     movement_range = pyqtSignal()
     def __init__(self):
         super().__init__()
+
+class ConstraintsWindow(QWidget):
+    sig = pyqtSignal()
+    def __init__(self, parent):
+        super().__init__()
+        self.parent_class = parent
+        self.dir = self.set_working_dir()
+        self.poscar =  self.set_structure_file(self.dir)
+        self.constraints_list = []
+        self.atoms = read(self.poscar)
+        self.initUI()
+    def initUI(self):
+        self.layout = QVBoxLayout()
+        self.checkboxes_layout = QHBoxLayout()
+
+        self.bonds_cb = QCheckBox()
+        self.angles_cb = QCheckBox()
+
+        self.bonds_cb.setChecked(False)
+        self.bonds_cb.setText("Bond length constrain")
+        self.bonds_cb.stateChanged.connect(self.bonds_constraints_changed)
+
+        self.angles_cb.setChecked(False)
+        self.angles_cb.setText("Angle constrain")
+        self.angles_cb.stateChanged.connect(self.angles_constraints_changed)
+
+        self.checkboxes_layout.addWidget(self.bonds_cb)
+        self.checkboxes_layout.addWidget(self.angles_cb)
+
+        self.layout.addLayout(self.checkboxes_layout)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.layout.addWidget(self.buttonBox)
+
+        self.setLayout(self.layout)
+
+    def set_working_dir(self):
+        """ gets the current working dir. Useful for building"""
+        if platform.system() == 'Linux':
+            dir = './'
+        elif platform.system() == 'Windows':
+            path = "F:\\syncme\\modelowanie DFT\\lobster_tests\\Mn"
+            if os.path.isdir(path):
+                dir = path
+            else:
+                dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
+                #dir = "C:\\Users\\lesze\\OneDrive\\Dokumenty"
+            #print("can't resolve operating system")
+        return dir
+
+    def set_structure_file(self, dir):
+        if not os.path.exists(os.path.join(dir, 'CONTCAR')) and not os.path.exists(os.path.join(dir, 'POSCAR')):
+            for file in os.listdir(dir):
+                # Check if the file has a .cell extension
+                if file.endswith(".cell"):
+                    # Read the .cell file
+                    structure = read(os.path.join(dir, file))
+                    write(os.path.join(dir, "POSCAR"), structure, format="vasp")
+                    poscar_file = os.path.join(dir, "POSCAR")
+
+        if not os.path.exists(os.path.join(dir, 'CONTCAR')):
+            if not os.path.exists(os.path.join(dir, 'POSCAR')):
+                p = input("eneter file name: ")
+                if not os.path.exists(p):
+                    raise FileNotFoundError('No important files found! Missing POSCAR')
+                else:
+                    poscar_file = os.path.join(dir, p)
+
+            else:
+                poscar_file = os.path.join(dir, "POSCAR")
+        else:
+            if os.path.getsize(os.path.join(dir, 'CONTCAR')) > 0:
+                poscar_file = os.path.join(dir, "CONTCAR")
+            else:
+                if not os.path.exists(os.path.join(dir, 'POSCAR')):
+                    raise EmptyFile('CONTCAR is found but appears to be empty! POSCAR missing! Check your files')
+                else:
+                    poscar_file = os.path.join(dir, "POSCAR")
+        return poscar_file
+
+    def get_selected_atoms(self):
+        self.selected_atoms = self.parent_class.print_selected_atoms()
+        self.selected_atoms = np.array(self.selected_atoms) - 1
+        return self.selected_atoms
+    def create_neighbor_list(self):
+        cutoffs = natural_cutoffs(self.atoms, Ce=1.5)
+        self.neighbor_list = NeighborList(cutoffs, self_interaction=False, bothways=True)
+        self.neighbor_list.update(self.atoms)
+
+    def set_distance_constraints(self, atom1, atom2):
+        const = FixBondLength(atom1, atom2)
+        return const
+
+    def set_angle_constraints(self,atom1, atom2, atom3):
+        const = FixLinearTriatomic(triples=[(atom1, atom2, atom3)])
+        return const
+
+    def find_selected_neighbours(self,atom):
+        self.create_neighbor_list()
+        indices, offets = self.neighbor_list.get_neighbors(atom)
+        indices_in_selected = list(set(indices) & set(self.selected_atoms))
+        return indices_in_selected
+
+    def find_constrained_bonds(self,atom):
+        neighours = self.find_selected_neighbours(atom)
+        bonds = [(atom, neighbour) for neighbour in neighours]
+        return bonds
+
+    def find_constrained_triples(self, atom):
+        neighours = self.find_selected_neighbours(atom)
+        triples = [(a, atom, b) for a, b, in combinations(neighours, 2)]
+        return triples
+
+    def constrain_bonds(self, atom):
+        bonds = self.find_constrained_bonds(atom)
+        for bond in bonds:
+            const = self.set_distance_constraints(bond[0], bond[1])
+            self.constraints_list.append(const)
+
+    def constrain_triples(self, atom):
+        triples = self.find_constrained_triples(atom)
+        for triple in triples:
+            const = self.set_angle_constraints(triple[0], triple[1], triple[2])
+            self.constraints_list.append(const)
+
+    def apply_constraints(self):
+        self.atoms.set_constraint(self.constraints_list)
+
+    def constraint_to_ICONST(self, const):
+        const = const.todict()
+        if const["name"] == "FixBondLengths":
+            flag = "R"
+            atoms = const['kwargs']['pairs'][0]
+            line = [flag, atoms[0]+1, atoms[1]+1, 0]
+        if const["name"] == "FixLinearTriatomic":
+            flag = "A"
+            atoms = const['kwargs']['triples'][0]
+            line = [flag, atoms[0]+1, atoms[1]+1, atoms[2]+1, 0]
+        return line
+
+    def write_ICONST(self):
+        file_name = "ICONST"
+        with open(file_name, 'w') as file:
+            for const in self.constraints_list:
+                line = self.constraint_to_ICONST(const)
+                line = " ".join(map(str, line))
+                file.write(line)
+                file.write('\n')
+
+    def bonds_constraints_changed(self):
+        self.get_selected_atoms()
+        for atom in self.selected_atoms:
+            self.constrain_bonds(atom)
+
+    def angles_constraints_changed(self):
+        self.get_selected_atoms()
+        for atom in self.selected_atoms:
+            self.constrain_triples(atom)
+
+    def accept(self):
+        self.write_ICONST()
+        self.close()
+        print("constrains modified")
+
+    def reject(self):
+        self.atoms.set_constraint()
+        self.close()
+        print("constrains deleted")
