@@ -354,7 +354,10 @@ class StructureControlsWidget(QWidget):
     def toggle_spheres(self, flag):
         """switches on and off spheres visibility"""
         for actor in self.structure_plot_widget.sphere_actors:
-            actor.SetVisibility(flag)
+            if self.selected_actors == []:
+                actor.SetVisibility(flag)
+            elif actor in self.selected_actors:
+                actor.SetVisibility(flag)
 
     def toggle_bonds_between_planes(self, flag):
         for actor in self.structure_plot_widget.bond_actors:

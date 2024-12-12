@@ -799,8 +799,10 @@ class ConstraintsWindow(QWidget):
         self.dir = self.set_working_dir()
         self.poscar =  self.set_structure_file(self.dir)
         self.constraints_list = []
-        self.atoms = read(self.poscar)
+        self.process_structure_file()
+        #self.atoms = read(self.poscar)
         self.initUI()
+
     def initUI(self):
         self.layout = QVBoxLayout()
         self.checkboxes_layout = QHBoxLayout()
@@ -838,7 +840,7 @@ class ConstraintsWindow(QWidget):
             if os.path.isdir(path):
                 dir = path
             else:
-                dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                dir = ("D:\\test_fir_doswizard\\4.strange_atom_definition")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
@@ -876,10 +878,18 @@ class ConstraintsWindow(QWidget):
                     poscar_file = os.path.join(dir, "POSCAR")
         return poscar_file
 
+    def process_structure_file(self):
+        try:
+            self.atoms = read(self.poscar)
+        except:
+            print("atoms in POSCAR have different symbols then standard atomic symbols.")
+            print(f'symbols in poscar: {self.parent_class.structure_control_widget.structure_plot_widget.data.atomic_symbols}')
+
     def get_selected_atoms(self):
         self.selected_atoms = self.parent_class.print_selected_atoms()
         self.selected_atoms = np.array(self.selected_atoms) - 1
         return self.selected_atoms
+
     def create_neighbor_list(self):
         cutoffs = natural_cutoffs(self.atoms, Ce=1.5)
         self.neighbor_list = NeighborList(cutoffs, self_interaction=False, bothways=True)
