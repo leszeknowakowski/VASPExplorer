@@ -681,12 +681,13 @@ class StructureControlsWidget(QWidget):
         self.selected_actors = []
         actors = self.structure_plot_widget.sphere_actors
         for index, actor in enumerate(actors):
-            is_inside = RectangleSelection.frustum.EvaluateFunction(actor.center) < 0
-            if is_inside:
-                actor.prop.color = 'yellow'
-                self.selected_actors.append(actor)
-            else:
-                actor.prop.color = self.structure_plot_widget.atom_colors[index]
+            if actor.GetVisibility():
+                is_inside = RectangleSelection.frustum.EvaluateFunction(actor.center) < 0
+                if is_inside:
+                    actor.prop.color = 'yellow'
+                    self.selected_actors.append(actor)
+                else:
+                    actor.prop.color = self.structure_plot_widget.atom_colors[index]
 
         self.selected_actors_changed.emit(self.selected_actors)
 
