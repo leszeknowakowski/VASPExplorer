@@ -504,12 +504,15 @@ class StructureControlsWidget(QWidget):
         self.planeSource_heigher.Update()
 
         self.structure_plot_widget.plotter.renderer.Render()
+
     def toggle_plane(self, flag):
         """ switches on and off plane visibility"""
         self.structure_plot_widget.plane_actor.GetProperty().SetOpacity(flag)
+
     def toggle_plane_heigher(self, flag):
         """ switches on and off plane visibility"""
         self.structure_plot_widget.plane_actor_heigher.GetProperty().SetOpacity(flag)
+
     def toggle_all_constrains(self, flag):
         """ switches on and off constrains visibility"""
         if self.constrains_all_cb.isChecked():
@@ -524,10 +527,15 @@ class StructureControlsWidget(QWidget):
     def toggle_constrain_above_plane(self, flag):
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.constrain_actor)
         if self.constrains_between_planes_cb.isChecked():
+            coordinates = []
             slidervalue = self.plane_height_range_slider.getRange()
             height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
             end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
-            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
+            #coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
+            for actor in self.selected_actors:
+                center = actor.GetCenter()
+                coordinates.append(list(center))
+            coordinates = np.array(coordinates)
             coords = []
             constr = []
             indice = np.where((coordinates[:, 2] > height) & (coordinates[:, 2] < end))[0]
