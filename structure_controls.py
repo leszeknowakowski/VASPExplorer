@@ -1,4 +1,7 @@
 import time
+
+import vtk
+
 tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
@@ -78,6 +81,7 @@ class StructureControlsWidget(QWidget):
         self.planes_layout()
         self.energy_plot_layout()
         self.bond_length_actors = []
+        self.unit_cell_reps = (1,1,1)
 
         #self.add_symbol_and_number()
         self.add_bonds()
@@ -120,7 +124,7 @@ class StructureControlsWidget(QWidget):
         self.energy_plot_frame_layout = QVBoxLayout(self.energy_plot_frame)
 
     def render_structure_control_widget(self):
-        """ structure  visibility checkbox widget. Control wheater to plot or not the spheres, bonds, unit cell"""
+        """ structure  visibility checkbox widget. Control wheater to plot or not the spheres, bonds, unit cells """
         # ############# spheres part ###########################
         self.sphere_cb = QtWidgets.QCheckBox()
         self.sphere_cb.setChecked(True)
@@ -178,11 +182,42 @@ class StructureControlsWidget(QWidget):
         self.render_frame_layout.addLayout(bond_layaout)
 
         # ############ unit cell part #####################
+        self.unit_cell_layout = QHBoxLayout()
+        self.unit_cell_layout.setAlignment(QtCore.Qt.AlignRight)
+
+
+        self.unit_cell_cb_layout = QHBoxLayout()
         unit_cell_cb = QtWidgets.QCheckBox()
         unit_cell_cb.setChecked(True)
         unit_cell_cb.setText('unit cell')
         unit_cell_cb.stateChanged.connect(self.toggle_unit_cell)
-        self.render_frame_layout.addWidget(unit_cell_cb)
+        #self.unit_cell_cb_layout.addWidget(unit_cell_cb)
+        self.unit_cell_layout.addWidget(unit_cell_cb)
+
+        ############# unit cell reps #####################
+        self.unit_cell_reps_layout = QHBoxLayout()
+        self.unit_cell_reps_layout.setAlignment(QtCore.Qt.AlignLeft)
+
+        self.unit_cell_reps_x_lbl = QtWidgets.QLabel("x reps:")
+        self.unit_cell_reps_x = QtWidgets.QLineEdit("1")
+        self.unit_cell_reps_y_lbl = QtWidgets.QLabel("y reps:")
+        self.unit_cell_reps_y = QtWidgets.QLineEdit("1")
+        self.unit_cell_reps_z_lbl = QtWidgets.QLabel("z reps:")
+        self.unit_cell_reps_z = QtWidgets.QLineEdit("1")
+        self.unit_cell_reps_x.setFixedWidth(20)
+        self.unit_cell_reps_y.setFixedWidth(20)
+        self.unit_cell_reps_z.setFixedWidth(20)
+        self.unit_cell_reps_apply_btn = QtWidgets.QPushButton("Apply")
+        self.unit_cell_reps_apply_btn.clicked.connect(self.apply_unit_cell_reps)
+
+        unit_cell_widgets = [ self.unit_cell_reps_x_lbl, self.unit_cell_reps_x,
+                             self.unit_cell_reps_y_lbl, self.unit_cell_reps_y,
+                             self.unit_cell_reps_z_lbl,self.unit_cell_reps_z, self.unit_cell_reps_apply_btn]
+
+        for widget in unit_cell_widgets:
+            self.unit_cell_reps_layout.addWidget(widget)
+        self.unit_cell_layout.addLayout(self.unit_cell_reps_layout)
+        self.render_frame_layout.addLayout(self.unit_cell_layout)
 
     def text_control_widget(self):
         """ widgets connected to rendering text on 3d structure, such as numbers of atom, constrains """
@@ -438,6 +473,46 @@ class StructureControlsWidget(QWidget):
         """ switches on and off unit cell visibility"""
         self.structure_plot_widget.cube_actor.SetVisibility(flag)
 
+    def apply_unit_cell_reps(self):
+        ''' renders new unit cell in x, y and z directions '''
+
+        # get the number of repetitions
+        x = self.unit_cell_reps_x.text()
+        y = self.unit_cell_reps_y.text()
+        z = self.unit_cell_reps_z.text()
+
+        # unit cell basis vectors lengths
+        a = self.structure_plot_widget.data.x
+        b = self.structure_plot_widget.data.y
+        c = self.structure_plot_widget.data.z
+
+        # if repetitions are not integers, throw an error
+        try:
+            x = int(x)
+            y = int(y)
+            z = int(z)
+        except:
+            print("repetitions of unit cell are not integers. You can't translate unit cell by a fraction!")
+
+        def replicate_actors(actor):
+            ''' replicate vtk actors '''
+            new_actor = vtk.vtkActor()
+            new_actor.ShallowCopy(actor)
+            translation = vtk.vtkTransform()
+            translation.Translate(i * a, j * b, k * c)
+            new_actor.SetUserTransform(translation)
+            self.structure_plot_widget.plotter.renderer.AddActor(new_actor)
+            return new_actor
+
+        for i in range(x):
+            for j in range(y):
+                for k in range(z):
+                    for actor in self.structure_plot_widget.sphere_actors:
+                        replicate_actors(actor)
+                    for actor in self.structure_plot_widget.bond_actors:
+                        replicate_actors(actor)
+                    replicate_actors(self.structure_plot_widget.cube_actor)
+
     def add_plane(self, value):
         if self.structure_plot_widget.plane_actor is not None:
             self.structure_plot_widget.plotter.remove_actor(self.structure_plot_widget.plane_actor)
@@ -527,22 +602,26 @@ class StructureControlsWidget(QWidget):
     def toggle_constrain_above_plane(self, flag):
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.constrain_actor)
         if self.constrains_between_planes_cb.isChecked():
-            coordinates = []
+            selected_coordinates = []
             slidervalue = self.plane_height_range_slider.getRange()
             height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
             end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
-            #coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
-            for actor in self.selected_actors:
-                center = actor.GetCenter()
-                coordinates.append(list(center))
-            coordinates = np.array(coordinates)
+            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
+            for actor in self.structure_plot_widget.sphere_actors:
+                if actor.GetVisibility():
+                    if actor in self.selected_actors:
+                        selected_coordinates.append(list(center))
+            selected_coordinates = np.array(selected_coordinates)
             coords = []
             constr = []
             indice = np.where((coordinates[:, 2] > height) & (coordinates[:, 2] < end))[0]
-            indices = indice.tolist()
-            for i in range(len(indices)):
-                coords.append(list(coordinates[indices[i]]))
-                constr.append(self.structure_plot_widget.data.all_constrains[indices[i]][0])
+            #indices = indice.tolist()
+            for i in indice:
+                atom_coord = coordinates[i]
+
+                if any(np.allclose(atom_coord, sel_coord, atol=0.1) for sel_coord in selected_coordinates):
+                    coords.append(list(atom_coord))
+                    constr.append(self.structure_plot_widget.data.all_constrains[i][0])
             self.structure_plot_widget.constrain_actor = self.plotter.add_point_labels(coords, constr, font_size=30,
                                                                  show_points=False, always_visible=True, shape=None)
             self.structure_plot_widget.constrain_actor.SetVisibility(flag)
@@ -696,7 +775,6 @@ class StructureControlsWidget(QWidget):
                     self.selected_actors.append(actor)
                 else:
                     actor.prop.color = self.structure_plot_widget.atom_colors[index]
-
         self.selected_actors_changed.emit(self.selected_actors)
 
     def shift_event(self):

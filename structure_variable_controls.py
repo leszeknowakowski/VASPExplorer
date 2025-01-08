@@ -7,7 +7,7 @@ import sys, platform, os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
     QDialog, QDialogButtonBox
-from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
+from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal, QItemSelection, QItemSelectionModel
 from collections import OrderedDict
 import numpy as np
 from periodic_table import PeriodicTable
@@ -412,8 +412,17 @@ class StructureVariableControls(QWidget):
         if self.structure_control_widget.selected_actors == []:
             self.tableWidget.clearSelection()
         rows = self.get_selected_rows()
+        self.tableWidget.blockSignals(True)
+        #for row in rows:
+        #    self.tableWidget.selectRow(row)
+        selection = QItemSelection()
         for row in rows:
-            self.tableWidget.selectRow(row)
+            top_left = self.tableWidget.model().index(row, 0)
+            bottom_right = self.tableWidget.model().index(row, self.tableWidget.columnCount()-1)
+            selection.select(top_left, bottom_right)
+        selection_model = self.tableWidget.selectionModel()
+        selection_model.select(selection, QItemSelectionModel.Select)
+        self.tableWidget.blockSignals(False)
 
     def get_selected_rows(self):
         rows = []
