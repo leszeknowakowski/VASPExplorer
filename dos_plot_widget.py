@@ -1,53 +1,51 @@
 import time
 
 if True:
-    tic = time.perf_counter()
     from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout
-    toc = time.perf_counter()
-    print(f'import PyQt5.QtWidgets in DOSplot: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     from PyQt5 import QtCore
-    toc = time.perf_counter()
-    print(f'import PyQt5.QtCore in DOSplot: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     import pyqtgraph as pg
     from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
-    toc = time.perf_counter()
-    print(f'import pyqtgraph in DOSplot: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     import re
-    toc = time.perf_counter()
-    print(f'import re in DOSplot: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     import numpy as np
-    toc = time.perf_counter()
-    print(f'import numpy in DOSplot: {toc - tic:0.4f}')
-
-    tic = time.perf_counter()
     import sys
-    toc = time.perf_counter()
-    print(f'import sys in DOSplot: {toc - tic:0.4f}')
 
 
 class DosPlotWidget(QWidget):
+    """
+    A widget for plotting Density of States (DOS) data using PyQt and pyqtgraph.
+
+    Attributes:
+        data:
+            The dataset containing DOS information for plotting.
+        legend:
+            A list to hold legend items for the plot.
+    """
+
     def __init__(self, data):
+        """
+        Initializes the DosPlotWidget with the provided DOS data.
+
+        Args:
+            data: A data object containing DOS information and Fermi energy.
+        """
         super().__init__()
         self.data = data
         self.initUI()
         self.legend = []
 
     def initUI(self):
+        """
+        Sets up the user interface for the DOS plot widget, including
+        layout, plots, region selection, and Fermi level lines.
+        """
         self.layout = QVBoxLayout(self)
 
+        # splitter for two parts of plot (original and zoomed  (bounded))
         plot_splitter = QSplitter(QtCore.Qt.Horizontal)
         self.full_range_plot = pg.PlotWidget()
-        self.full_range_plot.setBackground('w')
+        self.full_range_plot.setBackground("#f0f0f0")
         self.bounded_plot = pg.PlotWidget()
-        self.bounded_plot.setBackground('w')
+        self.bounded_plot.setBackground("#f0f0f0")
 
         plot_splitter.addWidget(self.full_range_plot)
         plot_splitter.addWidget(self.bounded_plot)
@@ -57,7 +55,7 @@ class DosPlotWidget(QWidget):
         self.layout.addWidget(plot_splitter)
 
         # Add LinearRegionItem to the full range plot
-        self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush(255, 235, 14, 100))
+        self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#dce0a4'))
         self.full_range_plot.addItem(self.region)
         self.region.sigRegionChanged.connect(self.update_bounded_plot_y_range)
 
@@ -65,33 +63,63 @@ class DosPlotWidget(QWidget):
 
         self.region.setRegion([-5, 5])
 
-        self.inf_line_full = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen('b'), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': (0, 0, 255), 'fill': (0, 0, 255, 100), 'movable': True})
-        self.inf_line_bounded = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen('b'), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': (0, 0, 255), 'fill': (0, 0, 255, 100), 'movable': True})
+        # fermi enerfy lines
+        self.inf_line_full = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen(color='#6ab4dc', width=4), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': '#cbcdd2', 'fill': (0, 0, 255, 100), 'movable': True})
+        self.inf_line_bounded = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen(color='#6ab4dc', width=4), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': '#cbcdd2', 'fill': (0, 0, 255, 100), 'movable': True})
 
         self.full_range_plot.addItem(self.inf_line_full)
         self.bounded_plot.addItem(self.inf_line_bounded)
 
     def update_bounded_plot_y_range(self):
+        """
+         Updates the y-axis range of the bounded plot based on the selected region
+         in the full range plot.
+        """
         min_y, max_y = self.region.getRegion()
         self.bounded_plot.setYRange(min_y, max_y, padding=0)
 
     def update_region_from_bounded_plot(self):
+        """
+          Updates the selection region in the full range plot based on the
+          y-axis range of the bounded plot.
+        """
         view_range = self.bounded_plot.viewRange()[1]
         self.region.setRegion(view_range)
 
     def clear_plot_data(self, plot_widget):
+        """
+        Removes plot data items from the specified plot widget.
+
+        Args:
+            plot_widget: The plot widget from which to remove data items (full_range_plot or bounded_plot)
+        """
         items = [item for item in plot_widget.listDataItems() if isinstance(item, pg.PlotDataItem) and not isinstance(item, MergedPlotDataItem)]
         for item in items:
             plot_widget.removeItem(item)
 
     def clear_merged_plot(self):
+        """
+        Clears merged plot data from both the full and bounded plots.
+        """
         for plot in [self.full_range_plot, self.bounded_plot]:
-            for item in [item for item in plot.listDataItems() if isinstance(item, MergedPlotDataItem)]:
+            for item in [item for item in plot.listDataItems() if isinstance(item, MergedPlotDataItem) or isinstance(item, pg.graphicsItems.PlotDataItem.PlotDataItem)]:
                 plot.removeItem(item)
         self.legend.clear()
 
+    def update_plot(self, data, selected_atoms, selected_orbitals):
+        """
+        Updates the DOS plots with data for specified atoms and orbitals.
+        First clear the whole plots, then update the selected atoms and orbitals.
+        method used only in DosControlWidget class
 
-    def update_plot(self, data, selected_atoms, selected_orbitals, ):
+        Args:
+              data:
+                The dataset containing DOS data (up and down).
+              selected_atoms:
+                A list of selected atom indices for plotting.
+              selected_orbitals:
+                A list of selected orbital indices for plotting.
+        """
         self.clear_plot_data(self.full_range_plot)
         self.clear_plot_data(self.bounded_plot)
         colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k', 'b', 'r', 'g', 'c', 'm', 'y', 'k', 'b', 'r', 'g', 'c', 'm', 'y',
@@ -103,6 +131,9 @@ class DosPlotWidget(QWidget):
         for atom_index in selected_atoms:
             for orbital_index in selected_orbitals:
                 counter += 1
+
+        # if more than 10 different dataset have to be plotted
+        # TODO: plot merged data instead, automatically
         if counter > 10:
             pass
         else:
@@ -126,6 +157,18 @@ class DosPlotWidget(QWidget):
         self.update_bounded_plot_y_range()
 
     def update_total_dos_plot(self, datasetup, datasetdown, nrg):
+        """
+        Updates plot to display total DOS data for spin-up and spin-down datasets.
+        Used only in DosControlWidget class
+
+        Args:
+            datasetup:
+                DOS data for spin-up states.
+            datasetdown:
+                DOS data for spin-down states.
+            nrg:
+                Array of energy values for the DOS.
+        """
         self.clear_plot_data(self.full_range_plot)
         self.clear_plot_data(self.bounded_plot)
         self.full_range_plot.plot(datasetup, nrg, pen=pg.mkPen('b'))
@@ -135,8 +178,24 @@ class DosPlotWidget(QWidget):
         self.bounded_plot.plot([-x for x in datasetdown], nrg, pen=pg.mkPen('b'))
 
     def create_label(self, orbital_up, orbital_down, atom_no_up, atom_no_down):
+        """
+        Creates a formatted label describing the selected orbitals and atoms.
+
+        Args:
+            orbital_up:
+                List of selected orbitals for spin-up.
+            orbital_down:
+                List of selected orbitals for spin-down.
+            atom_no_up:
+                List of selected atom numbers for spin-up.
+            atom_no_down:
+                List of selected atom numbers for spin-down.
+
+        Returns:
+            str: A formatted label string summarizing the selection.
+        """
         def number_range(lst):
-            '''returns a string representing a range of numbers, eg. 1-4,5,10-11'''
+            """returns a string representing a range of numbers, eg. 1-4,5,10-11"""
             result = []
             i = 0
             while i < len(lst):
@@ -153,6 +212,7 @@ class DosPlotWidget(QWidget):
             string_result = ",".join(result) + ","
             return " many atoms!," if len(string_result) > 20 else string_result
 
+        # join list of up and down spin
         orblst = sorted(set(orbital_down + orbital_up))
         atomlst = sorted(set(atom_no_down + atom_no_up), key=lambda x: (
         re.match(r'\D+', x).group(), int(re.match(r'\d+', x[len(re.match(r'\D+', x).group()):]).group())))
@@ -201,6 +261,18 @@ class DosPlotWidget(QWidget):
         return joined_label
 
     def sum_data_to_merge(self, selected_atoms, selected_orbitals):
+        """
+        Sums DOS data for selected atoms and orbitals, preparing for merged plot display.
+
+        Args:
+            selected_atoms:
+                List of Indices of selected atoms.
+            selected_orbitals:
+                List of Indices of selected orbitals.
+
+        Returns:
+            tuple: Merged DOS data for spin-up and spin-down.
+        """
         dataset_up = np.array(self.data.data_up)
         dataset_down = np.array(self.data.data_down)
         dataset_up =  dataset_up[np.ix_(selected_atoms,selected_orbitals,range(self.data.nedos))]
@@ -210,6 +282,21 @@ class DosPlotWidget(QWidget):
         return merged_data_up, merged_data_down
 
     def plot_merged(self, selected_atoms, selected_orbitals, nrg, label, color):
+        """
+        Plots merged DOS data for selected atoms and orbitals in specified color.
+
+        Args:
+            selected_atoms:
+                List of atom indices for merging.
+            selected_orbitals:
+                List of orbital indices for merging.
+            nrg:
+                Array of energy values for DOS.
+            label:
+                Label for the legend.
+            color:
+                Color for the merged plot line.
+        """
         merged_data_up, merged_data_down = self.sum_data_to_merge(selected_atoms,
                                                                               selected_orbitals)
 
@@ -230,18 +317,32 @@ class DosPlotWidget(QWidget):
         if self.legend == []:
             self.legend = pg.LegendItem((80,60), offset=(-20,-50))
             self.legend.setParentItem(self.bounded_plot.getPlotItem())
-        #self.legend.clear()
-        #for index, item in enumerate(self.bounded_plot.listDataItems()):
-        #    if index % 2 == 0:
-        #       self.legend.addItem(item, label)
         self.legend.addItem(self.bounded_plot.listDataItems()[-1], label)
 
     def show_all_saved_plots(self, saved_plots, nrg):
+        """
+        Displays all saved DOS plots in a separate window.
+
+        Args:
+            saved_plots:
+                List of saved plots to display.
+            nrg:
+                Array of energy values for DOS.
+        """
         self.saved_plots_window = MergedPlotWindow(saved_plots, nrg)
         self.saved_plots_window.show()
 
 
 class MergedPlotWindow(QWidget):
+    """
+    A window to display saved DOS plots in separate widgets.
+
+    Attributes:
+        saved_plots:
+            List of saved plots to be displayed.
+        nrg:
+            Energy values associated with DOS data.
+    """
     def __init__(self, saved_plots, nrg):
         super().__init__()
 
@@ -264,6 +365,10 @@ class MergedPlotWindow(QWidget):
             layout.addWidget(picked_plot)
 
 class MergedPlotDataItem(PlotDataItem):
+    """
+    A Class for plots which data is merged.
+    Used to check instances and clear only merged plots
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
