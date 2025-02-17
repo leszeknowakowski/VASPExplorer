@@ -1,12 +1,12 @@
 import time
 tic = time.perf_counter()
-from PyQt5.QtGui import QCloseEvent,QDropEvent
+from PyQt5.QtGui import QCloseEvent, QDropEvent, QIcon
 from structure_plot import StructureViewer
 from structure_controls import StructureControlsWidget
 import sys, platform, os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
-    QDialog, QDialogButtonBox
+    QDialog, QDialogButtonBox, QSlider
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from collections import OrderedDict
 import numpy as np
@@ -237,6 +237,7 @@ class StructureVariableControls(QWidget):
         self.layout.addWidget(self.tableWidget)
 
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
+        self.movement_slider_value = 50
 
 
 
@@ -538,6 +539,8 @@ class StructureVariableControls(QWidget):
 
         # Get the view up direction
         view_up = np.array(camera.GetViewUp())
+        view_angle = camera.GetParallelScale()
+        print(view_angle)
 
         # Calculate the right direction (left-to-right on the screen)
         right_direction = np.cross(view_direction, view_up)
@@ -545,7 +548,8 @@ class StructureVariableControls(QWidget):
 
         # Calculate the distance to move (1% of the interactor width)
         interactor_size = self.structure_control_widget.plotter.interactor.GetSize()
-        move_distance = 0.001 * interactor_size[0]  # 1% of the interactor width
+        #move_distance = 0.01 * self.movement_slider_value
+        move_distance = 0.1 * view_angle
 
         # Determine translation vector based on the direction
         if direction == 'right':
@@ -698,6 +702,16 @@ class StructureVariableControls(QWidget):
         self.atom_choose_window = ConstraintsWindow(self)
         self.atom_choose_window.show()
 
+    def set_movement_sensibility(self, value):
+        self.movement_slider_value = value
+
+    def move_atoms_widget(self):
+        self.move_atoms_qwidget = MoveAtomsWindow()
+        self.move_atoms_qwidget.show()
+        self.move_atoms_qwidget.atom_moved.connect(self.translate_object)
+        self.move_atoms_qwidget.slider_value_changed.connect(self.set_movement_sensibility)
+
+
 class AtomChooseWindow(QWidget):
     sig = pyqtSignal()
 
@@ -786,10 +800,6 @@ class AtomChooseWindow(QWidget):
         self.close()
         self.periodic_table.close()
 
-class MovementRangeWindow(QWidget):
-    movement_range = pyqtSignal()
-    def __init__(self):
-        super().__init__()
 
 class ConstraintsWindow(QWidget):
     sig = pyqtSignal()
@@ -974,3 +984,94 @@ class ConstraintsWindow(QWidget):
         self.atoms.set_constraint()
         self.close()
         print("constrains deleted")
+
+
+class MoveAtomsWindow(QWidget):
+    atom_moved = pyqtSignal(str)
+    slider_value_changed = pyqtSignal(int)  # Emits slider value
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Moving atoms")
+        self.exec_dir = os.path.dirname(os.path.abspath(__file__))
+        self.initUI()
+
+    def initUI(self):
+        self.layout = QVBoxLayout()
+
+        # Layout for movement buttons
+        self.movement_buttons_layout = QVBoxLayout()
+
+        icon_path = os.path.join(self.exec_dir, 'icons')
+
+        # First row (Up)
+        up_button = QPushButton()
+        up_button.setIcon(QIcon(os.path.join(icon_path, "up-arrow.png")))
+        up_button.setToolTip('Move atoms up')
+        up_button.clicked.connect(lambda: self.atom_moved.emit("up"))
+
+        # Second row (Left, Inwards, Right)
+        middle_row = QHBoxLayout()
+        left_button = QPushButton()
+        left_button.setIcon(QIcon(os.path.join(icon_path, "left-arrow.png")))
+        left_button.setToolTip('Move atoms left')
+        left_button.clicked.connect(lambda: self.atom_moved.emit("left"))
+
+        inwards_button = QPushButton()
+        inwards_button.setIcon(QIcon(os.path.join(icon_path, "in-plane.png")))
+        inwards_button.setToolTip('Move atoms inwards')
+        inwards_button.clicked.connect(lambda: self.atom_moved.emit("inwards"))
+
+        right_button = QPushButton()
+        right_button.setIcon(QIcon(os.path.join(icon_path, "right_arrow.png")))
+        right_button.setToolTip('Move atoms right')
+        right_button.clicked.connect(lambda: self.atom_moved.emit("right"))
+
+        middle_row.addWidget(left_button)
+        middle_row.addWidget(inwards_button)
+        middle_row.addWidget(right_button)
+
+        # Third row (Down)
+        down_button = QPushButton()
+        down_button.setIcon(QIcon(os.path.join(icon_path, "down-arrow.png")))
+        down_button.setToolTip('Move atoms down')
+        down_button.clicked.connect(lambda: self.atom_moved.emit("down"))
+
+        # Fourth row (Outwards)
+        outwards_button = QPushButton()
+        outwards_button.setIcon(QIcon(os.path.join(icon_path, "out-of-plane.png")))
+        outwards_button.setToolTip('Move atoms outwards')
+        outwards_button.clicked.connect(lambda: self.atom_moved.emit("outwards"))
+
+        # Assemble layout
+        self.movement_buttons_layout.addWidget(up_button, alignment=Qt.AlignCenter)
+        self.movement_buttons_layout.addLayout(middle_row)
+        self.movement_buttons_layout.addWidget(down_button, alignment=Qt.AlignCenter)
+        self.movement_buttons_layout.addWidget(outwards_button, alignment=Qt.AlignCenter)
+
+        self.layout.addLayout(self.movement_buttons_layout)
+
+        # Slider
+        self.slider_label = QLabel("Movement Speed: 50")
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setRange(1, 100)
+        self.slider.setValue(50)
+        self.slider.setToolTip("Adjust movement sensitivity")
+
+        # Connect slider to update label and emit signal
+        self.slider.valueChanged.connect(self.update_slider_value)
+
+        self.layout.addWidget(self.slider_label)
+        self.layout.addWidget(self.slider)
+
+        self.setLayout(self.layout)
+
+        # Connect signals
+        self.atom_moved.connect(self.handle_button_click)
+
+    def handle_button_click(self, direction):
+        print(f"Button clicked: {direction}")
+
+    def update_slider_value(self, value):
+        self.slider_label.setText(f"Movement Speed: {value}")
+        self.slider_value_changed.emit(value)  # Emit the slider value for other classes

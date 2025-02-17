@@ -23,7 +23,7 @@ if True:  # noqa: E402
     from structure_plot import StructureViewer
     from console_widget import ConsoleWidget
     from structure_controls import StructureControlsWidget
-    from structure_variable_controls import StructureVariableControls
+    from structure_variable_controls import StructureVariableControls, MoveAtomsWindow
     from chgcar_controls import ChgcarVis
     toc = time.perf_counter()
     print(f'import local modules in main: {toc - tic:0.4f}')
@@ -86,6 +86,7 @@ class MainWindow(MainWindow):
         paste_action.setShortcut("Ctrl+V")
 
         modify_constraints_action = QAction("Modify Constraints", self)
+        move_atoms_window = QAction("Move atoms", self)
 
         right_action = QAction(QIcon(os.path.join(icon_path, "right_arrow.png")), "Move atoms to the right", self)
         left_action = QAction(QIcon(os.path.join(icon_path, "left-arrow.png")), "Move atoms to the left", self)
@@ -120,6 +121,7 @@ class MainWindow(MainWindow):
 
         modify_menu = menubar.addMenu('Modify')
         modify_menu.addAction(modify_constraints_action)
+        modify_menu.addAction(move_atoms_window)
 
         splitter = QSplitter()
         main_layout.addWidget(splitter)
@@ -184,6 +186,7 @@ class MainWindow(MainWindow):
         render_bond_distance_action.triggered.connect(self.structure_plot_control_tab.add_bond_length)
 
         modify_constraints_action.triggered.connect(self.structure_variable_control_tab.modify_constraints)
+        move_atoms_window.triggered.connect(self.structure_variable_control_tab.move_atoms_widget)
 
         # self.console_widget = ConsoleWidget()
         # main_layout.addWidget(self.console_widget)
