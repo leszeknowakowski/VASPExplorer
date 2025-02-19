@@ -91,7 +91,7 @@ class StructureControlsWidget(QWidget):
         self.renderFrame = QFrame(self)
         self.renderFrame.setFrameShape(QFrame.Panel)
         self.renderFrame.setFrameShadow(QFrame.Raised)
-        self.renderFrame.setStyleSheet("background-color: #1e1f22; color: #cbcdd2;")
+        #self.renderFrame.setStyleSheet("background-color: #1e1f22; color: #cbcdd2;")
         self.renderFrame.setLineWidth(10)
 
         self.render_frame_layout = QVBoxLayout(self.renderFrame)
@@ -99,7 +99,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_frame = QFrame(self)
         self.geometry_frame.setFrameShape(QFrame.Panel)
         self.geometry_frame.setFrameShadow(QFrame.Raised)
-        self.geometry_frame.setStyleSheet("background-color: #1e1f22;color: #cbcdd2;")
+        #self.geometry_frame.setStyleSheet("background-color: #1e1f22;color: #cbcdd2;")
         self.geometry_frame.setLineWidth(10)
 
         self.geometry_frame_layout = QVBoxLayout(self.geometry_frame)
@@ -107,7 +107,7 @@ class StructureControlsWidget(QWidget):
         self.planes_frame = QFrame(self)
         self.planes_frame.setFrameShape(QFrame.Panel)
         self.planes_frame.setFrameShadow(QFrame.Raised)
-        self.planes_frame.setStyleSheet("background-color: #1e1f22;color: #cbcdd2;")
+        #self.planes_frame.setStyleSheet("background-color: #1e1f22;color: #cbcdd2;")
         self.planes_frame.setLineWidth(10)
 
         self.planes_frame_layout = QVBoxLayout(self.planes_frame)
@@ -115,7 +115,7 @@ class StructureControlsWidget(QWidget):
         self.energy_plot_frame = QFrame(self)
         self.energy_plot_frame.setFrameShape(QFrame.Panel)
         self.energy_plot_frame.setFrameShadow(QFrame.Raised)
-        self.energy_plot_frame.setStyleSheet("background-color: #1e1f22; color: #cbcdd2;")
+        #self.energy_plot_frame.setStyleSheet("background-color: #1e1f22; color: #cbcdd2;")
         self.energy_plot_frame.setLineWidth(10)
         self.energy_plot_frame_layout = QVBoxLayout(self.energy_plot_frame)
 
@@ -299,10 +299,10 @@ class StructureControlsWidget(QWidget):
         self.plane_height_range_slider.setRange(40,80)
         self.plane_height_range_slider.setMin(0)
         self.plane_height_range_slider.setMax(100)
-        self.plane_height_range_slider.setBackgroundStyle(
-            'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
-        self.plane_height_range_slider.handle.setStyleSheet(
-            'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #858583, stop:1 #cbcbc9);')
+        #self.plane_height_range_slider.setBackgroundStyle(
+            #'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
+        #self.plane_height_range_slider.handle.setStyleSheet(
+           # 'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #858583, stop:1 #cbcbc9);')
         self.plane_height_range_slider.handle.setTextColor((218,224,218))
 
         self.plane_height_range_slider.startValueChanged.connect(self.toggle_mag_above_plane)

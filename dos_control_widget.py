@@ -43,7 +43,7 @@ class DosControlWidget(QWidget):
 
         # checkboxes
         self.checkboxes_widget = QWidget()
-        self.checkboxes_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
+        #self.checkboxes_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
         self.checkboxes_layout = QVBoxLayout(self.checkboxes_widget)
         self.checkboxes_layout.setAlignment(QtCore.Qt.AlignTop)
 
@@ -68,7 +68,7 @@ class DosControlWidget(QWidget):
 
         # scroll area for orbitals
         self.scroll_right_widget = QWidget()
-        self.scroll_right_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
+        #self.scroll_right_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
         self.scroll_right_layout = QVBoxLayout(self.scroll_right_widget)
         self.scroll_right_layout.setAlignment(QtCore.Qt.AlignTop)
         self.scroll_area_right = QScrollArea()
@@ -95,7 +95,7 @@ class DosControlWidget(QWidget):
         btn_atoms_layout = QHBoxLayout()
         all_btn_layout.addLayout(btn_orb_layout)
         all_btn_layout.addLayout(btn_atoms_layout)
-        layout.addLayout(all_btn_layout)
+        #layout.addLayout(all_btn_layout) ##careful! it might crash something
 
         # Select orbitals buttons
         select_layout = QVBoxLayout()

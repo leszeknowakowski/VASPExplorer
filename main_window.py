@@ -1,5 +1,5 @@
 import time
-
+import pdb
 if True:  # noqa: E402
     import sys
 
@@ -205,7 +205,7 @@ class MainWindow(MainWindow):
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
-                dir = "D:\\test_fir_doswizard\\4.strange_atom_definition"
+                dir = ".\\"
             #print("can't resolve operating system")
         return dir
 

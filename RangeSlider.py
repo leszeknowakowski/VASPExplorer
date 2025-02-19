@@ -77,7 +77,7 @@ class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("QRangeSlider")
         Form.resize(300, 30)
-        Form.setStyleSheet(DEFAULT_CSS)
+        #Form.setStyleSheet(DEFAULT_CSS)
         self.gridLayout = QtWidgets.QGridLayout(Form)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setSpacing(0)
