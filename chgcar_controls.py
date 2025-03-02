@@ -1,7 +1,7 @@
 import time
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, QFileDialog, QPushButton, QHBoxLayout, QSlider, \
-    QLineEdit
+    QLineEdit, QMainWindow
 from PyQt5 import QtCore
 import pyvista as pv
 from pyvistaqt import QtInteractor
@@ -39,12 +39,13 @@ class ChgcarVis(QWidget):
         structure control widget from main window
 
     """
-    def __init__(self, structure_control_widget):
+    def __init__(self, plotter):
         """ Initialize """
         super().__init__()
-        self.structure_control_widget = structure_control_widget
+        self.chg_plotter = plotter
         self.contour_type = 'total'
         self.charge_data = None
+        self.chg_button_counter = 0
 
         self.initUI()
 
@@ -53,7 +54,7 @@ class ChgcarVis(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(QtCore.Qt.AlignTop)
         # this is the same plotter as plotter from StructureControlWidget
-        self.chg_plotter = self.structure_control_widget.plotter
+        #self.chg_plotter = self.structure_control_widget.plotter
 
         # create buttons
         self.chg_file_button = QPushButton('open CHGCAR')
@@ -141,7 +142,13 @@ class ChgcarVis(QWidget):
         # timer
         tic = time.perf_counter()
         chopping_factor = 1
-        self.charge_data = chp.PoscarParser(os.path.join(self.chg_file_path, "CHGCAR"), chopping_factor)
+        if os.path.exists(os.path.join(self.chg_file_path, "CHGCAR")):
+            self.charge_data = chp.PoscarParser(os.path.join(self.chg_file_path, "CHGCAR"), chopping_factor)
+        elif os.path.exists(self.chg_file_path):
+            try:
+                self.charge_data = chp.PoscarParser(self.chg_file_path, chopping_factor)
+            except:
+                print("ooopsie! cannot read data")
 
         # add contours
         self.add_contours()
@@ -192,6 +199,7 @@ class ChgcarVis(QWidget):
 
             max_val = np.max(volumetric_data)
             min_val = np.min(volumetric_data)
+            largest_value = np.max([np.abs(max_val), np.abs(min_val)])
 
             # create point grid
             pvgrid = pv.ImageData()
@@ -202,7 +210,9 @@ class ChgcarVis(QWidget):
 
             # create contours. If spin, create two - for positive and negative values
             if self.contour_type == "spin":
-                contours = pvgrid.contour([self.eps * max_val, self.eps * min_val])
+                #contours_up = pvgrid.contour(isosurfaces=[self.eps * largest_value])
+                #contours_down = pvgrid.contour(isosurfaces=[- self.eps * largest_value])
+                contours = pvgrid.contour(isosurfaces=[-self.eps*largest_value, self.eps*largest_value],)
             else:
                 contours = pvgrid.contour([self.eps * max_val])
 
@@ -212,18 +222,20 @@ class ChgcarVis(QWidget):
             lightblue = np.array([0 / 256, 255 / 256, 254 / 256, 1.0])
             yellow = np.array([255 / 256, 255 / 256, 0 / 256, 1.0])
             black = np.array([0 / 256, 0 / 256, 0 / 256, 1.0])
-            mapping = np.linspace(self.eps * min_val, self.eps * max_val, 256)
-            newcolors = np.empty((256, 4))
+            mapping = np.linspace( min_val,  max_val, 2)
+            newcolors = np.empty((2, 4))
             newcolors[mapping >= 0] = yellow
             newcolors[mapping < 0] = lightblue
             my_colormap = ListedColormap(newcolors)
-
+            colors.cmap = my_colormap
             # add contours to a plotter
             try:
-                self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=my_colormap)
+                if self.contour_type == "spin":
+
+                    self.contours_actor = self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=colors) #cmap=my_colormap)
             except ValueError:
                 print("contour is empty - there is too large/small epsilon or - if You want to plot spin density - structure is non-magnetic")
-
+        print("done")
     def clear_contours(self):
         """ removes the contours from plotter by adding zero volume contour
         TODO: maybe it is possible to jsut delete actors?
@@ -239,18 +251,22 @@ class ChgcarVis(QWidget):
         print('cleared')
 
     def show_chg_dialog(self):
-        """functon to create window with charge density file choose. Right now it is just importin CHGCAR
-        TODO: let user which file to choose
+        """functon to create window with charge density file choose.
+        When button is clicked first, it will load CHGCAR from chg_file_path, if it exists.
+        When clicked again (or is there is no CHGCAR), it will open file dialog
         """
 
-        if self.chg_file_path:
+        if os.path.exists(os.path.join(self.chg_file_path, "CHGCAR*")) and self.chg_button_counter == 0:
             self.create_chgcar_data()
+            self.chg_button_counter += 1
         else:
+            self.chg_button_counter += 1
             self.w = DialogWIndow()
             self.w.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             self.w.show()
 
             file_dialog = QFileDialog()
+            file_dialog.setDirectory(self.chg_file_path)
             file_path, _ = file_dialog.getOpenFileName(self, "choose charge density file")
             self.chg_file_path = file_path
 
@@ -263,11 +279,22 @@ class ChgcarVis(QWidget):
 
 if __name__ == "__main__":
     """ just for building """
+    from pyvistaqt import QtInteractor
     app = QApplication(sys.argv)
-    main_window = ChgcarVis("a")
-    main_window.chg_file_path = "D:\\OneDrive - Uniwersytet Jagielloński\\Studia\\python\\vasp_geo\\scripts_from_Krypton"
-    main_window.setWindowTitle("Main Window")
-    main_window.create_chgcar_data()
-    main_window.resize(1000, 850)
-    main_window.show()
+    plotter = QtInteractor()
+    win = QMainWindow()
+    chg_widget = ChgcarVis(plotter)
+
+    central_widget = QWidget()
+    win.setCentralWidget(central_widget)
+    main_layout = QVBoxLayout(central_widget)
+
+    main_layout.addWidget(chg_widget)
+    main_layout.addWidget(plotter)
+
+    chg_widget.chg_file_path = "D:\\syncme-from-c120\\test_for_doswizard\\9.CHGCAR\\1.spinel_spinupdown"
+    chg_widget.setWindowTitle("Main Window")
+    #chg_widget.create_chgcar_data()
+    win.resize(1000, 850)
+    win.show()
     sys.exit(app.exec_())

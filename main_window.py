@@ -164,8 +164,9 @@ class MainWindow(MainWindow):
         structure_tabs.setCurrentIndex(1)
 
         # tab for controlling the charge density plots
-        self.chgcar_control_widget = ChgcarVis(self.structure_plot_control_tab)
+        self.chgcar_control_widget = ChgcarVis(self.structure_plot_control_tab.plotter)
         self.chgcar_control_widget.chg_file_path = self.dir
+        #self.chgcar_control_widget.chg_file_path = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Vacancy\\CeO2_100_CeO4-t\\CeO2_100_CeO4-t_asymmetric\\2VOa"
         structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
 
         splitter.addWidget(right_tab_widget)
@@ -205,7 +206,8 @@ class MainWindow(MainWindow):
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
-                dir = ".\\"
+                #dir = ".\\"
+                dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\CeO2\\ceria_nanocluster\\larger_513\\larger_513 CASTEP Energy"
             #print("can't resolve operating system")
         return dir
 
