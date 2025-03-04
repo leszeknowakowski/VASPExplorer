@@ -29,6 +29,7 @@ def timer_decorator(func):
         return result  # Return the original function's result
     return wrapper
 
+
 class TableWidgetDragRows(QTableWidget):
     def __init__(self, structureControlWidget):
         super().__init__(structureControlWidget)
@@ -37,16 +38,24 @@ class TableWidgetDragRows(QTableWidget):
         self.control = self.structure_control_widget.structure_control_widget
         self.plot = self.control.structure_plot_widget
 
+        self.disable_dragdrop()
+
+    def enable_dragdrop(self):
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.viewport().setAcceptDrops(True)
         self.setDragDropOverwriteMode(False)
         self.setDropIndicatorShown(True)
-
-        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setDragDropMode(QAbstractItemView.InternalMove)
-        
+
+    def disable_dragdrop(self):
+        self.setDragEnabled(False)
+        self.setAcceptDrops(False)
+        self.viewport().setAcceptDrops(False)
+        self.setDragDropOverwriteMode(False)
+        self.setDropIndicatorShown(False)
+        self.setDragDropMode(QAbstractItemView.NoDragDrop)
+
     def dropEvent(self, event: QDropEvent):
         self.blockSignals(True)
         if not event.isAccepted() and event.source() == self:
