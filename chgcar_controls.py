@@ -123,9 +123,7 @@ class ChgcarVis(QWidget):
         # timer
         tic = time.perf_counter()
         chopping_factor = 1
-        if os.path.exists(os.path.join(self.chg_file_path, "CHGCAR")):
-            self.charge_data = chp.PoscarParser(os.path.join(self.chg_file_path, "CHGCAR"), chopping_factor)
-        elif os.path.exists(self.chg_file_path):
+        if os.path.exists(self.chg_file_path):
             try:
                 self.charge_data = chp.PoscarParser(self.chg_file_path, chopping_factor)
             except:
@@ -203,7 +201,6 @@ class ChgcarVis(QWidget):
             self.contours_actor = self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=colors) #cmap=my_colormap)
         except ValueError:
             print("Empty contour - check epsilon or - if You want to plot spin density - structure is non-magnetic")
-        print("done")
 
     def clear_contours(self):
         """ removes the contours from plotter """
@@ -219,7 +216,8 @@ class ChgcarVis(QWidget):
         When clicked again (or is there is no CHGCAR), it will open file dialog
         """
 
-        if os.path.exists(os.path.join(self.chg_file_path, "CHGCAR*")) and self.chg_button_counter == 0:
+
+        if os.path.exists(self.chg_file_path) and self.chg_button_counter == 0:
             self.create_chgcar_data()
             self.chg_button_counter += 1
         else:
@@ -255,7 +253,7 @@ if __name__ == "__main__":
     main_layout.addWidget(chg_widget)
     main_layout.addWidget(plotter)
 
-    chg_widget.chg_file_path = "D:\\syncme-from-c120\\test_for_doswizard\\9.CHGCAR\\1.spinel_spinupdown"
+    chg_widget.chg_file_path = "D:\\syncme-from-c120\\test_for_doswizard\\9.CHGCAR\\1.spinel_spinupdown\\CHGCAR"
     chg_widget.setWindowTitle("Main Window")
     #chg_widget.create_chgcar_data()
     win.resize(1000, 850)

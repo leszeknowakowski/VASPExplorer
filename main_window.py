@@ -165,7 +165,7 @@ class MainWindow(MainWindow):
 
         # tab for controlling the charge density plots
         self.chgcar_control_widget = ChgcarVis(self.structure_plot_control_tab.plotter)
-        self.chgcar_control_widget.chg_file_path = self.dir
+        self.chgcar_control_widget.chg_file_path = os.path.join(self.dir, "CHGCAR")
         #self.chgcar_control_widget.chg_file_path = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Vacancy\\CeO2_100_CeO4-t\\CeO2_100_CeO4-t_asymmetric\\2VOa"
         structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
 
