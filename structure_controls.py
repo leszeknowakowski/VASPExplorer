@@ -317,6 +317,7 @@ class StructureControlsWidget(QWidget):
 
         self.add_plane(self.plane_height_range_slider.getRange()[0])
         self.add_plane_higher(self.plane_height_range_slider.getRange()[1])
+        self.structure_plot_widget.plane_actor_heigher.GetProperty().SetOpacity(0)
 
         planes_layout = QtWidgets.QHBoxLayout()
         planes_layout.addWidget(top_plane_cb)
@@ -486,6 +487,7 @@ class StructureControlsWidget(QWidget):
         #  self.plane_actor_heigher.GetProperty().SetOpacity()
 
         self.structure_plot_widget.plotter.renderer.AddActor(self.structure_plot_widget.plane_actor_heigher)
+
 
     def all_planes_position(self):
         val = self.plane_height_range_slider.getRange()
