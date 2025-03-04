@@ -281,7 +281,7 @@ class StructureControlsWidget(QWidget):
     def planes_layout(self):
         """widgets to control cutoff planes posistion and color"""
         top_plane_cb = QtWidgets.QCheckBox()
-        top_plane_cb.setChecked(True)
+        top_plane_cb.setChecked(False)
         top_plane_cb.setText('top plane')
 
         top_plane_cb.stateChanged.connect(self.toggle_plane_heigher)
