@@ -59,9 +59,9 @@ class StructureViewer(QWidget):
 
         self.initUI()
 
-        self.plotter.add_key_event('z', self.camera_z)
-        self.plotter.add_key_event('x', self.camera_x)
-        self.plotter.add_key_event('y', self.camera_y)
+        self.plotter.add_key_event('z', lambda: self.turn_camera("z"))
+        self.plotter.add_key_event('x', lambda: self.turn_camera("x"))
+        self.plotter.add_key_event('y', lambda: self.turn_camera("y"))
 
 
     def initUI(self):
@@ -170,18 +170,28 @@ class StructureViewer(QWidget):
 
         # Make the edges thicker
         actor.GetProperty().SetLineWidth(1.0)
-
         return actor
 
-    def camera_z(self):
-        self.plotter.view_xy()
+    def turn_camera(self, direction):
+        position, scale = self.get_camera_params()
+        if direction == "x":
+            self.plotter.view_yz()
+        elif direction == "y":
+            self.plotter.view_xz()
+        elif direction == "z":
+            self.plotter.view_xy()
+        self.plotter.camera.parallel_scale = scale
 
-    def camera_x(self):
-        self.plotter.view_yz()
+    def get_camera_params(self):
+        position = self.plotter.camera_position
+        scale = self.plotter.camera.parallel_scale
+        return position, scale
 
-    def camera_y(self):
-        self.plotter.view_xz()
+    def set_camera_params(self, position, scale):
+        self.plotter.camera_position = position
+        self.plotter.camera.parallel_scale = scale
 
     def closeEvent(self, QCloseEvent):
         super().closeEvent(QCloseEvent)
         self.plotter.Finalize()
+

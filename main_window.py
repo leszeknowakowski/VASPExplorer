@@ -1,40 +1,48 @@
 import time
 import pdb
-if True:  # noqa: E402
-    import sys
+import sys
+import platform
+import os
 
-    tic = time.perf_counter()
-    from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
-    QToolBar, QMenuBar, QAction
-    from PyQt5.QtGui import QCloseEvent, QIcon
-    from PyQt5 import QtCore
-    toc = time.perf_counter()
-    print(f'import PyQt5.QtWidgets in main: {toc - tic:0.4f}')
+tic = time.perf_counter()
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
+QToolBar, QMenuBar, QAction,QTabBar
+from PyQt5.QtGui import QCloseEvent, QIcon,QMouseEvent
+from PyQt5.QtCore import Qt
+toc = time.perf_counter()
+print(f'import PyQt5 in main: {toc - tic:0.4f}')
 
-    tic = time.perf_counter()
-    import pyqtgraph as pg
-    toc = time.perf_counter()
-    print(f'import pyqtgraph in main: {toc - tic:0.4f}')
+tic = time.perf_counter()
+import pyqtgraph as pg
+from pyvistaqt import QtInteractor, MainWindow
+from functools import partial
+toc = time.perf_counter()
+print(f'import pyvista and pyqtgraph in main: {toc - tic:0.4f}')
 
-    tic = time.perf_counter()
-    from vasp_data import VaspData
-    from dos_plot_widget import DosPlotWidget
-    from dos_control_widget import DosControlWidget
-    from structure_plot import StructureViewer
-    from console_widget import ConsoleWidget
-    from structure_controls import StructureControlsWidget
-    from structure_variable_controls import StructureVariableControls, MoveAtomsWindow
-    from chgcar_controls import ChgcarVis
-    toc = time.perf_counter()
-    print(f'import local modules in main: {toc - tic:0.4f}')
+tic = time.perf_counter()
+from vasp_data import VaspData
+from dos_plot_widget import DosPlotWidget
+from dos_control_widget import DosControlWidget
+from structure_plot import StructureViewer
+from console_widget import ConsoleWidget
+from structure_controls import StructureControlsWidget
+from structure_variable_controls import StructureVariableControls, MoveAtomsWindow
+from chgcar_controls import ChgcarVis
+from draggable_tab import DraggableTabBar, DraggableTabWidget, FloatingWindow
+toc = time.perf_counter()
+print(f'import local modules in main: {toc - tic:0.4f}')
 
-    import platform
-    import os
-    from pyvistaqt import QtInteractor, MainWindow
-    from functools import partial
 pg.setConfigOptions(antialias=True)
 
 STYLE_SHEET = []
+
+
+
+
+class QFloatingSplitter(QSplitter):
+    def __init__(self):
+        super().__init__()
+        self.floating_windows = []
 
 class MainWindow(MainWindow):
     """
@@ -123,11 +131,11 @@ class MainWindow(MainWindow):
         modify_menu.addAction(modify_constraints_action)
         modify_menu.addAction(move_atoms_window)
 
-        splitter = QSplitter()
+        splitter = QFloatingSplitter()
         main_layout.addWidget(splitter)
 
         # Left tabs for plots
-        left_tab_widget = QTabWidget()
+        left_tab_widget = DraggableTabWidget()
 
         # widget for Density of States plot
         self.dos_plot_widget = DosPlotWidget(self.data)
