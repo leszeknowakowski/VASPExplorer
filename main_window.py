@@ -3,6 +3,8 @@ import pdb
 import sys
 import platform
 import os
+import faulthandler
+import signal
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
@@ -226,6 +228,7 @@ class MainWindow(MainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    faulthandler.register(signal.SIGUSR1)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
