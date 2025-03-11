@@ -29,6 +29,7 @@ from structure_controls import StructureControlsWidget
 from structure_variable_controls import StructureVariableControls, MoveAtomsWindow
 from chgcar_controls import ChgcarVis
 from draggable_tab import DraggableTabBar, DraggableTabWidget, FloatingWindow
+from deatachedtabs import DetachableTabWidget
 toc = time.perf_counter()
 print(f'import local modules in main: {toc - tic:0.4f}')
 
@@ -135,7 +136,7 @@ class MainWindow(MainWindow):
         main_layout.addWidget(splitter)
 
         # Left tabs for plots
-        left_tab_widget = DraggableTabWidget()
+        left_tab_widget = DetachableTabWidget()
 
         # widget for Density of States plot
         self.dos_plot_widget = DosPlotWidget(self.data)
@@ -215,7 +216,7 @@ class MainWindow(MainWindow):
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
                 #dir = ".\\"
-                dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\CeO2\\ceria_nanocluster\\larger_513\\larger_513 CASTEP Energy"
+                dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             #print("can't resolve operating system")
         return dir
 

@@ -2,6 +2,7 @@ from vasp_data import VaspData
 import os
 import sys
 import json
+from dataclasses import dataclass
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QHBoxLayout,
                              QSlider, QSplitter, QTableWidget, QTableWidgetItem, QHeaderView,
                              QPushButton)
@@ -14,8 +15,13 @@ import pyqtgraph as pg
 from vtkmodules.vtkCommonColor import vtkNamedColors
 from vtkmodules.vtkFiltersSources import vtkSphereSource,  vtkLineSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
-from vtkmodules.vtkInteractionWidgets import vtkCameraOrientationWidget
+from vtkmodules.vtkInteractionWidgets import vtkCameraOrientationWidget, vtkOrientationMarkerWidget
 from vtkmodules.vtkRenderingCore import vtkActor,  vtkRenderer, vtkPolyDataMapper
+from vtkmodules.vtkCommonCore import vtkPoints
+from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData, vtkPolyLine
+from vtkmodules.vtkFiltersCore import vtkAppendPolyData
+from vtkmodules.vtkRenderingCore import vtkActor2D, vtkPolyDataMapper2D, vtkRenderer
+from vtkmodules.vtkRenderingCore import vtkCoordinate
 import platform
 from vtk import vtkCamera
 import QVTKRenderWindowInteractor as QVTK
@@ -79,8 +85,8 @@ class NebWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            #dir = "F:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
-            dir = "D:\\test_fir_doswizard\\1.NEBS\\4.from_zasada\\4.Peroxy_desorption\\2.TS_search"
+            dir = "D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+            #dir = "D:\\test_fir_doswizard\\1.NEBS\\4.from_zasada\\4.Peroxy_desorption\\2.TS_search" # TODO: change when released
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
@@ -90,6 +96,83 @@ class NebWindow(QMainWindow):
         self.atom_colors = [self.color_data[self.neb.data.symbols[i]] for i in range(len(self.neb.data.atoms_symb_and_num))]
 
         self.init_UI()
+
+    def viewport_border(self, renderer, sides, border_color, border_width):
+        """
+        Set a border around a viewport.
+
+        :param renderer: The renderer corresponding to the viewport.
+        :param sides: An array of boolean corresponding to [top, left, bottom, right]
+        :param border_color: The color of the border.
+        :param border_width: The width of the border.
+        :return:
+        """
+        colors = vtkNamedColors()
+
+        # Points start at upper right and proceed anti-clockwise.
+        points = vtkPoints()
+        points.SetNumberOfPoints(4)
+        points.InsertPoint(0, 1, 1, 0)
+        points.InsertPoint(1, 0, 1, 0)
+        points.InsertPoint(2, 0, 0, 0)
+        points.InsertPoint(3, 1, 0, 0)
+
+        cells = vtkCellArray()
+        cells.Initialize()
+
+        if sides[0]:
+            # Top
+            top = vtkPolyLine()
+            top.GetPointIds().SetNumberOfIds(2)
+            top.GetPointIds().SetId(0, 0)
+            top.GetPointIds().SetId(1, 1)
+            cells.InsertNextCell(top)
+        if sides[1]:
+            # Left
+            left = vtkPolyLine()
+            left.GetPointIds().SetNumberOfIds(2)
+            left.GetPointIds().SetId(0, 1)
+            left.GetPointIds().SetId(1, 2)
+            cells.InsertNextCell(left)
+        if sides[2]:
+            # Bottom
+            bottom = vtkPolyLine()
+            bottom.GetPointIds().SetNumberOfIds(2)
+            bottom.GetPointIds().SetId(0, 2)
+            bottom.GetPointIds().SetId(1, 3)
+            cells.InsertNextCell(bottom)
+        if sides[3]:
+            # Right
+            right = vtkPolyLine()
+            right.GetPointIds().SetNumberOfIds(2)
+            right.GetPointIds().SetId(0, 3)
+            right.GetPointIds().SetId(1, 0)
+            cells.InsertNextCell(right)
+
+        # Now make the polydata and display it.
+        poly = vtkPolyData()
+        poly.Initialize()
+        poly.SetPoints(points)
+        poly.SetLines(cells)
+
+        # Use normalized viewport coordinates since
+        # they are independent of window size.
+        coordinate = vtkCoordinate()
+        coordinate.SetCoordinateSystemToNormalizedViewport()
+
+        mapper = vtkPolyDataMapper2D()
+        mapper.SetInputData(poly)
+        mapper.SetTransformCoordinate(coordinate)
+
+        actor = vtkActor2D()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(colors.GetColor3d(border_color))
+
+        # Line width should be at least 2 to be visible at extremes.
+        actor.GetProperty().SetLineWidth(border_width)
+
+        renderer.AddViewProp(actor)
+
 
     def init_UI(self):
         # Main widget
@@ -171,17 +254,19 @@ class NebWindow(QMainWindow):
             self.camera.SetParallelProjection(1)
             self.camera.SetParallelScale(14)
 
-
             ren.SetActiveCamera(self.camera)
             ren.ResetCamera()
 
             self.widget.GetRenderWindow().AddRenderer(ren)
 
-            orientation_widget = vtkCameraOrientationWidget()
-            orientation_widget.SetParentRenderer(ren)
-            orientation_widget.SetAnimate(True)
-            orientation_widget.SetAnimatorTotalFrames(20)
-            orientation_widget.On()
+            border_color = 'Black'
+            border_width = 5.0
+            if i==0:
+                left_border = True
+            else:
+                left_border = False
+            borders = [True, left_border, True, True]
+            self.viewport_border(ren, borders, border_color, border_width)
 
             self.plotters.append(ren)
 
@@ -189,8 +274,8 @@ class NebWindow(QMainWindow):
         self.widget.GetRenderWindow().GetInteractor().AddObserver("LeftButtonPressEvent", self.on_left_click)
 
         self.widget.Initialize()
-        self.widget.Start()
         self.widget.GetRenderWindow().Render()
+        self.widget.Start()
 
     def on_left_click(self, obj, event):
         # Get the position of the mouse click
@@ -221,11 +306,13 @@ class NebWindow(QMainWindow):
         self.mag_table_widget.setColumnCount(columns_count)
         for i in range(columns_count):
             self.mag_table_widget.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
-        rows = ['Co18', 'Co25', 'O71', 'O72', 'Co18-O71', 'Co25-O72', 'O71-O72']
+        rows = ['mag:' ,'Co18', 'Co25', 'O71', 'O72', 'Co18-O71', 'Co25-O72', 'O71-O72']
+
         for column in range(0, columns_count, 2):
             for row, item in enumerate(rows):
                 self.mag_table_widget.setItem(row, column, QTableWidgetItem(item))
         mags = []
+        total_mag = []
 
         #indices of atoms to add information to table, further to imporove with user input or DOSwizard input
         self.indices = (17,24,70,71)
@@ -236,9 +323,12 @@ class NebWindow(QMainWindow):
             self.indices = tuple(int(x) for x in input_indices.split(','))
             mags = []
         mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
+        total_mag.append(sum(self.neb.start_stop_magnetizations[0]))
         for i in range(int(columns_count/2 -2)):
             mags.append([self.neb.neb_magnetizations[i][0][j] for j in self.indices])
+            total_mag.append(sum(self.neb.neb_magnetizations[i][0]))
         mags.append([self.neb.start_stop_magnetizations[1][i] for i in self.indices])
+        total_mag.append(sum(self.neb.start_stop_magnetizations[1]))
 
         bond_lengths = self.update_bond_lengths()
         start_stop_bond_length = self.get_start_stop_bond_length()
@@ -251,12 +341,13 @@ class NebWindow(QMainWindow):
 
         for column in range(1, columns_count, 2):
             col = int((column-1)/2)
+            self.mag_table_widget.setItem(0, column, QTableWidgetItem(str(total_mag[col])))
             for row in [0,1,2,3]:
                 text = str(mags[col][row])
-                self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
+                self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
             for row in [4,5,6]:
                 text = f"{bonds[col][row-4]:.2f}"
-                self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
+                self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
 
         self.mag_table_widget.resizeRowsToContents()
         self.mag_table_widget.resizeColumnsToContents()
@@ -265,19 +356,24 @@ class NebWindow(QMainWindow):
     def update_table(self):
         columns_count = 2 * len(self.neb.neb_dirs)
         mags = []
+        total_mag = []
         # indices of atoms to choose magnetization from (num of atom - 1 )
         #self.indices = (17, 24, 70, 71)
 
         # append start magnetization
         mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
+        total_mag.append(sum(self.neb.start_stop_magnetizations[0]))
+
         val = self.geo_slider.value()
 
         # append middle magnetizations
         for i in range(int(columns_count / 2 - 2)):
             mags.append([self.neb.neb_magnetizations[i][val][j] for j in self.indices])
+            total_mag.append(sum(self.neb.neb_magnetizations[i][val]))
 
         # append stop magnetization
         mags.append([self.neb.start_stop_magnetizations[1][i] for i in self.indices])
+        total_mag.append(sum(self.neb.start_stop_magnetizations[1]))
 
         bond_lengths = self.update_bond_lengths()
         start_stop_bond_length = self.get_start_stop_bond_length()
@@ -289,13 +385,14 @@ class NebWindow(QMainWindow):
         bonds.append(start_stop_bond_length[1])
 
         for column in range(1, columns_count, 2):
-            col = int((column - 1) / 2)
-            for row in [0, 1, 2, 3]:
+            col = int((column-1)/2)
+            self.mag_table_widget.setItem(0, column, QTableWidgetItem(str(f"{total_mag[col]:.2f}")))
+            for row in [0,1,2,3]:
                 text = str(mags[col][row])
-                self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
-            for row in [4, 5, 6]:
-                text = f"{bonds[col][row - 4]:.2f}"
-                self.mag_table_widget.setItem(row, column, QTableWidgetItem(text))
+                self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
+            for row in [4,5,6]:
+                text = f"{bonds[col][row-4]:.2f}"
+                self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
 
 
     def add_label_and_button(self):
@@ -556,6 +653,8 @@ class NebWindow(QMainWindow):
 if __name__ == "__main__":
     dir = ("D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1"
            ".2ominus_o2ads\\2.second")
+
+    dir = "D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
     #neb = ReadNebData(dir)
     app = QApplication(sys.argv)
     #app.setStyleSheet(STYLE_SHEET)
