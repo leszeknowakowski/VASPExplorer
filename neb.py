@@ -306,7 +306,7 @@ class NebWindow(QMainWindow):
         self.mag_table_widget.setColumnCount(columns_count)
         for i in range(columns_count):
             self.mag_table_widget.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
-        rows = ['mag:' ,'Co18', 'Co25', 'O71', 'O72', 'Co18-O71', 'Co25-O72', 'O71-O72']
+        rows = ['mag:' ,'Co18', 'O70', 'O71', 'O72', 'Co18-O71', 'Co25-O72', 'O71-O72']
 
         for column in range(0, columns_count, 2):
             for row, item in enumerate(rows):
@@ -315,7 +315,7 @@ class NebWindow(QMainWindow):
         total_mag = []
 
         #indices of atoms to add information to table, further to imporove with user input or DOSwizard input
-        self.indices = (17,24,70,71)
+        self.indices = (17,69,70,71)
         try:
             mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
         except IndexError:

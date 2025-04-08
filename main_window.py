@@ -215,10 +215,10 @@ class MainWindow(MainWindow):
             else:
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
                 #dir = ".\\"
-                dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
+                #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             #print("can't resolve operating system")
         return dir
 
@@ -228,7 +228,7 @@ class MainWindow(MainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    faulthandler.register(signal.SIGUSR1)
+#    faulthandler.register(signal.SIGUSR1)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

@@ -33,6 +33,7 @@ class VaspData():
             self.outcar_coordinates = self.outcar_data.find_coordinates()
             self.outcar_energies = self.outcar_data.find_energy()
             self.magmoms = self.outcar_data.magmoms
+            self.scf_energies = self.outcar_data.find_scf_energies()
 
     def parse_poscar(self, dir):
         if not os.path.exists(os.path.join(dir, 'CONTCAR')) and not os.path.exists(os.path.join(dir, 'POSCAR')):

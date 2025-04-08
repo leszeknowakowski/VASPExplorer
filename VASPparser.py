@@ -11,6 +11,9 @@ class OutcarParser:
         self.energies = []
         self.positions = []
         self.magnetizations = []
+        self.scf_energies = []
+        self.section_scf_energies = []
+        self.geo_step = None
         if os.path.exists(os.path.join(dir, 'POSCAR')):
             poscar = 'POSCAR'
         else:
@@ -31,6 +34,28 @@ class OutcarParser:
                 lines = file.readlines()
                 binary = True
                 text = False
+        if text:
+            position = "POSITION"
+            free_energy = 'FREE ENERGIE'
+            ml_free_energy = 'ML FREE ENERGIE'
+            magnetization = 'magnetization (x)'
+            voluntary = 'Voluntary context switches:'
+            position_of_ions = 'position of ions in cartesian'
+            magmom = 'MAGMOM'
+            ml = '(ML)'
+            iteration = "Iteration"
+            electronic_energy = "free energy    TOTEN"
+        if binary:
+            position = b"POSITION"
+            free_energy = b'FREE ENERGIE'
+            ml_free_energy = b'ML FREE ENERGIE'
+            magnetization = b'magnetization (x)'
+            voluntary = b'Voluntary context switches:'
+            position_of_ions = b'position of ions in cartesian'
+            magmom = b'magmom'
+            ml = b"(ML)"
+            iteration = b'Iteration'
+            electronic_energy = b'free energy    TOTEN'
         lenght = len(lines)
         for i in range(lenght):
             if lenght < 1000000:
@@ -40,25 +65,6 @@ class OutcarParser:
                 if i % 100000 == 0:
                     print('reading OUTCAR file; line: ', i, f' out of {lenght}', end='\r')
             line = lines[i].strip()
-
-            if text:
-                position = "POSITION"
-                free_energy = 'FREE ENERGIE'
-                ml_free_energy = 'ML FREE ENERGIE'
-                magnetization = 'magnetization (x)'
-                voluntary = 'Voluntary context switches:'
-                position_of_ions = 'position of ions in cartesian'
-                magmom = 'MAGMOM'
-                ml = '(ML)'
-            if binary:
-                position = b"POSITION"
-                free_energy = b'FREE ENERGIE'
-                ml_free_energy = b'ML FREE ENERGIE'
-                magnetization = b'magnetization (x)'
-                voluntary = b'Voluntary context switches:'
-                position_of_ions = b'position of ions in cartesian'
-                magmom = b'magmom'
-                ml = b"(ML)"
 
             if line.startswith(position) and line.endswith(ml):
                 mlff = True
@@ -117,6 +123,21 @@ class OutcarParser:
                         magmom_section.append(float(chunk))
 
                 self.magmoms = magmom_section
+            elif iteration in line:
+                geo_step = int(line.strip().split()[2][:-1])
+                electronic_step = int(line.strip().split()[3][:-1])
+
+                if self.geo_step is not None and geo_step != self.geo_step:
+                    self.scf_energies.append(self.section_scf_energies)
+                    self.section_scf_energies = []
+
+                self.geo_step = geo_step
+
+
+            elif electronic_energy in line:
+                scf_energy = float(line.split()[-2])
+                self.section_scf_energies.append(scf_energy)
+
             if line.startswith(voluntary):
                 if len(self.magnetizations) > 0:
                     self.magnetizations.pop()
@@ -133,6 +154,9 @@ class OutcarParser:
                         self.section_position.append(atom_data)
                     self.positions.append(self.section_position)
             # self.magnetizations = [["N/A" for atom in self.atom_count]]
+        if self.section_scf_energies:
+            self.scf_energies.append(self.section_scf_energies)
+
         if self.energies == []:
             print(
                 "run didn't calculated energy (eg. PARCHG file generation or other postprocessing. Energy is set to 0.")
@@ -182,6 +206,8 @@ class OutcarParser:
         mag_values = [lst[-1] for lst in lines_mag]
         return mag_values
 
+    def find_scf_energies(self):
+        return self.scf_energies
 
 class PoscarParser:
     """class to parse POSCAR / CONTCAR files"""
@@ -443,7 +469,8 @@ class DOSCARparser:
 
 
 if __name__ == "__main__":
-    doscar = DOSCARparser("F:\\syncme\\modelowanie DFT\\czasteczki\\O2\\DOSCAR")
-    poscar = PoscarParser("F:\\syncme\\modelowanie DFT\\czasteczki\\O2\\POSCAR")
+    doscar = DOSCARparser("D:\\syncme-from-c120\\modelowanie DFT\\czasteczki\\O2\\DOSCAR")
+    poscar = PoscarParser("D:\\syncme-from-c120\\modelowanie DFT\\czasteczki\\O2\\POSCAR")
+    outcar = OutcarParser("D:\\syncme-from-c120\\modelowanie DFT\\czasteczki\\O2","OUTCAR")
     print(doscar.number_of_atoms == poscar.number_of_atoms())
     print(doscar.element_block)

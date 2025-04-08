@@ -4,15 +4,14 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
-    QHBoxLayout
-from PyQt5.QtGui import QCloseEvent
+    QHBoxLayout,QApplication
+from PyQt5.QtGui import QCloseEvent, QIcon, QCursor
 
 from scipy.spatial.distance import pdist, squareform
 from vtk import *
 from RangeSlider import QRangeSlider
 import pyvista as pv
 import os
-from PyQt5 import QtGui
 toc = time.perf_counter()
 print(f'importing in structure controls, time: {toc - tic:0.4f} seconds')
 
@@ -249,16 +248,16 @@ class StructureControlsWidget(QWidget):
         self.geometry_value_label.setFixedWidth(150)
 
         self.end_geometry_button = QtWidgets.QPushButton()
-        self.end_geometry_button.setIcon(QtGui.QIcon(os.path.join(self.icon_path, "end.png")))
+        self.end_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "end.png")))
         self.end_geometry_button.setFixedWidth(30)
         self.start_geometry_button = QtWidgets.QPushButton()
-        self.start_geometry_button.setIcon(QtGui.QIcon(os.path.join(self.icon_path, "start.png")))
+        self.start_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "start.png")))
         self.start_geometry_button.setFixedWidth(30)
         self.next_geometry_button = QtWidgets.QPushButton()
-        self.next_geometry_button.setIcon(QtGui.QIcon(os.path.join(self.icon_path, "next.png")))
+        self.next_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "next.png")))
         self.next_geometry_button.setFixedWidth(30)
         self.back_geometry_button = QtWidgets.QPushButton()
-        self.back_geometry_button.setIcon(QtGui.QIcon(os.path.join(self.icon_path, "back.png")))
+        self.back_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "back.png")))
         self.back_geometry_button.setFixedWidth(30)
 
         slider_layout = QtWidgets.QHBoxLayout()
@@ -329,6 +328,7 @@ class StructureControlsWidget(QWidget):
 
     def energy_plot_layout(self):
         self.energy_plot_widget = pg.PlotWidget()
+        self.add_scatter_plot()
         self.update_scatter()
         
         y = self.structure_plot_widget.data.outcar_energies
@@ -339,16 +339,46 @@ class StructureControlsWidget(QWidget):
         self.energy_plot_frame_layout.addWidget(self.energy_plot_widget)
         self.vlayout.addWidget(self.energy_plot_frame)
 
+    def add_scatter_plot(self):
+        y = self.structure_plot_widget.data.outcar_energies
+        x = list(range(len(y)))
+        s1 = pg.ScatterPlotItem(
+            size=10,
+            pen=pg.mkPen(None),
+            brush=pg.mkBrush(255, 255, 255, 0),
+            hoverable=True,
+            hoverSymbol='s',
+            hoverSize=10,
+            hoverPen=pg.mkPen('r', width=2),
+            hoverBrush=pg.mkBrush('g')
+        )
+        s1.addPoints(x, y)
+        s1.sigClicked.connect(self.clicked_scatter_plot)
+        self.energy_plot_widget.addItem(s1)
+
+    def clicked_scatter_plot(self, plot, points):
+        print("clicked points", points)
+        if len(points) > 1:
+            print("oopsie, to many points clicked. Please click only one point")
+            return
+        else:
+            screen_rect = QApplication.primaryScreen().geometry()
+            pos = QCursor.pos()
+            energies = self.structure_plot_widget.data.scf_energies[points[0]._index]
+            x = range(len(energies))
+            self.scf_window =  SCFEnergyPlot(x, energies, pos, screen_rect)
+            self.scf_window.show()
+
     def update_scatter(self):
         for item in self.energy_plot_widget.getPlotItem().listDataItems():
-            if isinstance(item, pg.ScatterPlotItem):
+            if isinstance(item, MoveableScatterPlotItem):
                 self.energy_plot_widget.getPlotItem().removeItem(item)
         y = self.structure_plot_widget.data.outcar_energies
         x = list(range(len(y)))
         current_x = x[self.geometry_slider.value()]
         current_y = y[self.geometry_slider.value()]
 
-        s1 = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
+        s1 = MoveableScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
         s1.addPoints([current_x], [current_y])
         self.energy_plot_widget.addItem(s1)
 
@@ -748,5 +778,39 @@ class StructureControlsWidget(QWidget):
         super().closeEvent(QCloseEvent)
         self.structure_plot_widget.plotter.Finalize()
 
+
+class SCFEnergyPlot(QWidget):
+    """Window that shows a SCF convergence plot"""
+    def __init__(self, steps, energies, pos, screen_rect):
+        super().__init__()
+        self.setWindowTitle("Random Line Plot")
+        self.resize(800, 600)  # Fixed window size
+
+        win_width, win_height = self.width(), self.height()
+
+        # Adjust position to keep window within screen boundaries
+        x = min(pos.x() + 20, screen_rect.right() - win_width)  # Prevent right overflow
+        y = min(pos.y() + 20, screen_rect.bottom() - win_height)  # Prevent bottom overflow
+
+        x = max(x, screen_rect.left())  # Prevent left overflow
+        y = max(y, screen_rect.top())  # Prevent top overflow
+
+        self.setGeometry(x, y, 800, 600)
+
+        layout = QVBoxLayout()
+        self.plot_widget = pg.PlotWidget()
+        layout.addWidget(self.plot_widget)
+        self.setLayout(layout)
+
+        self.plot_widget.plot(steps, energies, pen='w')
+
+
+class MoveableScatterPlotItem(pg.ScatterPlotItem):
+    """
+    A Class for scatter plots which points can move.
+    Used to check instances and clear only moveable points
+    """
+    def __init__(self,*args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
