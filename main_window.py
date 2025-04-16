@@ -5,6 +5,9 @@ import platform
 import os
 import faulthandler
 import signal
+from datetime import datetime
+import getpass
+import csv
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
@@ -38,7 +41,7 @@ print(f'import local modules in main: {toc - tic:0.4f}')
 pg.setConfigOptions(antialias=True)
 
 STYLE_SHEET = []
-
+LOG_FILE = os.path.join(os.path.dirname(__file__), "launch_log.txt")
 
 
 
@@ -215,12 +218,45 @@ class MainWindow(MainWindow):
             else:
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
+                #dir = "D:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = ".\\"
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             #print("can't resolve operating system")
+            self.dir = dir
         return dir
+
+    import os
+    import csv
+    from datetime import datetime
+    import getpass
+
+    LOG_FILE = "/path/to/launch_log.csv"
+
+    def log_program_launch(self):
+        # Get current time and user
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        user = getpass.getuser()
+
+        # Check if log file exists
+        file_exists = os.path.isfile(LOG_FILE)
+
+        # Open the file in append mode
+        try:
+            with open(LOG_FILE, "a", newline="") as f:
+                writer = csv.writer(f)
+                # Write header if file is new
+                if not file_exists:
+                    writer.writerow(["Timestamp", "User"])
+                # Log the launch
+                writer.writerow([timestamp, user])
+
+            # Optional: count total launches so far
+            with open(LOG_FILE, "r") as f:
+                total = sum(1 for line in f) - 1  # exclude header
+                print(f"This program has been launched {total} times.")
+        except Exception as e:
+            print(f"Error logging launch: {e}")
 
     def create_data(self):
         dir = self.set_working_dir()
@@ -230,5 +266,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 #    faulthandler.register(signal.SIGUSR1)
     window = MainWindow()
+    window.log_program_launch()
     window.show()
     sys.exit(app.exec_())
