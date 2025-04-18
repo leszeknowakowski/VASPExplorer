@@ -179,7 +179,7 @@ class ChgcarVis(QWidget):
         largest_value = np.max([np.abs(max_val), np.abs(min_val)])
 
         # create point grid
-        pvgrid = pv.ImageData()
+        pvgrid = pv.ImageData() # TODO: change to VTK
         pvgrid.dimensions = volumetric_data.shape
         pvgrid.origin = (0, 0, 0)
         pvgrid.spacing = tuple(self.charge_data.calculate_grid_spacings())

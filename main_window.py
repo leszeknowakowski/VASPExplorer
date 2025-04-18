@@ -207,33 +207,12 @@ class MainWindow(MainWindow):
         # main_layout.addWidget(self.console_widget)
         # self.console_widget.setFixedHeight(100)
 
-    def set_working_dir(self):
-        """ gets the current working dir. Useful for building"""
-        if platform.system() == 'Linux':
-            dir = './'
-        elif platform.system() == 'Windows':
-            path = "F:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt"
-            if os.path.isdir(path):
-                dir = path
-            else:
-                #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
-                #dir = ".\\"
-                #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
-            #print("can't resolve operating system")
-            self.dir = dir
-        return dir
-
-    import os
-    import csv
-    from datetime import datetime
-    import getpass
-
-    LOG_FILE = "/path/to/launch_log.csv"
-
     def log_program_launch(self):
+        import os
+        import csv
+        from datetime import datetime
+        import getpass
+
         # Get current time and user
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         user = getpass.getuser()
@@ -261,6 +240,25 @@ class MainWindow(MainWindow):
     def create_data(self):
         dir = self.set_working_dir()
         self.data = VaspData(dir)
+
+    def set_working_dir(self):
+        """ gets the current working dir. Useful for building"""
+        if platform.system() == 'Linux':
+            dir = './'
+        elif platform.system() == 'Windows':
+            path = "F:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt"
+            if os.path.isdir(path):
+                dir = path
+            else:
+                #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                dir = r"D:\syncme-from-c120\modelowanie DFT\lobster_tests\Si\Si"
+                #dir = r"D:\test_fir_doswizard\4.strange_atom_definition"
+                #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
+            #print("can't resolve operating system")
+            self.dir = dir
+        return dir
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

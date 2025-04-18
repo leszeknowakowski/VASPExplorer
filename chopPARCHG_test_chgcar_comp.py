@@ -128,8 +128,9 @@ class PoscarParser:
         list
             spacings in all directions as a float list [sx, sy, sz]
         """
-        vecs = [self.unit_cell_vectors()[i][i] for i in range(3)]
-        spacings = [vecs[i]/self.grid_result[i] for i in range(3)]
+        vecs = np.array(self.unit_cell_vectors())*self.scale_factor()
+        lenghts = np.linalg.norm(vecs, axis=1)
+        spacings = [lenghts[i]/self.grid_result[i] for i in range(3)]
         spacing_chopped = [spacings[i]*self.chop_number for i in range(3)]
         return spacing_chopped
 

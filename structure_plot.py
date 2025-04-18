@@ -78,10 +78,14 @@ class StructureViewer(QWidget):
         self.layout.addWidget(self.plotter.interactor)
         self.setLayout(self.layout)
         #self.add_structure()
-        self.add_unit_cell(self.data.x,self.data.y,self.data.z)
+        unit_vector_a = self.data.poscar.unit_cell_vectors()[0]
+        unit_vector_b = self.data.poscar.unit_cell_vectors()[1]
+        unit_vector_c = self.data.poscar.unit_cell_vectors()[2]
+        self.add_unit_cell(unit_vector_a, unit_vector_b, unit_vector_c)
 
     def assign_missing_colors(self):
-        stripped_symbols = [''.join([char for char in input_string if char.isalpha()]) for input_string in self.data.symbols]
+        splitted_symbols = [symbol.split("_")[0] for symbol in self.data.symbols]
+        stripped_symbols = [''.join([char for char in input_string if char.isalpha()]) for input_string in splitted_symbols]
         missing_symbols = set(stripped_symbols) - set(self.color_data.keys())
 
         # Create a mapping of missing symbols to known elements
@@ -109,7 +113,7 @@ class StructureViewer(QWidget):
         self.atom_colors = [self.color_data[self.data.symbols[i]] for i in range(len(self.data.atoms_symb_and_num))]
 
     def add_sphere(self, coord, col, radius):
-        sphere = pv.Sphere(radius=radius, center=(coord[0], coord[1], coord[2]))
+        sphere = pv.Sphere(radius=radius, center=(coord[0], coord[1], coord[2])) # TODO: change to vtk
         actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
         self.sphere_actors.append(actor)
         self.plotter.update()
@@ -125,25 +129,31 @@ class StructureViewer(QWidget):
         self.cube_actor.visibility = True
         self.plotter.renderer.AddActor(self.cube_actor)
 
-    def make_cube(self, x, y, z):
+    def make_cube(self, a1, a2, a3):
         '''create a vtk actor of unit cell.
         DISCLAIMER: now it handles only parallelpipes with right angles, eg. tetragonal, orthorombic and regular.
         Further to be improved.'''
         # define basis vectors
-        v1 = [x, 0, 0]
-        v2 = [0, y, 0]
-        v3 = [0, 0, z]
-
+        #v1 = [x, 0, 0]
+        #v2 = [0, y, 0]
+        #v3 = [0, 0, z]
+        origin = np.array([0.0, 0.0, 0.0])
         # Create points for the vertices of the parallelepiped
+        points_np = [
+            origin,
+            origin + a2,
+            origin + a2 + a1,
+            origin + a1,
+            origin + a3,
+            origin + a3 + a2,
+            origin + a3 + a2 + a1,
+            origin + a3 + a1
+        ]
+
+        # Convert to vtkPoints
         points = vtk.vtkPoints()
-        points.InsertNextPoint(0.0, 0.0, 0.0)
-        points.InsertNextPoint(v1)
-        points.InsertNextPoint([v1[i] + v2[i] for i in range(3)])
-        points.InsertNextPoint(v2)
-        points.InsertNextPoint(v3)
-        points.InsertNextPoint([v1[i] + v3[i] for i in range(3)])
-        points.InsertNextPoint([v1[i] + v2[i] + v3[i] for i in range(3)])
-        points.InsertNextPoint([v2[i] + v3[i] for i in range(3)])
+        for pt in points_np:
+            points.InsertNextPoint(pt.tolist())
 
         # Create a VTK cell for the parallelepiped
         parallelepiped = vtk.vtkHexahedron()

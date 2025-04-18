@@ -340,6 +340,10 @@ class StructureControlsWidget(QWidget):
         self.vlayout.addWidget(self.energy_plot_frame)
 
     def add_scatter_plot(self):
+        """
+        Plot scatter with geometry optimization energies.
+        When point is clicked, it shows the window with SCF energy convergence plot
+        """
         y = self.structure_plot_widget.data.outcar_energies
         x = list(range(len(y)))
         s1 = pg.ScatterPlotItem(
@@ -357,6 +361,9 @@ class StructureControlsWidget(QWidget):
         self.energy_plot_widget.addItem(s1)
 
     def clicked_scatter_plot(self, plot, points):
+        """
+        Show scatter plot with energy optimization plot for certain geometry step
+        """
         print("clicked points", points)
         if len(points) > 1:
             print("oopsie, to many points clicked. Please click only one point")
@@ -410,7 +417,7 @@ class StructureControlsWidget(QWidget):
         coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
 
         for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
-            sphere = pv.Sphere(radius=self.sphere_radius, center=(coord[0], coord[1], coord[2]), theta_resolution=20, phi_resolution=20)
+            sphere = pv.Sphere(radius=self.sphere_radius, center=(coord[0], coord[1], coord[2]), theta_resolution=20, phi_resolution=20) # TODO: change to VTK
             actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
             self.structure_plot_widget.sphere_actors.append(actor)
         self.plotter.update()
@@ -789,11 +796,11 @@ class SCFEnergyPlot(QWidget):
         win_width, win_height = self.width(), self.height()
 
         # Adjust position to keep window within screen boundaries
-        x = min(pos.x() + 20, screen_rect.right() - win_width)  # Prevent right overflow
-        y = min(pos.y() + 20, screen_rect.bottom() - win_height)  # Prevent bottom overflow
+        x = min(pos.x(), screen_rect.right() - win_width-60)  # Prevent right overflow
+        y = min(pos.y(), screen_rect.bottom() - win_height-60)  # Prevent bottom overflow
 
-        x = max(x, screen_rect.left())  # Prevent left overflow
-        y = max(y, screen_rect.top())  # Prevent top overflow
+        x = max(x, screen_rect.left()-30)  # Prevent left overflow
+        y = max(y, screen_rect.top()-30)  # Prevent top overflow
 
         self.setGeometry(x, y, 800, 600)
 
