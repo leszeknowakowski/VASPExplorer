@@ -8,9 +8,9 @@ from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
 from PyQt5.QtGui import QCloseEvent, QIcon, QCursor
 
 from scipy.spatial.distance import pdist, squareform
-from vtk import *
+
 from RangeSlider import QRangeSlider
-import vtk
+from vtk import vtkPolyDataMapper, vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource
 import os
 toc = time.perf_counter()
 print(f'importing in structure controls, time: {toc - tic:0.4f} seconds')
@@ -420,11 +420,13 @@ class StructureControlsWidget(QWidget):
             actor =  self._create_vtk_sphere(coord, col)
             self.plotter.add_actor(actor)
             self.structure_plot_widget.sphere_actors.append(actor)
-        self.plotter.update()
+        for actor in self.structure_plot_widget.sphere_actors:
+            actor.SetVisibility(True)
+        #self.plotter.update()
 
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
-        sphere_source = vtk.vtkSphereSource()
+        sphere_source = vtkSphereSource()
         sphere_source.SetRadius(self.sphere_radius)
         sphere_source.SetCenter(coord[0], coord[1], coord[2])
         sphere_source.SetThetaResolution(theta_resolution)
@@ -432,17 +434,17 @@ class StructureControlsWidget(QWidget):
         sphere_source.Update()
 
         # Create a mapper
-        mapper = vtk.vtkPolyDataMapper()
+        mapper = vtkPolyDataMapper()
         mapper.SetInputConnection(sphere_source.GetOutputPort())
 
         # Create an actor
-        actor = vtk.vtkActor()
+        actor = vtkActor()
         actor.SetMapper(mapper)
         col = list(np.array(col)/np.array([255,255,255]))
         actor.GetProperty().SetColor(col)  # col should be an RGB tuple like (1.0, 0.0, 0.0)
         actor.GetProperty().SetInterpolationToPhong()  # Smooth shading
         # Optional: disable rendering until ready
-        #actor.VisibilityOff()  # Equivalent to render=False in PyVista
+        actor.VisibilityOff()  # Equivalent to render=False in PyVista
         return actor
 
     def add_bonds(self):

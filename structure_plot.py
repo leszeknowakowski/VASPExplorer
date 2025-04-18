@@ -7,8 +7,8 @@ import platform
 from pyvistaqt import QtInteractor
 
 tic = time.perf_counter()
-from vtk import *
-import vtkmodules.all as vtk
+from vtk import vtkPolyDataMapper, vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
+    vtkPoints, vtkUnstructuredGrid, vtkHexahedron, vtkDataSetMapper
 toc = time.perf_counter()
 print(f'importing vtk, time: {toc - tic} seconds')
 
@@ -118,7 +118,7 @@ class StructureViewer(QWidget):
 
     def _create_vtk_sphere(self, radius, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
-        sphere_source = vtk.vtkSphereSource()
+        sphere_source = vtkSphereSource()
         sphere_source.SetRadius(radius)
         sphere_source.SetCenter(coord[0], coord[1], coord[2])
         sphere_source.SetThetaResolution(theta_resolution)
@@ -126,11 +126,11 @@ class StructureViewer(QWidget):
         sphere_source.Update()
 
         # Create a mapper
-        mapper = vtk.vtkPolyDataMapper()
+        mapper = vtkPolyDataMapper()
         mapper.SetInputConnection(sphere_source.GetOutputPort())
 
         # Create an actor
-        actor = vtk.vtkActor()
+        actor = vtkActor()
         actor.SetMapper(mapper)
         col = list(np.array(col) / np.array([255, 255, 255]))
         actor.GetProperty().SetColor(col)  # col should be an RGB tuple like (1.0, 0.0, 0.0)
@@ -150,9 +150,9 @@ class StructureViewer(QWidget):
         self.plotter.renderer.AddActor(self.cube_actor)
 
     def make_cube(self, a1, a2, a3):
-        '''create a vtk actor of unit cell.
-        DISCLAIMER: now it handles only parallelpipes with right angles, eg. tetragonal, orthorombic and regular.
-        Further to be improved.'''
+        '''
+        create a vtk actor of unit cell.
+        '''
         # define basis vectors
         #v1 = [x, 0, 0]
         #v2 = [0, y, 0]
@@ -171,26 +171,26 @@ class StructureViewer(QWidget):
         ]
 
         # Convert to vtkPoints
-        points = vtk.vtkPoints()
+        points = vtkPoints()
         for pt in points_np:
             points.InsertNextPoint(pt.tolist())
 
         # Create a VTK cell for the parallelepiped
-        parallelepiped = vtk.vtkHexahedron()
+        parallelepiped = vtkHexahedron()
         for i in range(8):
             parallelepiped.GetPointIds().SetId(i, i)
 
         # Create a VTK unstructured grid and add the points and cell to it
-        grid = vtk.vtkUnstructuredGrid()
+        grid = vtkUnstructuredGrid()
         grid.SetPoints(points)
         grid.InsertNextCell(parallelepiped.GetCellType(), parallelepiped.GetPointIds())
 
         # Create a mapper
-        mapper = vtk.vtkDataSetMapper()
+        mapper = vtkDataSetMapper()
         mapper.SetInputData(grid)
 
         # Create an actor
-        actor = vtk.vtkActor()
+        actor = vtkActor()
         actor.SetMapper(mapper)
         # Make the faces transparent
         actor.GetProperty().SetOpacity(0.05)

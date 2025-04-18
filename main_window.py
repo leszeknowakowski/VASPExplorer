@@ -261,9 +261,12 @@ class MainWindow(QMainWindow):
         return dir
 
 if __name__ == '__main__':
+    tic = time.perf_counter()
     app = QApplication(sys.argv)
 #    faulthandler.register(signal.SIGUSR1)
     window = MainWindow()
     window.log_program_launch()
+    toc = time.perf_counter()
+    print(f'Execution time: {toc - tic:0.4f} seconds')
     window.show()
     sys.exit(app.exec_())
