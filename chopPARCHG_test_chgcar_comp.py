@@ -121,6 +121,15 @@ class PoscarParser:
 
         return volume
 
+    def scaled_unit_cell_vectors(self):
+        vecs = np.array(self.unit_cell_vectors()) * self.scale_factor()
+        return vecs
+
+    def unit_cell_vectors_lenghts(self):
+        vecs = self.scaled_unit_cell_vectors()
+        lenghts = np.linalg.norm(vecs, axis=1)
+        return lenghts
+
     def calculate_grid_spacings(self):
         """ Calculates the spacing between grid points of chopped grid
         Returns:

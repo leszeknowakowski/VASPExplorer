@@ -49,6 +49,7 @@ class ChgcarVis(QWidget):
         self.contour_type = 'total'
         self.charge_data = None
         self.chg_button_counter = 0
+        self.current_contour_actor = None
 
         self.initUI()
 
@@ -162,6 +163,8 @@ class ChgcarVis(QWidget):
             print("no data was found")
             return
 
+        if self.current_contour_actor is not None:
+            self.chg_plotter.remove_actor(self.current_contour_actor)
 
         # volumetric_data is the actual data with charge
         volumetric_data = {
@@ -185,78 +188,83 @@ class ChgcarVis(QWidget):
 
         nx, ny, nz = volumetric_data.shape
 
-        # === Create structured grid points ===
-        lenghts = np.linalg.norm(basis, axis=1)
-        x = np.linspace(0, 1, nx)
-        y = np.linspace(0, 1, ny)
-        z = np.linspace(0, 1, nz)
-        X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+        volumetric_data = volumetric_data.ravel(order='F')
+        vtk_data = vtk.vtkDoubleArray()
+        vtk_data.SetName("values")
+        vtk_data.SetNumberOfTuples(nx * ny * nz)
+        for i, val in enumerate(volumetric_data):
+            vtk_data.SetValue(i, val)
 
-        frac_coords = np.stack([X.ravel(), Y.ravel(), Z.ravel()], axis=1)
-        cart_coords = frac_coords @ basis.T  # Shape: (nx*ny*nz, 3)
+        # Create vtkImageData
+        image_data = vtk.vtkImageData()
+        image_data.SetDimensions(nx, ny, nz)
+        image_data.SetSpacing(1 / (nx - 1), 1 / (ny - 1), 1 / (nz - 1))
+        image_data.SetOrigin(0.0, 0.0, 0.0)
+        image_data.GetPointData().SetScalars(vtk_data)
 
-        # === Create vtkPoints ===
-        points = vtk.vtkPoints()
-        for pt in cart_coords:
-            points.InsertNextPoint(*pt)
+        # Cast to vtkUnstructuredGrid (vtkTransformFilter needs PointSet)
+        geometry_filter = vtk.vtkImageDataToPointSet()
+        geometry_filter.SetInputData(image_data)
+        geometry_filter.Update()
 
-        # === Create vtkStructuredGrid ===
-        structured_grid = vtk.vtkStructuredGrid()
-        structured_grid.SetDimensions(nx, ny, nz)
-        structured_grid.SetPoints(points)
+        # Now warp the ImageData using vtkTransformFilter
+        transform = vtk.vtkTransform()
+        transform.SetMatrix([
+            basis[0, 0], basis[0, 1], basis[0, 2], 0,
+            basis[1, 0], basis[1, 1], basis[1, 2], 0,
+            basis[2, 0], basis[2, 1], basis[2, 2], 0,
+            0, 0, 0, 1
+        ])
 
-        # === Add scalar data ===
-        scalars = vtk.vtkDoubleArray()
-        scalars.SetName("values")
-        scalars.SetNumberOfComponents(1)
-        scalars.SetNumberOfTuples(nx * ny * nz)
+        # Apply transform using a transform filter
+        transform_filter = vtk.vtkTransformFilter()
+        transform_filter.SetTransform(transform)
+        transform_filter.SetInputConnection(geometry_filter.GetOutputPort())  # ImageData → UnstructuredGrid
+        transform_filter.Update()
 
-        flat_data = volumetric_data.ravel(order='F')  # Fortran order
-        for i in range(nx * ny * nz):
-            scalars.SetValue(i, flat_data[i])
-
-        structured_grid.GetPointData().SetScalars(scalars)
-
-        # === Contour filter (isosurface) ===
+        # === Replace PyVista contour with vtkContourFilter ===
         contour_filter = vtk.vtkContourFilter()
-        contour_filter.SetInputData(structured_grid)
-        contour_filter.SetValue(0, self.eps*largest_value)  # Isovalue
+        contour_filter.SetInputConnection(transform_filter.GetOutputPort())
+
+        # Set isosurface values
+        if self.contour_type == "spin":
+            contour_filter.SetValue(0, -self.eps * largest_value)
+            contour_filter.SetValue(1, self.eps * largest_value)
+        else:
+            contour_filter.SetValue(0, self.eps * largest_value)
+
         contour_filter.Update()
 
-        # === Mapper and Actor ===
+        # === Create lookup table with your colors ===
+        lut = vtk.vtkLookupTable()
+        lut.SetNumberOfTableValues(2)
+        lut.SetRange(-self.eps * largest_value, self.eps * largest_value)
+        lut.SetTableValue(0, 0.0, 1.0, 1.0, 1.0)  # Light blue
+        lut.SetTableValue(1, 1.0, 1.0, 0.0, 1.0)  # Yellow
+        lut.Build()
+
+        # === Create a mapper ===
         mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(contour_filter.GetOutputPort())
+        mapper.SetInputConnection(contour_filter.GetOutputPort())  # Use your vtkContourFilter output
+        mapper.SetLookupTable(lut)
+        mapper.SetScalarRange(-self.eps * largest_value, self.eps * largest_value)
+        mapper.SetColorModeToMapScalars()
+        mapper.ScalarVisibilityOn()
 
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
+        # === Create the actor ===
+        contour_actor = vtk.vtkActor()
+        contour_actor.SetMapper(mapper)
+        contour_actor.GetProperty().SetOpacity(1.0)  # Fully opaque
+        contour_actor.GetProperty().SetInterpolationToPhong()  # Optional smooth shading
 
-        self.chg_plotter.add_actor(actor, name="isosurface")
-        print('added')
-        '''
-        # create point grid
-        pvgrid = pv.ImageData() # TODO: change to VTK
-        pvgrid.dimensions = volumetric_data.shape
-        pvgrid.origin = (0, 0, 0)
-        pvgrid.spacing = tuple(self.charge_data.calculate_grid_spacings())
-        pvgrid.point_data["values"] = volumetric_data.flatten(order="F")
-
-        # create contours. If spin, create two - for positive and negative values
-        isosurfaces = [-self.eps * largest_value, self.eps * largest_value] if self.contour_type == "spin" else [
-            self.eps * largest_value]
-        contours = pvgrid.contour(isosurfaces=isosurfaces)
-
-        # create colormap
-        colors = pv.LookupTable()
-        colors.scalar_range = (- self.eps * largest_value, self.eps * largest_value)
-        colormap = ListedColormap([[0, 1, 1, 1], [1, 1, 0, 1]])  # Light blue & Yellow
-        colors.cmap = colormap
-
+        self.current_contour_actor = contour_actor
         # add contours to a plotter
         try:
-            self.contours_actor = self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=colors) #cmap=my_colormap)
+            self.chg_plotter.add_actor(contour_actor)
         except ValueError:
             print("Empty contour - check epsilon or - if You want to plot spin density - structure is non-magnetic")
-        '''
+
+
     def clear_contours(self):
         """ removes the contours from plotter """
 
