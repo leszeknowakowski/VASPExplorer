@@ -19,10 +19,9 @@ print(f'import PyQt5 in main: {toc - tic:0.4f}')
 
 tic = time.perf_counter()
 import pyqtgraph as pg
-from pyvistaqt import QtInteractor, MainWindow
 from functools import partial
 toc = time.perf_counter()
-print(f'import pyvista and pyqtgraph in main: {toc - tic:0.4f}')
+print(f'import pyqtgraph in main: {toc - tic:0.4f}')
 
 tic = time.perf_counter()
 from vasp_data import VaspData
@@ -50,7 +49,7 @@ class QFloatingSplitter(QSplitter):
         super().__init__()
         self.floating_windows = []
 
-class MainWindow(MainWindow):
+class MainWindow(QMainWindow):
     """
     This class initialize the PyQt5 main window - bars, icons, widgets and
     all of the GUI stuff
@@ -254,7 +253,7 @@ class MainWindow(MainWindow):
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = r"D:\syncme-from-c120\modelowanie DFT\lobster_tests\Si\Si"
-                dir = r"D:\syncme-from-c120\test_for_doswizard\9.CHGCAR\1.spinel_spinupdown"
+                #dir = r"D:\syncme-from-c120\test_for_doswizard\9.CHGCAR\1.spinel_spinupdown"
                 #dir = r"D:\test_fir_doswizard\4.strange_atom_definition"
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             #print("can't resolve operating system")

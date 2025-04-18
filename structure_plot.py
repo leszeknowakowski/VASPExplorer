@@ -7,11 +7,6 @@ import platform
 from pyvistaqt import QtInteractor
 
 tic = time.perf_counter()
-import pyvista as pv
-toc = time.perf_counter()
-print(f'importing pyvista, time: {toc - tic:0.4f} seconds')
-
-tic = time.perf_counter()
 from vtk import *
 import vtkmodules.all as vtk
 toc = time.perf_counter()
@@ -113,11 +108,36 @@ class StructureViewer(QWidget):
         self.atom_colors = [self.color_data[self.data.symbols[i]] for i in range(len(self.data.atoms_symb_and_num))]
 
     def add_sphere(self, coord, col, radius):
-        sphere = pv.Sphere(radius=radius, center=(coord[0], coord[1], coord[2])) # TODO: change to vtk
-        actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
+        #sphere = pv.Sphere(radius=radius, center=(coord[0], coord[1], coord[2])) # TODO: change to vtk
+        #actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
+        actor = self._create_vtk_sphere(radius, coord, col)
+        self.plotter.add_actor(actor)
         self.sphere_actors.append(actor)
         self.plotter.update()
         return self.sphere_actors
+
+    def _create_vtk_sphere(self, radius, coord, col, theta_resolution=20, phi_resolution=20):
+        # Create a sphere
+        sphere_source = vtk.vtkSphereSource()
+        sphere_source.SetRadius(radius)
+        sphere_source.SetCenter(coord[0], coord[1], coord[2])
+        sphere_source.SetThetaResolution(theta_resolution)
+        sphere_source.SetPhiResolution(phi_resolution)
+        sphere_source.Update()
+
+        # Create a mapper
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(sphere_source.GetOutputPort())
+
+        # Create an actor
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        col = list(np.array(col) / np.array([255, 255, 255]))
+        actor.GetProperty().SetColor(col)  # col should be an RGB tuple like (1.0, 0.0, 0.0)
+        actor.GetProperty().SetInterpolationToPhong()  # Smooth shading
+        # Optional: disable rendering until ready
+        # actor.VisibilityOff()  # Equivalent to render=False in PyVista
+        return actor
 
     def add_structure(self):
         for idx, coord in enumerate(self.coordinates):

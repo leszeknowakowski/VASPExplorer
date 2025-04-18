@@ -6,7 +6,6 @@ tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, QFileDialog, QPushButton, QHBoxLayout, QSlider, \
     QLineEdit, QMainWindow
 from PyQt5 import QtCore
-import pyvista as pv
 from pyvistaqt import QtInteractor
 import numpy as np
 from matplotlib.colors import ListedColormap
