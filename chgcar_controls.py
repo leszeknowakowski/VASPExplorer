@@ -1,4 +1,7 @@
 import time
+
+import vtk
+
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, QFileDialog, QPushButton, QHBoxLayout, QSlider, \
     QLineEdit, QMainWindow
@@ -178,6 +181,58 @@ class ChgcarVis(QWidget):
         min_val = np.min(volumetric_data)
         largest_value = np.max([np.abs(max_val), np.abs(min_val)])
 
+        basis = np.array(self.charge_data.unit_cell_vectors())*self.charge_data.scale_factor()
+
+        nx, ny, nz = volumetric_data.shape
+
+        # === Create structured grid points ===
+        lenghts = np.linalg.norm(basis, axis=1)
+        x = np.linspace(0, 1, nx)
+        y = np.linspace(0, 1, ny)
+        z = np.linspace(0, 1, nz)
+        X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+
+        frac_coords = np.stack([X.ravel(), Y.ravel(), Z.ravel()], axis=1)
+        cart_coords = frac_coords @ basis.T  # Shape: (nx*ny*nz, 3)
+
+        # === Create vtkPoints ===
+        points = vtk.vtkPoints()
+        for pt in cart_coords:
+            points.InsertNextPoint(*pt)
+
+        # === Create vtkStructuredGrid ===
+        structured_grid = vtk.vtkStructuredGrid()
+        structured_grid.SetDimensions(nx, ny, nz)
+        structured_grid.SetPoints(points)
+
+        # === Add scalar data ===
+        scalars = vtk.vtkDoubleArray()
+        scalars.SetName("values")
+        scalars.SetNumberOfComponents(1)
+        scalars.SetNumberOfTuples(nx * ny * nz)
+
+        flat_data = volumetric_data.ravel(order='F')  # Fortran order
+        for i in range(nx * ny * nz):
+            scalars.SetValue(i, flat_data[i])
+
+        structured_grid.GetPointData().SetScalars(scalars)
+
+        # === Contour filter (isosurface) ===
+        contour_filter = vtk.vtkContourFilter()
+        contour_filter.SetInputData(structured_grid)
+        contour_filter.SetValue(0, self.eps*largest_value)  # Isovalue
+        contour_filter.Update()
+
+        # === Mapper and Actor ===
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(contour_filter.GetOutputPort())
+
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+
+        self.chg_plotter.add_actor(actor, name="isosurface")
+        print('added')
+        '''
         # create point grid
         pvgrid = pv.ImageData() # TODO: change to VTK
         pvgrid.dimensions = volumetric_data.shape
@@ -201,7 +256,7 @@ class ChgcarVis(QWidget):
             self.contours_actor = self.chg_plotter.add_mesh(contours, name='isosurface', smooth_shading=True, opacity=1, cmap=colors) #cmap=my_colormap)
         except ValueError:
             print("Empty contour - check epsilon or - if You want to plot spin density - structure is non-magnetic")
-
+        '''
     def clear_contours(self):
         """ removes the contours from plotter """
 
@@ -233,6 +288,7 @@ class ChgcarVis(QWidget):
 
             self.create_chgcar_data()
             self.w.close()
+
     def closeEvent(self, QCloseEvent):
         """former closeEvent in case of many interactors"""
         super().closeEvent(QCloseEvent)
