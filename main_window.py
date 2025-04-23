@@ -11,7 +11,7 @@ import csv
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
-QToolBar, QMenuBar, QAction,QTabBar
+QToolBar, QMenuBar, QAction,QTabBar, QFileDialog, QMessageBox
 from PyQt5.QtGui import QCloseEvent, QIcon,QMouseEvent
 from PyQt5.QtCore import Qt
 toc = time.perf_counter()
@@ -87,6 +87,8 @@ class MainWindow(MainWindow):
         new_action.setShortcut('Ctrl+N')
         open_action = QAction(QIcon(os.path.join(icon_path, "open.png")), "Open", self)
         open_action.setShortcut("Ctrl+O")
+        open_action.triggered.connect(self.load_data)
+
         save_action = QAction(QIcon(os.path.join(icon_path, "save.png")), "Save", self)
         save_action.setShortcut("Ctrl+S")
         quit_action = QAction("Quit", self)
@@ -252,13 +254,39 @@ class MainWindow(MainWindow):
             else:
                 #dir = ("D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                dir = r"D:\syncme-from-c120\modelowanie DFT\lobster_tests\Si\Si"
+                dir = "D:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                #dir = r"D:\syncme\modelowanie DFT\lobster_tests\Si\Si"
                 #dir = r"D:\test_fir_doswizard\4.strange_atom_definition"
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             #print("can't resolve operating system")
             self.dir = dir
         return dir
+
+    def load_data(self):
+        """Open a directory and reload all VASP data from it, updating the GUI."""
+        selected_dir = QFileDialog.getExistingDirectory(self, "Select Directory with VASP Files", self.dir)
+        if not selected_dir:
+            return  # user cancelled
+
+        #try:
+        if True:
+            # Load new data
+            self.data = VaspData(selected_dir)
+
+            # Update plot widgets
+            self.dos_plot_widget.__init__(self.data)
+            self.dos_control_widget.__init__(self.data, self.dos_plot_widget)
+            #self.structure_plot_interactor_widget.__init__(self.data)
+            self.structure_plot_control_tab.__init__(self.structure_plot_interactor_widget)
+            self.structure_variable_control_tab.__init__(self.structure_plot_control_tab)
+            #self.chgcar_control_widget.__init__()
+            #self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
+
+            self.dir = selected_dir
+
+        #except Exception as e:
+        #QMessageBox.critical(self, "Error Loading Data", str(e))
+        #print(e)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
