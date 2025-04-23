@@ -16,6 +16,7 @@ import numpy as np
 from ase.io import read
 from ase.neighborlist import NeighborList, natural_cutoffs
 from ase.constraints import FixAtoms, FixBondLength, FixLinearTriatomic
+from vtk import vtkNamedColors
 toc = time.perf_counter()
 print(f'importing in structure variable controls: {toc - tic:0.4f}')
 
@@ -394,10 +395,13 @@ class StructureVariableControls(QWidget):
         self.layout.addWidget(self.tableWidget)
 
     def on_selection_changed(self):
+        colors = vtkNamedColors()
         actors = self.structure_control_widget.structure_plot_widget.sphere_actors
         self.structure_control_widget.selected_actors = []
         for index, actor in enumerate(actors):
-            actor.prop.color = self.structure_control_widget.structure_plot_widget.atom_colors[index]
+            color = self.structure_control_widget.structure_plot_widget.atom_colors[index]
+            vtk_color = np.array(color)/255
+            actor.GetProperty().SetColor(vtk_color)
 
         selected_items = self.tableWidget.selectedItems()
         if not selected_items:
@@ -408,7 +412,7 @@ class StructureVariableControls(QWidget):
             selected_rows.add(item.row())
         for row in selected_rows:
             if 0 <= row < len(actors):
-                actors[row].prop.color = 'yellow'
+                actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
                 self.structure_control_widget.selected_actors.append(actors[row])
 
     def is_row_selected(self, row):
@@ -581,10 +585,16 @@ class StructureVariableControls(QWidget):
 
         for actor, row in zip(self.structure_control_widget.selected_actors, selected_rows):
 
-            actor.mapper.dataset.points += translation_vector
-            coordinates[row][0] = actor.center[0]
-            coordinates[row][1] = actor.center[1]
-            coordinates[row][2] = actor.center[2]
+            points = actor.GetMapper().GetInput().GetPoints()
+            num_points = points.GetNumberOfPoints()
+            for i in range(num_points):
+                new_points = points.GetPoint(i) + translation_vector
+                points.SetPoint(i, new_points)
+            points.Modified()
+
+            coordinates[row][0] = actor.GetCenter()[0]
+            coordinates[row][1] = actor.GetCenter()[1]
+            coordinates[row][2] = actor.GetCenter()[2]
             """
             coordinates[row][0] += translation_vector[0]
             coordinates[row][1] += translation_vector[1]

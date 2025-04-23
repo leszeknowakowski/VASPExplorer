@@ -418,7 +418,7 @@ class StructureControlsWidget(QWidget):
 
         for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
             actor =  self._create_vtk_sphere(coord, col)
-            self.plotter.add_actor(actor)
+            self.plotter.renderer.AddActor(actor)
             self.structure_plot_widget.sphere_actors.append(actor)
         for actor in self.structure_plot_widget.sphere_actors:
             actor.SetVisibility(True)
@@ -441,7 +441,7 @@ class StructureControlsWidget(QWidget):
         actor = vtkActor()
         actor.SetMapper(mapper)
         col = list(np.array(col)/np.array([255,255,255]))
-        actor.GetProperty().SetColor(col)  # col should be an RGB tuple like (1.0, 0.0, 0.0)
+        actor.GetProperty().SetColor(col)
         actor.GetProperty().SetInterpolationToPhong()  # Smooth shading
         # Optional: disable rendering until ready
         actor.VisibilityOff()  # Equivalent to render=False in PyVista
@@ -752,14 +752,15 @@ class StructureControlsWidget(QWidget):
     def on_selection(self, RectangleSelection):
         self.selected_actors = []
         actors = self.structure_plot_widget.sphere_actors
+        colors = vtkNamedColors()
         for index, actor in enumerate(actors):
             if actor.GetVisibility():
-                is_inside = RectangleSelection.frustum.EvaluateFunction(actor.center) < 0
+                is_inside = RectangleSelection.frustum.EvaluateFunction(actor.GetCenter()) < 0
                 if is_inside:
-                    actor.prop.color = 'yellow'
+                    actor.GetProperty().SetColor(colors.GetColor3d('Yellow'))
                     self.selected_actors.append(actor)
                 else:
-                    actor.prop.color = self.structure_plot_widget.atom_colors[index]
+                    actor.GetProperty().SetColor(self.structure_plot_widget.atom_colors[index])
 
         self.selected_actors_changed.emit(self.selected_actors)
 
