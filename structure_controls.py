@@ -8,9 +8,9 @@ from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
 from PyQt5.QtGui import QCloseEvent, QIcon, QCursor
 
 from scipy.spatial.distance import pdist, squareform
-from vtk import *
+
 from RangeSlider import QRangeSlider
-import pyvista as pv
+from vtk import vtkPolyDataMapper, vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource
 import os
 toc = time.perf_counter()
 print(f'importing in structure controls, time: {toc - tic:0.4f} seconds')
@@ -417,10 +417,35 @@ class StructureControlsWidget(QWidget):
         coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
 
         for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
-            sphere = pv.Sphere(radius=self.sphere_radius, center=(coord[0], coord[1], coord[2]), theta_resolution=20, phi_resolution=20) # TODO: change to VTK
-            actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
+            actor =  self._create_vtk_sphere(coord, col)
+            self.plotter.renderer.AddActor(actor)
             self.structure_plot_widget.sphere_actors.append(actor)
-        self.plotter.update()
+        for actor in self.structure_plot_widget.sphere_actors:
+            actor.SetVisibility(True)
+        #self.plotter.update()
+
+    def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
+        # Create a sphere
+        sphere_source = vtkSphereSource()
+        sphere_source.SetRadius(self.sphere_radius)
+        sphere_source.SetCenter(coord[0], coord[1], coord[2])
+        sphere_source.SetThetaResolution(theta_resolution)
+        sphere_source.SetPhiResolution(phi_resolution)
+        sphere_source.Update()
+
+        # Create a mapper
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputConnection(sphere_source.GetOutputPort())
+
+        # Create an actor
+        actor = vtkActor()
+        actor.SetMapper(mapper)
+        col = list(np.array(col)/np.array([255,255,255]))
+        actor.GetProperty().SetColor(col)
+        actor.GetProperty().SetInterpolationToPhong()  # Smooth shading
+        # Optional: disable rendering until ready
+        actor.VisibilityOff()  # Equivalent to render=False in PyVista
+        return actor
 
     def add_bonds(self):
         """
@@ -727,14 +752,15 @@ class StructureControlsWidget(QWidget):
     def on_selection(self, RectangleSelection):
         self.selected_actors = []
         actors = self.structure_plot_widget.sphere_actors
+        colors = vtkNamedColors()
         for index, actor in enumerate(actors):
             if actor.GetVisibility():
-                is_inside = RectangleSelection.frustum.EvaluateFunction(actor.center) < 0
+                is_inside = RectangleSelection.frustum.EvaluateFunction(actor.GetCenter()) < 0
                 if is_inside:
-                    actor.prop.color = 'yellow'
+                    actor.GetProperty().SetColor(colors.GetColor3d('Yellow'))
                     self.selected_actors.append(actor)
                 else:
-                    actor.prop.color = self.structure_plot_widget.atom_colors[index]
+                    actor.GetProperty().SetColor(self.structure_plot_widget.atom_colors[index])
 
         self.selected_actors_changed.emit(self.selected_actors)
 
