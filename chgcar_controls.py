@@ -3,12 +3,10 @@ import time
 import vtk
 
 tic = time.perf_counter()
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, QFileDialog, QPushButton, QHBoxLayout, QSlider, \
-    QLineEdit, QMainWindow
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
+    QFileDialog, QPushButton, QHBoxLayout, QSlider,  QMainWindow
 from PyQt5 import QtCore
-from pyvistaqt import QtInteractor
 import numpy as np
-from matplotlib.colors import ListedColormap
 import chopPARCHG_test_chgcar_comp as chp
 import sys
 import os
@@ -19,7 +17,7 @@ print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
 class DialogWIndow(QWidget):
     """
     This class provides a window which is shown when heavy I/O operations
-    are done, eg. reading CHGCAR file
+    are done, e.g. reading CHGCAR file
     """
     def __init__(self):
         """ Initialize """
@@ -37,8 +35,8 @@ class ChgcarVis(QWidget):
 
     Parameters
     ----------------------
-    structure_control_widget : class
-        structure control widget from main window
+    plotter : class
+        structure control widget plotter from structure plot
 
     """
     def __init__(self, plotter):
@@ -267,7 +265,7 @@ class ChgcarVis(QWidget):
     def clear_contours(self):
         """ removes the contours from plotter """
 
-        actor = self.chg_plotter.actors['isosurface']
+        actor = self.current_contour_actor
         self.chg_plotter.remove_actor(actor)
         print('cleared')
 
@@ -277,7 +275,6 @@ class ChgcarVis(QWidget):
         When button is clicked first, it will load CHGCAR from chg_file_path, if it exists.
         When clicked again (or is there is no CHGCAR), it will open file dialog
         """
-
 
         if os.path.exists(self.chg_file_path) and self.chg_button_counter == 0:
             self.create_chgcar_data()
