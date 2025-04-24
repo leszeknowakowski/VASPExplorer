@@ -8,6 +8,7 @@ if True:
     import re
     import numpy as np
     import sys
+    from itertools import cycle
 
 
 class DosPlotWidget(QWidget):
@@ -122,37 +123,54 @@ class DosPlotWidget(QWidget):
         """
         self.clear_plot_data(self.full_range_plot)
         self.clear_plot_data(self.bounded_plot)
-        colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k', 'b', 'r', 'g', 'c', 'm', 'y', 'k', 'b', 'r', 'g', 'c', 'm', 'y',
-                  'k']  # Add more colors if needed
+        colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k']
+        color_gen_up = cycle(colors)
+        color_gen_down = cycle(colors)
         dataset_up = data.data_up
         dataset_down = data.data_down
         nrg = data.doscar.total_dos_energy
         counter = 0
-        for atom_index in selected_atoms:
-            for orbital_index in selected_orbitals:
-                counter += 1
+        self.full_range_plot.addLegend()
 
         # if more than 10 different dataset have to be plotted
         # TODO: plot merged data instead, automatically
-        if counter > 10:
-            pass
-        else:
-            for atom_index in selected_atoms:
-                for orbital_index in selected_orbitals:
-                    plot_color = colors[orbital_index]  # Cycle through colors
-                    plot_data = dataset_up[atom_index][orbital_index]
-                    self.full_range_plot.plot(plot_data, nrg, pen=pg.mkPen(plot_color))
-                    self.bounded_plot.plot(plot_data, nrg, pen=pg.mkPen(plot_color))
 
-            # plot dataset down
-            for atom_index in selected_atoms:
-                for orbital_index in selected_orbitals:
-                    plot_color = colors[orbital_index]  # Cycle through colors
-                    plot_data = dataset_down[atom_index][orbital_index]
-                    self.full_range_plot.plot([-x for x in plot_data], nrg,
-                                              pen=pg.mkPen(plot_color))
-                    self.bounded_plot.plot([-x for x in plot_data], nrg,
-                                           pen=pg.mkPen(plot_color))
+
+        for atom_index in selected_atoms:
+            for orbital_index in selected_orbitals:
+                counter += 1
+                if counter > 10:
+                    pass
+                atom_name = self.data.atoms_symb_and_num[atom_index]
+                orbital_name = self.data.orbitals[orbital_index]
+                plot_color = next(color_gen_up)  # Cycle through colors
+                plot_data = dataset_up[atom_index][orbital_index]
+                self.full_range_plot.plot(plot_data,
+                                          nrg,
+                                          pen=pg.mkPen(plot_color),
+                                          name=f'{atom_name}_{orbital_name}'
+                                          )
+                self.bounded_plot.plot(plot_data,
+                                       nrg,
+                                       pen=pg.mkPen(plot_color),
+                                       name=f'{atom_name}_{orbital_name}'
+                                       )
+
+        # plot dataset down
+        for atom_index in selected_atoms:
+            for orbital_index in selected_orbitals:
+                if counter > 10:
+                    pass
+                plot_color = next(color_gen_down)
+                plot_data = dataset_down[atom_index][orbital_index]
+                self.full_range_plot.plot([-x for x in plot_data],
+                                          nrg,
+                                          pen=pg.mkPen(plot_color),
+                                          )
+                self.bounded_plot.plot([-x for x in plot_data],
+                                       nrg,
+                                       pen=pg.mkPen(plot_color),
+                                       )
 
         self.update_bounded_plot_y_range()
 
