@@ -774,21 +774,47 @@ class StructureControlsWidget(QWidget):
 
     def add_bond_length(self):
         if len(self.selected_actors) == 2:
-            colors = vtkNamedColors()
             ac1 = self.selected_actors[0]
             ac2 = self.selected_actors[1]
-            line_source = vtkLineSource()
-            line_source.SetPoint1(ac1.GetCenter())
-            line_source.SetPoint2(ac2.GetCenter())
-            mapper = vtkPolyDataMapper()
-            mapper.SetInputConnection(line_source.GetOutputPort())
-            actor = vtkActor()
-            actor.SetMapper(mapper)
-            actor.GetProperty().SetLineWidth(10)
-            actor.GetProperty().SetColor(colors.GetColor3d('Green'))
+            pt1 = ac1.GetCenter()
+            pt2 = ac2.GetCenter()
+            self._add_bond_line(pt1, pt2)
+            self._add_bond_label(pt1, pt2)
+        else:
+            print(f"selected {len(self.selected_actors)} atoms. Please select exactly two atoms")
 
-            self.structure_plot_widget.plotter.add_actor(actor)
-            self.bond_length_actors.append(actor)
+    def _add_bond_line(self, pt1, pt2):
+        colors = vtkNamedColors()
+
+        line_source = vtkLineSource()
+        line_source.SetPoint1(pt1)
+        line_source.SetPoint2(pt2)
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputConnection(line_source.GetOutputPort())
+        actor = vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetLineWidth(10)
+        actor.GetProperty().SetColor(colors.GetColor3d('Green'))
+
+        self.structure_plot_widget.plotter.add_actor(actor)
+        self.bond_length_actors.append(actor)
+
+    def _add_bond_label(self, pt1, pt2):
+        """
+        Adds a bond label showing the distance between two points in green color.
+        """
+        # Calculate midpoint
+        midpoint = [(pt1[i] + pt2[i]) / 2 for i in range(3)]
+
+        # Calculate distance
+        distance = np.linalg.norm(np.array(pt1) - np.array(pt2))
+        distance_text = f"{distance:.2f}"
+
+        # Create label actor
+        self.bond_label_actor = self.plotter.add_point_labels(
+            [midpoint], [distance_text], font_size=24,
+            show_points=False, always_visible=True, text_color="green"
+        )
 
     def end_geometry(self):
         last = len(self.structure_plot_widget.data.outcar_coordinates)

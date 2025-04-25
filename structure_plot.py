@@ -1,7 +1,7 @@
 #import pyqtgraph as pg
 #import pyqtgraph.opengl as gl
 import time
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout, QFrame
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout, QFrame, QMenu, QAction
 from PyQt5.QtGui import QCloseEvent
 import platform
 from pyvistaqt import QtInteractor
@@ -17,7 +17,33 @@ import os
 import json
 from scipy.spatial.distance import pdist, squareform
 
-#pg.setConfigOptions(antialias=True)
+
+class QtInteractor(QtInteractor):
+    def __init__(self):
+        super().__init__()
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self)
+
+        camera_menu = QMenu("Camera")
+        reset_camera_action = QAction("Reset Camera", self)
+        reset_camera_action.triggered.connect(self.main_reset_camera)
+        camera_menu.addAction(reset_camera_action)
+
+        action2 = QAction("Take Screenshot", self)
+        action2.triggered.connect(self.take_screenshot)
+
+        menu.addMenu(camera_menu)
+        menu.addAction(action2)
+
+        menu.exec_(event.globalPos())
+
+    def main_reset_camera(self):
+        self.reset_camera()
+
+    def take_screenshot(self):
+        self.screenshot("screenshot.png")
+        print("Screenshot saved!")
 
 class StructureViewer(QWidget):
     def __init__(self, data):

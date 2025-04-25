@@ -11,7 +11,7 @@ import csv
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
-QToolBar, QMenuBar, QAction,QTabBar, QFileDialog, QMessageBox
+QToolBar, QMenuBar, QAction, QTabBar, QFileDialog, QMessageBox
 from PyQt5.QtGui import QCloseEvent, QIcon,QMouseEvent
 from PyQt5.QtCore import Qt
 toc = time.perf_counter()
@@ -252,9 +252,9 @@ class MainWindow(QMainWindow):
                 dir = path
             else:
 
-                #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                dir = "D:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
+                #dir = "D:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = r"D:\syncme\modelowanie DFT\lobster_tests\Si\Si"
                 #dir = r"D:\syncme\test_for_doswizard\9.CHGCAR\1.spinel_spinupdown"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
@@ -276,11 +276,11 @@ class MainWindow(QMainWindow):
             self.data = VaspData(selected_dir)
 
             # Update plot widgets
-            self.dos_plot_widget.__init__(self.data)
-            self.dos_control_widget.__init__(self.data, self.dos_plot_widget)
+            #self.dos_plot_widget.__init__(self.data)
+            self.dos_control_widget.update_data(self.data)
             #self.structure_plot_interactor_widget.__init__(self.data)
-            self.structure_plot_control_tab.__init__(self.structure_plot_interactor_widget)
-            self.structure_variable_control_tab.__init__(self.structure_plot_control_tab)
+            #self.structure_plot_control_tab.__init__(self.structure_plot_interactor_widget)
+            #self.structure_variable_control_tab.__init__(self.structure_plot_control_tab)
             #self.chgcar_control_widget.__init__()
             #self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
 

@@ -1,10 +1,11 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel, QScrollArea, QFrame, QPushButton, QGridLayout, QPlainTextEdit
 from PyQt5 import QtCore
 import pyqtgraph as pg
+import numpy as np
 
 
 class DosControlWidget(QWidget):
-    """class for controling the DOS plot
+    """class for controlling the DOS plot
     Attributes:
     data:
         VaspData object
@@ -20,11 +21,14 @@ class DosControlWidget(QWidget):
     def __init__(self, data, plot_widget):
         """initialize"""
         super().__init__()
-        self.data = data
         self.plot_widget = plot_widget
+        self.data = data
         self.saved_plots = []
         self.saved_labels = []
         self.saved_colors = []
+        self.atom_checkboxes = []
+        self.orbital_checkboxes = []
+
         self.initUI()
 
     def initUI(self):
@@ -32,20 +36,49 @@ class DosControlWidget(QWidget):
         layout = QHBoxLayout(self)
         self.init_dos_orbitals_atoms_tab(layout)
 
+    def update_data(self, data):
+        """
+        updates data when new file is opened
+        """
+        '''
+        self.data = data
+        self.saved_plots = []
+        self.saved_labels = []
+        self.saved_colors = []
+        self.atom_checkboxes = []
+        self.orbital_checkboxes = []
+
+        self.create_checkboxes(self.data.atoms_symb_and_num, self.atom_checkboxes, self.scroll_left_layout)
+        self.create_checkboxes(self.data.orbitals, self.orbital_checkboxes, self.scroll_right_layout)
+        self.add_all_buttons()
+        '''
+        pass
+
     def init_dos_orbitals_atoms_tab(self, layout):
-        """initialize dos orbitals tab
+        """
+        Initialize dos orbitals tab
         Parameters:
         layout
             QHBoxLayout from initUI
         """
+        self.atom_scroll_area(layout)
+        self.create_checkboxes(self.data.atoms_symb_and_num, self.atom_checkboxes, self.scroll_left_layout)
+        self.orbitals_scroll_area(layout)
+        self.create_checkboxes(self.data.orbitals, self.orbital_checkboxes, self.scroll_right_layout)
+        self.add_all_buttons()
+
+    def atom_scroll_area(self, layout):
+        """
+        Initializa scroll area widget for atoms
+        """
+        #area widget
         self.scroll_area_widget = QWidget()
         self.scroll_area_layout = QHBoxLayout(self.scroll_area_widget)
 
         # checkboxes
         self.checkboxes_widget = QWidget()
-        #self.checkboxes_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
-        self.checkboxes_layout = QVBoxLayout(self.checkboxes_widget)
-        self.checkboxes_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.scroll_left_layout = QVBoxLayout(self.checkboxes_widget)
+        self.scroll_left_layout.setAlignment(QtCore.Qt.AlignTop)
 
         # scroll area for atoms
         self.scroll_area_left = QScrollArea()
@@ -55,20 +88,34 @@ class DosControlWidget(QWidget):
         self.scroll_area_layout.addWidget(self.scroll_area_left)
 
         label = QLabel("atoms:")
-        self.checkboxes_layout.addWidget(label)
+        self.scroll_left_layout.addWidget(label)
 
-        self.atom_checkboxes = []
+    def create_checkboxes(self, label_list, checkboxes_list, layout):
+        """
+        Create checkboxes widget
 
+        Parameters:
+        label_list
+            list of labels for checkboxes label
+        checkboxes_list
+            list of all checkboxes widgets
+        layout
+            layout to add checkboxes widget to
+        """
+        checkboxes_list.clear()
+        self.clearLayout(layout)
         # add appropiate number of checkboxes
-        for i in range(self.data.number_of_atoms):
-            checkbox = QCheckBox(self.data.atoms_symb_and_num[i])
+        for i in range(len(label_list)):
+            checkbox = QCheckBox(label_list[i])
             checkbox.stateChanged.connect(self.checkbox_changed)
-            self.atom_checkboxes.append(checkbox)
-            self.checkboxes_layout.addWidget(checkbox)
+            checkboxes_list.append(checkbox)
+            layout.addWidget(checkbox)
 
-        # scroll area for orbitals
+    def orbitals_scroll_area(self, layout):
+        """
+        Initialize scroll area for orbitals
+        """
         self.scroll_right_widget = QWidget()
-        #self.scroll_right_widget.setStyleSheet('''background-color:#1e1f22;color: #cbcdd2;}''')
         self.scroll_right_layout = QVBoxLayout(self.scroll_right_widget)
         self.scroll_right_layout.setAlignment(QtCore.Qt.AlignTop)
         self.scroll_area_right = QScrollArea()
@@ -80,80 +127,88 @@ class DosControlWidget(QWidget):
         label = QLabel("orbitals:")
         self.scroll_right_layout.addWidget(label)
 
-        # add appropiate number of orbital checkboxes
-        self.orbital_checkboxes = []
-        for i in range(len(self.data.orbitals)):
-            checkbox = QCheckBox(self.data.orbitals[i])
-            checkbox.stateChanged.connect(self.checkbox_changed)
-            self.orbital_checkboxes.append(checkbox)
-            self.scroll_right_layout.addWidget(checkbox)
-
         layout.addWidget(self.scroll_area_widget)
+        
+    def add_buttons(self, layout, data, callout):
+        """
+        Create a buttons for atoms and orbitals.
+        Parameters:
+        layout : PyQt5.QtWidgets.QLayout
+            Layout to add buttons to
+        data : list
+            list of labels to create buttons for
+        callout
+            function called when button is clicked
+        """
+        self.clearLayout(layout)
+        for i, list in enumerate(data):
+            label = list[0] if len(list) == 1 else list[0][0]
+            btn = QPushButton(f"{callout.__name__.split("_")[0]} {label}", self)
+            btn.clicked.connect(lambda _, x=i: callout(x))
+            layout.addWidget(btn)
+            
+    def add_all_buttons(self):
+        """
+        Initialize all buttons connected to DOS plots
+        """
+        self.all_btns_layout = QVBoxLayout()
+        self.btn_orb_layout = QHBoxLayout()
+        self.btn_atoms_layout = QHBoxLayout()
+        self.all_btns_layout.addLayout(self.btn_orb_layout)
+        self.all_btns_layout.addLayout(self.btn_atoms_layout)
 
-        all_btn_layout = QVBoxLayout()
-        btn_orb_layout = QHBoxLayout()
-        btn_atoms_layout = QHBoxLayout()
-        all_btn_layout.addLayout(btn_orb_layout)
-        all_btn_layout.addLayout(btn_atoms_layout)
-        #layout.addLayout(all_btn_layout) ##careful! it might crash something
+        self.select_orbital_layout = QVBoxLayout()
+        self.deselect_orbital_layout = QVBoxLayout()
+        self.select_atom_layout = QVBoxLayout()
+        self.deselect_atom_layout = QVBoxLayout()
 
-        # Select orbitals buttons
-        select_layout = QVBoxLayout()
-        for i, orbital_list in enumerate(self.data.orbital_types):
-            orb_letter = orbital_list[0] if len(orbital_list) == 1 else orbital_list[0][0]
-            btn = QPushButton(f"select {orb_letter}", self)
-            btn.clicked.connect(lambda _, x=i: self.select_orbital(x))
-            select_layout.addWidget(btn)
+        self.add_orbital_buttons()
+        self.add_atom_buttons()
+        self.add_plotting_control_buttons()
+
+    def add_orbital_buttons(self):
+        """
+        Add buttons for controlling orbitals selection
+        """
+        self.add_buttons(self.select_orbital_layout, self.data.orbital_types, self.select_orbital)
+        self.add_buttons(self.deselect_orbital_layout, self.data.orbital_types, self.deselect_orbital)
+
+        self.scroll_area_layout.addLayout(self.all_btns_layout)
 
         select_all_btn = QPushButton("select all", self)
         select_all_btn.clicked.connect(self.select_all_orbitals)
-        select_layout.addWidget(select_all_btn)
-
-        btn_orb_layout.addLayout(select_layout)
-
-        # Deselect buttons
-        deselect_layout = QVBoxLayout()
-        for i, orbital_list in enumerate(self.data.orbital_types):
-            orb_letter = orbital_list[0] if len(orbital_list) == 1 else orbital_list[0][0]
-            btn = QPushButton(f"deselect {orb_letter}", self)
-            btn.clicked.connect(lambda _, x=i: self.deselect_orbital(x))
-            deselect_layout.addWidget(btn)
+        self.select_orbital_layout.addWidget(select_all_btn)
 
         deselect_all_btn = QPushButton("Deselect all", self)
         deselect_all_btn.clicked.connect(self.deselect_all_orbitals)
-        deselect_layout.addWidget(deselect_all_btn)
+        self.deselect_orbital_layout.addWidget(deselect_all_btn)
 
-        btn_orb_layout.addLayout(deselect_layout)
+        self.btn_orb_layout.addLayout(self.select_orbital_layout)
+        self.btn_orb_layout.addLayout(self.deselect_orbital_layout)
 
-        ############################################ ATOMS ##########################################
-        select_atom_layout = QVBoxLayout()
-        deselect_atom_layout = QVBoxLayout()
-
-        for i, atom_list in enumerate(self.data.atomic_symbols):
-            atom_letter = atom_list
-            btn = QPushButton(f"select {atom_letter}", self)
-            btn.clicked.connect(lambda _, x=i: self.select_atom(x))
-            select_atom_layout.addWidget(btn)
+    def add_atom_buttons(self):
+        """
+        Add buttons for controlling atoms selection
+        """
+        self.add_buttons(self.select_atom_layout, self.data.atomic_symbols, self.select_atom)
+        self.add_buttons(self.deselect_atom_layout, self.data.atomic_symbols, self.deselect_atom)
 
         select_all_atoms_btn = QPushButton("Select all", self)
         select_all_atoms_btn.clicked.connect(self.select_all_atoms)
-        select_atom_layout.addWidget(select_all_atoms_btn)
-
-        for i, atom_list in enumerate(self.data.atomic_symbols):
-            atom_letter = atom_list
-            btn = QPushButton(f"Deselect {atom_letter}", self)
-            btn.clicked.connect(lambda _, x=i: self.deselect_atom(x))
-            deselect_atom_layout.addWidget(btn)
+        self.select_atom_layout.addWidget(select_all_atoms_btn)
 
         deselect_all_atoms_btn = QPushButton("Deselect all", self)
         deselect_all_atoms_btn.clicked.connect(self.deselect_all_atoms)
-        deselect_atom_layout.addWidget(deselect_all_atoms_btn)
+        self.deselect_atom_layout.addWidget(deselect_all_atoms_btn)
 
-        btn_atoms_layout.addLayout(select_atom_layout)
-        btn_atoms_layout.addLayout(deselect_atom_layout)
-        self.scroll_area_layout.addLayout(all_btn_layout)
+        self.btn_atoms_layout.addLayout(self.select_atom_layout)
+        self.btn_atoms_layout.addLayout(self.deselect_atom_layout)
+        self.scroll_area_layout.addLayout(self.all_btns_layout)
 
-        ########################################## additional buttons ##################################################
+    def add_plotting_control_buttons(self):
+        """
+        Add buttons for plotting controls - add, remove, change color
+        """
         self.additional_button_layout = QGridLayout()
         self.color_button = pg.ColorButton()
         self.color_button.setColor('r')
@@ -179,14 +234,16 @@ class DosControlWidget(QWidget):
         self.additional_button_layout.addWidget(self.clear_merged_plot_btn,2,1)
         self.clear_merged_plot_btn.clicked.connect(self.clear_merged_plot)
 
-        all_btn_layout.addLayout(self.additional_button_layout)
+        self.all_btns_layout.addLayout(self.additional_button_layout)
 
-        ###################################### tab 3 - atom selection ##################################################
-        empty_widget = QWidget()  # An empty tab
-
-        self.console = QPlainTextEdit()
-        self.console.setReadOnly(True)
-        self.console.setFixedHeight(100)
+    def clearLayout(self, layout):
+        if layout is not None:
+            while layout.count():
+                child = layout.takeAt(0)
+                if child.widget() is not None:
+                    child.widget().deleteLater()
+                elif child.layout() is not None:
+                    clearLayout(child.layout())
 
     def update_checkboxes(self, orbitals, check):
         """update orbital checkboxes
@@ -283,7 +340,12 @@ class DosControlWidget(QWidget):
         color = self.color_button.color()
         self.saved_labels.append(lbl)
         self.saved_colors.append(color)
-        self.plot_widget.plot_merged(self.selected_atoms, self.selected_orbitals, self.data.doscar.total_dos_energy, self.saved_labels[-1], color)
+        self.plot_widget.plot_merged(self.selected_atoms,
+                                     self.selected_orbitals,
+                                     self.data.doscar.total_dos_energy,
+                                     self.saved_labels[-1],
+                                     color)
+        self.color_button.setColor(np.random.random(3)*255)
 
 
     def plot_total_dos(self):
