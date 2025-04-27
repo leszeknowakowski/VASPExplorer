@@ -49,34 +49,29 @@ class StructureViewer(QWidget):
     def __init__(self, data):
         super().__init__()
         self.data = data
-        self.coordinates = self.data.init_coordinates
-        self.sphere_actors = []
-        self.symbol_mapping = None
+
         script_dir = os.path.dirname(__file__)
         colors_file = os.path.join(script_dir, 'elementColorSchemes.json')
         with open(colors_file, 'r') as file:
             self.color_data = json.load(file)
-        self.assign_missing_colors()
-        self.coord_pairs = []  # pairs of points connected by a bond
-        self.bond_actors = []  # list of bond actors
-        self.sphere_actors = []  # list of sphere actors
-        self.geometry_actors = []  # list of geometries, each with actors list
+        self.symbol_mapping = None
         self.constrain_actor = None
-
         self.planeSource = None
-        self.plane_position = int(self.data.z / 2) * 100
         self.plane_actor = None
         self.plane_actor_heigher = None
         self.symb_actor = None
         self.cube_actor = None
         self.mag_actor = None
         self.bond_actor = None
-        self.master_bond_visibility = 2
         self.scatter_item = None
         self.charge_data = None
         self.contour_type = 'total'
-        self.eps = 0.1
-        self.sphere_radius = 0.5
+        self.sphere_actors = []
+        self.coord_pairs = []  # pairs of points connected by a bond
+        self.bond_actors = []  # list of bond actors
+        self.sphere_actors = []  # list of sphere actors
+        self.geometry_actors = []  # list of geometries, each with actors list
+        self.reset_variables()
 
         self.initUI()
 
@@ -84,6 +79,22 @@ class StructureViewer(QWidget):
         self.plotter.add_key_event('x', lambda: self.turn_camera("x"))
         self.plotter.add_key_event('y', lambda: self.turn_camera("y"))
 
+    def reset_variables(self):
+        self.coordinates = self.data.init_coordinates
+        self.plane_position = int(self.data.z / 2) * 100
+        self.master_bond_visibility = 2
+        self.eps = 0.1
+        self.sphere_radius = 0.5
+        self.assign_missing_colors()
+
+    def update_data(self, data):
+        self.data = data
+        self.reset_variables()
+        self.reset_unit_cell()
+        self.plotter.view_yz()
+        self.plotter.camera_position = [(5, -60, 13), (4.8, 1.7, 12.3), (0, 0, 1)]
+        self.plotter.camera.enable_parallel_projection()
+        self.plotter.camera.parallel_scale = 18
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
@@ -98,7 +109,13 @@ class StructureViewer(QWidget):
         self.plotter.camera.parallel_scale = 18
         self.layout.addWidget(self.plotter.interactor)
         self.setLayout(self.layout)
-        #self.add_structure()
+        self.reset_unit_cell()
+
+    def reset_unit_cell(self):
+        try:
+            self.plotter.renderer.RemoveActor(self.cube_actor)
+        except:
+            pass
         unit_vector_a = self.data.poscar.unit_cell_vectors()[0]
         unit_vector_b = self.data.poscar.unit_cell_vectors()[1]
         unit_vector_c = self.data.poscar.unit_cell_vectors()[2]

@@ -145,7 +145,6 @@ class TableWidgetDragRows(QTableWidget):
 
 
 class StructureVariableControls(QWidget):
-
     def __init__(self, structure_control_widget):
         super().__init__(structure_control_widget)
         self.layout = QVBoxLayout(self)
@@ -249,8 +248,6 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
         self.movement_slider_value = 50
 
-
-
     def createTable(self):
         self.tableWidget = TableWidgetDragRows(self)
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
@@ -315,6 +312,9 @@ class StructureVariableControls(QWidget):
         header_to_index = {header: idx for idx, header in enumerate(labels)}
         return header_to_index
 
+    def update_data(self):
+        self.change_table_when_atom_added()
+
     @pyqtSlot(int, int)
     def updateData(self, row, column):
         """Update the data list based on the table cell change."""
@@ -324,6 +324,7 @@ class StructureVariableControls(QWidget):
         if header in header_to_index:
             # number of column which were updated
             if header in ["X", "Y", "Z"]:
+                new_value = self.tableWidget.item(row, column).text()
                 self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 3] = float(new_value)
             if header in ["Move X", "Move Y", "Move Z"]:
                 new_value = self.tableWidget.item(row, column).text()
@@ -340,7 +341,7 @@ class StructureVariableControls(QWidget):
                 pass
             if header in ["Tag"]:
                 pass
-
+            self.after_update_data()
             '''
             self.data[row][field_index] = new_value  # Update the data list with the new value
             print(f"Updated data[{row}]['{header}'] to {new_value}")

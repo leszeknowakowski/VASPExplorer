@@ -23,11 +23,7 @@ class DosControlWidget(QWidget):
         super().__init__()
         self.plot_widget = plot_widget
         self.data = data
-        self.saved_plots = []
-        self.saved_labels = []
-        self.saved_colors = []
-        self.atom_checkboxes = []
-        self.orbital_checkboxes = []
+        self.reset_variables()
 
         self.initUI()
 
@@ -36,24 +32,25 @@ class DosControlWidget(QWidget):
         layout = QHBoxLayout(self)
         self.init_dos_orbitals_atoms_tab(layout)
 
-    def update_data(self, data):
-        """
-        updates data when new file is opened
-        """
-        self.data = data
+    def reset_variables(self):
         self.saved_plots = []
         self.saved_labels = []
         self.saved_colors = []
         self.atom_checkboxes = []
         self.orbital_checkboxes = []
 
+    def update_data(self, data):
+        """
+        updates data when new file is opened
+        """
+        self.data = data
+        self.reset_variables()
 
         self.create_checkboxes(self.data.atoms_symb_and_num, self.atom_checkboxes, self.scroll_left_layout)
         self.create_checkboxes(self.data.orbitals, self.orbital_checkboxes, self.scroll_right_layout)
 
         self.add_orbital_buttons()
         self.add_atom_buttons()
-
 
     def init_dos_orbitals_atoms_tab(self, layout):
         """

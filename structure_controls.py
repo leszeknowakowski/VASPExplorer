@@ -78,9 +78,22 @@ class StructureControlsWidget(QWidget):
         self.energy_plot_layout()
         self.bond_length_actors = []
 
-        #self.add_symbol_and_number()
+
         self.add_bonds()
         self.add_sphere()
+
+    def update_data(self):
+        self.geometry_slider.setMaximum(len(self.structure_plot_widget.data.outcar_coordinates) - 1)
+        self.geometry_slider.setValue(0)
+        self.geometry_value_label.setText(f"Geometry number: {self.geometry_slider.value()}")
+
+        self.add_bonds()
+        self.add_sphere()
+
+        self.clear_energy_plot()
+        self.add_line_plot()
+        self.add_scatter_plot()
+        self.update_scatter()
 
     def initUI(self):
         self.vlayout = QVBoxLayout(self)
@@ -331,13 +344,23 @@ class StructureControlsWidget(QWidget):
         self.add_scatter_plot()
         self.update_scatter()
         
-        y = self.structure_plot_widget.data.outcar_energies
-        x = list(range(len(y)))
-        self.energy_plot_widget.plot(x, y)
-
+        self.add_line_plot()
 
         self.energy_plot_frame_layout.addWidget(self.energy_plot_widget)
         self.vlayout.addWidget(self.energy_plot_frame)
+
+    def clear_energy_plot(self):
+        for item in self.energy_plot_widget.getPlotItem().listDataItems():
+            self.energy_plot_widget.removeItem(item)
+
+    def add_line_plot(self):
+        try:
+            self.energy_plot_widget.removeItem(self.line_plot)
+        except:
+            pass
+        y = self.structure_plot_widget.data.outcar_energies
+        x = list(range(len(y)))
+        self.line_plot = self.energy_plot_widget.plot(x, y)
 
     def add_scatter_plot(self):
         """
@@ -362,7 +385,8 @@ class StructureControlsWidget(QWidget):
 
     def clicked_scatter_plot(self, plot, points):
         """
-        Show scatter plot with energy optimization plot for certain geometry step
+        Show scatter plot with energy optimization plot for certain geometry step.
+        For unknown reason signal is not send when first point is clicked.
         """
         print("clicked points", points)
         if len(points) > 1:
@@ -377,6 +401,9 @@ class StructureControlsWidget(QWidget):
             self.scf_window.show()
 
     def update_scatter(self):
+        """
+        Updates scatter plot regarding geometry optimization step
+        """
         for item in self.energy_plot_widget.getPlotItem().listDataItems():
             if isinstance(item, MoveableScatterPlotItem):
                 self.energy_plot_widget.getPlotItem().removeItem(item)
