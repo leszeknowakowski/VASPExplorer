@@ -59,7 +59,7 @@ class ReadNebData:
                 middle_neb_dirs.append(neb_dir)
         middle_neb_dirs.sort()
         for neb_dir in middle_neb_dirs:
-            data = VaspData(neb_dir)
+            data = VaspData(neb_dir, parse_doscar=False)
             self.neb_energies.append(data.outcar_data.find_energy())
             self.neb_positions.append(data.outcar_data.find_coordinates())
             self.neb_magnetizations.append(data.outcar_data.magnetizations)
@@ -70,7 +70,7 @@ class ReadNebData:
         for item in dirs:
             neb_dir = os.path.join(self.dir, item)
             if os.path.isdir(neb_dir) and item in self.max_min_dirs:
-                self.data = VaspData(neb_dir)
+                self.data = VaspData(neb_dir, parse_doscar=False)
                 self.start_stop_positions.append(self.data.outcar_coordinates[-1])
                 self.start_stop_energies.append(self.data.outcar_energies[-1])
                 self.start_stop_magnetizations.append(self.data.outcar_data.magnetizations[-1])
@@ -85,7 +85,7 @@ class NebWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            dir = "D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+            dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
             #dir = "D:\\test_fir_doswizard\\1.NEBS\\4.from_zasada\\4.Peroxy_desorption\\2.TS_search" # TODO: change when released
         self.neb = ReadNebData(dir)
 
@@ -651,10 +651,10 @@ class NebWindow(QMainWindow):
 
 
 if __name__ == "__main__":
-    dir = ("D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1"
+    dir = ("D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1"
            ".2ominus_o2ads\\2.second")
 
-    dir = "D:\\syncme-from-c120\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+    dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
     #neb = ReadNebData(dir)
     app = QApplication(sys.argv)
     #app.setStyleSheet(STYLE_SHEET)

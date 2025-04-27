@@ -14,12 +14,12 @@ from exceptions import EmptyFile
 
 
 class VaspData():
-    def __init__(self, dir):
+    def __init__(self, dir, parse_doscar=True):
         outcar = self.parse_outcar(dir)
         poscar = self.parse_poscar(dir)
-        doscar = self.parse_doscar(dir)
-
-        self.process_doscar(doscar)
+        if parse_doscar:
+            doscar = self.parse_doscar(dir)
+            self.process_doscar(doscar)
         self.process_poscar(poscar)
 
 
