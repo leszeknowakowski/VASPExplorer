@@ -106,6 +106,7 @@ class VaspData():
     def process_poscar(self, poscar):
         #self.poscar = PoscarParser(os.path.join(dir, "POSCAR"))
         self.atoms_symb_and_num = self.poscar.symbol_and_number()
+        atoms_underline_number = self.poscar.symbol_underline_number()
         self.number_of_atoms = self.poscar.number_of_atoms()
         self.list_atomic_symbols = self.poscar.list_atomic_symbols()
         self.atomic_symbols = self.poscar.atomic_symbols()
@@ -127,8 +128,15 @@ class VaspData():
         self.suffixes = ["" for _ in range(self.number_of_atoms)]
 
         # Partition the original list
-        for item in self.atoms_symb_and_num:
+        #for item in self.atoms_symb_and_num:
+        for item in atoms_underline_number:
             for i, atom in enumerate(self.atomic_symbols): # TODO: doesn't work good, put C and Ce in same list
-                if item.startswith(atom):
+                splitted = item.split("_")
+                if len(splitted)>2:
+                    last = splitted[-1]
+                    splitted = ["_".join(splitted[:-1])]
+                    splitted.append(last)
+                #if item.startswith(atom):
+                if splitted[0] == atom:
                     self.partitioned_lists[i].append(item)
                     break  # Once found, no need to continue checking other atoms

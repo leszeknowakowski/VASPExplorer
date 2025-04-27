@@ -302,6 +302,12 @@ class PoscarParser:
             sym_num_list.append(str(symbol) + str(number))
         return sym_num_list
 
+    def symbol_underline_number(self):
+        sym_num_list = []
+        for symbol, number in zip(self.list_atomic_symbols(), range(1, self.number_of_atoms() + 1)):
+            sym_num_list.append(str(symbol) + "_" + str(number))
+        return sym_num_list
+
     def dynamics(self):
         if self.atom_symbols_exists and self.lines[7].strip()[0].lower() == "s":
             self.dynamic_exists = True

@@ -266,7 +266,9 @@ class MainWindow(QMainWindow):
 
     def load_data(self):
         """Open a directory and reload all VASP data from it, updating the GUI."""
-        selected_dir = QFileDialog.getExistingDirectory(self, "Select Directory with VASP Files", self.dir)
+        selected_dir = QFileDialog.getExistingDirectory(self,
+                                                        "Select Directory with VASP Files",
+                                                        r'D:\syncme\modelowanie DFT\co3o4_new_new\0.bulk\scale_0.9900')
         if not selected_dir:
             return  # user cancelled
 
@@ -276,7 +278,7 @@ class MainWindow(QMainWindow):
             self.data = VaspData(selected_dir)
 
             # Update plot widgets
-            #self.dos_plot_widget.__init__(self.data)
+            self.dos_plot_widget.update_data(self.data)
             self.dos_control_widget.update_data(self.data)
             #self.structure_plot_interactor_widget.__init__(self.data)
             #self.structure_plot_control_tab.__init__(self.structure_plot_interactor_widget)

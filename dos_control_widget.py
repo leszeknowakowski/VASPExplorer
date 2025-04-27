@@ -40,7 +40,6 @@ class DosControlWidget(QWidget):
         """
         updates data when new file is opened
         """
-        '''
         self.data = data
         self.saved_plots = []
         self.saved_labels = []
@@ -48,11 +47,13 @@ class DosControlWidget(QWidget):
         self.atom_checkboxes = []
         self.orbital_checkboxes = []
 
+
         self.create_checkboxes(self.data.atoms_symb_and_num, self.atom_checkboxes, self.scroll_left_layout)
         self.create_checkboxes(self.data.orbitals, self.orbital_checkboxes, self.scroll_right_layout)
-        self.add_all_buttons()
-        '''
-        pass
+
+        self.add_orbital_buttons()
+        self.add_atom_buttons()
+
 
     def init_dos_orbitals_atoms_tab(self, layout):
         """
@@ -69,7 +70,7 @@ class DosControlWidget(QWidget):
 
     def atom_scroll_area(self, layout):
         """
-        Initializa scroll area widget for atoms
+        Initialize scroll area widget for atoms
         """
         #area widget
         self.scroll_area_widget = QWidget()
@@ -129,7 +130,7 @@ class DosControlWidget(QWidget):
 
         layout.addWidget(self.scroll_area_widget)
         
-    def add_buttons(self, layout, data, callout):
+    def add_buttons(self, layout, data, callout, type="orbital"):
         """
         Create a buttons for atoms and orbitals.
         Parameters:
@@ -142,7 +143,10 @@ class DosControlWidget(QWidget):
         """
         self.clearLayout(layout)
         for i, list in enumerate(data):
-            label = list[0] if len(list) == 1 else list[0][0]
+            if type == "orbital":
+                label = list[0] if len(list) == 1 else list[0][0]
+            elif type == "atom":
+                label = list
             btn = QPushButton(f"{callout.__name__.split("_")[0]} {label}", self)
             btn.clicked.connect(lambda _, x=i: callout(x))
             layout.addWidget(btn)
@@ -152,6 +156,8 @@ class DosControlWidget(QWidget):
         Initialize all buttons connected to DOS plots
         """
         self.all_btns_layout = QVBoxLayout()
+        self.scroll_area_layout.addLayout(self.all_btns_layout)
+
         self.btn_orb_layout = QHBoxLayout()
         self.btn_atoms_layout = QHBoxLayout()
         self.all_btns_layout.addLayout(self.btn_orb_layout)
@@ -170,10 +176,10 @@ class DosControlWidget(QWidget):
         """
         Add buttons for controlling orbitals selection
         """
+        self.clearLayout(self.select_orbital_layout)
+        self.clearLayout(self.deselect_orbital_layout)
         self.add_buttons(self.select_orbital_layout, self.data.orbital_types, self.select_orbital)
         self.add_buttons(self.deselect_orbital_layout, self.data.orbital_types, self.deselect_orbital)
-
-        self.scroll_area_layout.addLayout(self.all_btns_layout)
 
         select_all_btn = QPushButton("select all", self)
         select_all_btn.clicked.connect(self.select_all_orbitals)
@@ -190,8 +196,8 @@ class DosControlWidget(QWidget):
         """
         Add buttons for controlling atoms selection
         """
-        self.add_buttons(self.select_atom_layout, self.data.atomic_symbols, self.select_atom)
-        self.add_buttons(self.deselect_atom_layout, self.data.atomic_symbols, self.deselect_atom)
+        self.add_buttons(self.select_atom_layout, self.data.atomic_symbols, self.select_atom, type="atom")
+        self.add_buttons(self.deselect_atom_layout, self.data.atomic_symbols, self.deselect_atom, type="atom")
 
         select_all_atoms_btn = QPushButton("Select all", self)
         select_all_atoms_btn.clicked.connect(self.select_all_atoms)
@@ -271,10 +277,20 @@ class DosControlWidget(QWidget):
             signal of checking/unchecking
         """
         # block signals
+
         for checkbox in self.atom_checkboxes:
             checkbox.blockSignals(True)
-            if checkbox.text() in atom:
-                checkbox.setChecked(check)
+            checkbox_text = checkbox.text()
+            for element in atom:
+                splitted = element.split("_")
+                length = len(splitted)
+                if length > 2:
+                    many_splitted = element.rsplit("_", length - 2)
+                    many_joined = "".join(many_splitted)
+                else:
+                    many_joined = "".join(splitted)
+                if checkbox_text in many_joined:
+                    checkbox.setChecked(check)
             checkbox.blockSignals(False)
         # update atom_up
         self.checkbox_changed()
@@ -286,10 +302,12 @@ class DosControlWidget(QWidget):
         self.update_atom_checkboxes(self.data.partitioned_lists[index], False)
 
     def select_all_atoms(self):
-        self.update_atom_checkboxes(self.data.atoms_symb_and_num, True)
+        flatten = [element for sublist in self.data.partitioned_lists for element in sublist]
+        self.update_atom_checkboxes(flatten, True)
 
     def deselect_all_atoms(self):
-        self.update_atom_checkboxes(self.data.atoms_symb_and_num, False)
+        flatten = [element for sublist in self.data.partitioned_lists for element in sublist]
+        self.update_atom_checkboxes(flatten, False)
 
     def select_orbital(self, index):
         self.update_checkboxes(self.data.orb_types[index], True)

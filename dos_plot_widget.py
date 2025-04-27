@@ -71,6 +71,9 @@ class DosPlotWidget(QWidget):
         self.full_range_plot.addItem(self.inf_line_full)
         self.bounded_plot.addItem(self.inf_line_bounded)
 
+    def update_data(self, data):
+        self.data = data
+
     def update_bounded_plot_y_range(self):
         """
          Updates the y-axis range of the bounded plot based on the selected region
