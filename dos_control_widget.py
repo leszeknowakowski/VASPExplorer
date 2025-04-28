@@ -144,7 +144,7 @@ class DosControlWidget(QWidget):
                 label = list[0] if len(list) == 1 else list[0][0]
             elif type == "atom":
                 label = list
-            btn = QPushButton(f"{callout.__name__.split("_")[0]} {label}", self)
+            btn = QPushButton(f"{callout.__name__.split('_')[0]} {label}", self)
             btn.clicked.connect(lambda _, x=i: callout(x))
             layout.addWidget(btn)
             
