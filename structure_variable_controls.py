@@ -646,7 +646,7 @@ class StructureVariableControls(QWidget):
     def print_magmoms(self): #TODO fix wrong column print
         mags = []
         for row in range(self.tableWidget.rowCount()):
-            mags.append(self.tableWidget.item(row, 7).text())
+            mags.append(self.tableWidget.item(row, 9).text())
         # Create the compressed string
         compressed_string = " ".join(
             f"{count}*{key}" if count > 1 else key
@@ -885,7 +885,7 @@ class ConstraintsWindow(QWidget):
                 if file.endswith(".cell"):
                     # Read the .cell file
                     structure = read(os.path.join(dir, file))
-                    write(os.path.join(dir, "POSCAR"), structure, format="vasp")
+                    file.write(os.path.join(dir, "POSCAR"), structure, format="vasp")
                     poscar_file = os.path.join(dir, "POSCAR")
 
         if not os.path.exists(os.path.join(dir, 'CONTCAR')):
