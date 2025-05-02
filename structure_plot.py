@@ -127,19 +127,19 @@ class StructureViewer(QWidget):
         missing_symbols = set(stripped_symbols) - set(self.color_data.keys())
 
         # Create a mapping of missing symbols to known elements
-        if self.symbol_mapping is None:
-            self.symbol_mapping = {}
+        #if self.symbol_mapping is None:
+        self.symbol_mapping = {}
 
-            for missing_symbol in missing_symbols:
-                print(f"The symbol '{missing_symbol}' is not in self.color_data.")
-                while True:
-                    user_input = input(
-                        f"Please provide a known element name for '{missing_symbol}' (e.g., 'O', 'C', etc.): ").strip()
-                    if user_input in self.color_data:
-                        self.symbol_mapping[missing_symbol] = user_input
-                        break
-                    else:
-                        print(f"'{user_input}' is not in self.color_data. Please try again.")
+        for missing_symbol in missing_symbols:
+            print(f"The symbol '{missing_symbol}' is not in self.color_data.")
+            while True:
+                user_input = input(
+                    f"Please provide a known element name for '{missing_symbol}' (e.g., 'O', 'C', etc.): ").strip()
+                if user_input in self.color_data:
+                    self.symbol_mapping[missing_symbol] = user_input
+                    break
+                else:
+                    print(f"'{user_input}' is not in self.color_data. Please try again.")
 
         # Assign colors to atoms based on the mapping or directly from self.color_data
         self.atom_colors = [

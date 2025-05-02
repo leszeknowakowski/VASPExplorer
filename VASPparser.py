@@ -473,6 +473,10 @@ class DOSCARparser:
         for i in range(0, len(list), size):
             yield list[i:i + size - 1]
 
+class BaderParser:
+    def __init__(self, file):
+        pass
+
 
 if __name__ == "__main__":
     doscar = DOSCARparser("D:\\syncme-from-c120\\modelowanie DFT\\czasteczki\\O2\\DOSCAR")

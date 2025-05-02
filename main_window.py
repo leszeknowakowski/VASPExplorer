@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
         """ Initialize GUI """
         QMainWindow.__init__(self, parent)
         super().__init__(parent)
+        self.__version__ = "0.0.1"
         #self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
         self.dir = self.set_working_dir()
         self.create_data()
@@ -263,6 +264,11 @@ class MainWindow(QMainWindow):
             #print("can't resolve operating system")
             self.dir = dir
         return dir
+    def set_window_title(self, path):
+        parts = path.strip(os.sep).split(os.sep)
+        # Join the last 6 components
+        last_6_dirs = os.sep.join(parts[-6:])
+        self.setWindowTitle("VASPy-vis v. " + self.__version__ + ": " +last_6_dirs)
 
     def load_data(self):
         """Open a directory and reload all VASP data from it, updating the GUI."""
@@ -286,7 +292,7 @@ class MainWindow(QMainWindow):
             self.structure_plot_interactor_widget.update_data(self.data)
             self.structure_plot_control_tab.update_data()
             self.structure_variable_control_tab.update_data()
-            #self.chgcar_control_widget.__init__()
+            self.chgcar_control_widget.update_data()
             #self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
 
             self.dir = selected_dir
@@ -301,6 +307,7 @@ if __name__ == '__main__':
 #    faulthandler.register(signal.SIGUSR1)
     window = MainWindow()
     window.log_program_launch()
+    window.set_window_title(window.dir)
     toc = time.perf_counter()
     print(f'Execution time: {toc - tic:0.4f} seconds')
     window.show()

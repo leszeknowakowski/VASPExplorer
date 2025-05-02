@@ -104,6 +104,10 @@ class ChgcarVis(QWidget):
 
         self.setLayout(self.layout)
 
+    def update_data(self, data):
+        if self.current_contour_actor is not None:
+            self.clear_contours()
+
     def set_spin_type(self, type="total"):
         """ set the type of spin to visualise on charge
         density plot
@@ -258,7 +262,6 @@ class ChgcarVis(QWidget):
             self.chg_plotter.add_actor(contour_actor)
         except ValueError:
             print("Empty contour - check epsilon or - if You want to plot spin density - structure is non-magnetic")
-
 
     def clear_contours(self):
         """ removes the contours from plotter """
