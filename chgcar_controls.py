@@ -185,12 +185,10 @@ class ChgcarVis(QWidget):
 
         nx, ny, nz = volumetric_data.shape
 
+        from vtk.util import numpy_support
         volumetric_data = volumetric_data.ravel(order='F')
-        vtk_data = vtk.vtkDoubleArray()
+        vtk_data = numpy_support.numpy_to_vtk(num_array=volumetric_data, deep=True, array_type=vtk.VTK_DOUBLE)
         vtk_data.SetName("values")
-        vtk_data.SetNumberOfTuples(nx * ny * nz)
-        for i, val in enumerate(volumetric_data):
-            vtk_data.SetValue(i, val)
 
         # Create vtkImageData
         image_data = vtk.vtkImageData()
