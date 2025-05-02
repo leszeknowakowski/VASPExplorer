@@ -11,7 +11,7 @@ import csv
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
-QToolBar, QMenuBar, QAction, QTabBar, QFileDialog, QMessageBox
+QToolBar, QMenuBar, QAction, QTabBar, QFileDialog, QMessageBox, QMenu
 from PyQt5.QtGui import QCloseEvent, QIcon,QMouseEvent
 from PyQt5.QtCore import Qt
 toc = time.perf_counter()
@@ -139,6 +139,14 @@ class MainWindow(QMainWindow):
         modify_menu.addAction(modify_constraints_action)
         modify_menu.addAction(move_atoms_window)
 
+        view_menu = menubar.addMenu('View')
+        actors_menu = QMenu("Actors", self)
+        view_menu.addMenu(actors_menu)
+        clear_bonds_menu_action = QAction("Clear Bonds", self)
+        actors_menu.addAction(clear_bonds_menu_action)
+
+
+
         splitter = QFloatingSplitter()
         main_layout.addWidget(splitter)
 
@@ -204,6 +212,8 @@ class MainWindow(QMainWindow):
 
         modify_constraints_action.triggered.connect(self.structure_variable_control_tab.modify_constraints)
         move_atoms_window.triggered.connect(self.structure_variable_control_tab.move_atoms_widget)
+        clear_bonds_menu_action.triggered.connect(self.structure_plot_control_tab.clear_bond_labels)
+
 
         # self.console_widget = ConsoleWidget()
         # main_layout.addWidget(self.console_widget)
@@ -297,6 +307,7 @@ class MainWindow(QMainWindow):
             #self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
 
             self.dir = selected_dir
+            set_window_title(self, self.dir)
 
         #except Exception as e:
         #QMessageBox.critical(self, "Error Loading Data", str(e))

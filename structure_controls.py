@@ -77,6 +77,7 @@ class StructureControlsWidget(QWidget):
         self.planes_layout()
         self.energy_plot_layout()
         self.bond_length_actors = []
+        self.bond_label_actors = []
 
 
         self.add_bonds()
@@ -835,13 +836,20 @@ class StructureControlsWidget(QWidget):
 
         # Calculate distance
         distance = np.linalg.norm(np.array(pt1) - np.array(pt2))
-        distance_text = f"{distance:.2f}"
+        distance_text = f"{distance:.3f}"
 
         # Create label actor
-        self.bond_label_actor = self.plotter.add_point_labels(
+        bond_label_actor = self.plotter.add_point_labels(
             [midpoint], [distance_text], font_size=24,
             show_points=False, always_visible=True, text_color="green"
         )
+        self.bond_label_actors.append(bond_label_actor)
+
+    def clear_bond_labels(self):
+        for actor in self.bond_label_actors:
+            self.plotter.renderer.RemoveActor(actor)
+        for actor in self.bond_length_actors:
+            self.plotter.renderer.RemoveActor(actor)
 
     def end_geometry(self):
         last = len(self.structure_plot_widget.data.outcar_coordinates)
