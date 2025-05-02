@@ -265,7 +265,8 @@ class MainWindow(QMainWindow):
             self.dir = dir
         return dir
     def set_window_title(self, path):
-        parts = path.strip(os.sep).split(os.sep)
+        abs_path = os.path.abspath(path)
+        parts = abs_path.strip(os.sep).split(os.sep)
         # Join the last 6 components
         last_6_dirs = os.sep.join(parts[-6:])
         self.setWindowTitle("VASPy-vis v. " + self.__version__ + ": " +last_6_dirs)
