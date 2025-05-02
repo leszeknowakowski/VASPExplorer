@@ -10,7 +10,8 @@ from PyQt5.QtGui import QCloseEvent, QIcon, QCursor
 from scipy.spatial.distance import pdist, squareform
 
 from RangeSlider import QRangeSlider
-from vtk import vtkPolyDataMapper, vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource
+from vtk import vtkPolyDataMapper, vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
+    vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper
 import os
 toc = time.perf_counter()
 print(f'importing in structure controls, time: {toc - tic:0.4f} seconds')
@@ -95,6 +96,7 @@ class StructureControlsWidget(QWidget):
         self.add_line_plot()
         self.add_scatter_plot()
         self.update_scatter()
+        self.clear_bond_label()
 
     def initUI(self):
         self.vlayout = QVBoxLayout(self)
@@ -812,17 +814,49 @@ class StructureControlsWidget(QWidget):
             print(f"selected {len(self.selected_actors)} atoms. Please select exactly two atoms")
 
     def _add_bond_line(self, pt1, pt2):
-        colors = vtkNamedColors()
+        pt1 = np.array(pt1)
+        pt2 = np.array(pt2)
+        direction = pt2 - pt1
+        length = np.linalg.norm(direction)
+        direction /= length  # normalize
 
-        line_source = vtkLineSource()
-        line_source.SetPoint1(pt1)
-        line_source.SetPoint2(pt2)
+        segment_length = 0.2
+        num_segments = int(length / segment_length)
+
+        # VTK data structures
+        points = vtkPoints()
+        lines = vtkCellArray()
+
+        point_id = 0
+
+        for i in range(num_segments):
+            start = pt1 + i * segment_length * direction
+            end = pt1 + (i + 1) * segment_length * direction
+
+            # Draw only for odd segments (i = 1, 3, 5, ...)
+            if i % 2 == 1:
+                points.InsertNextPoint(start)
+                points.InsertNextPoint(end)
+
+                line = vtkLine()
+                line.GetPointIds().SetId(0, point_id)
+                line.GetPointIds().SetId(1, point_id + 1)
+                lines.InsertNextCell(line)
+                point_id += 2
+
+        # Create the polyline
+        poly_data = vtkPolyData()
+        poly_data.SetPoints(points)
+        poly_data.SetLines(lines)
+
+        # Mapper and actor
         mapper = vtkPolyDataMapper()
-        mapper.SetInputConnection(line_source.GetOutputPort())
+        mapper.SetInputData(poly_data)
+
         actor = vtkActor()
         actor.SetMapper(mapper)
-        actor.GetProperty().SetLineWidth(10)
-        actor.GetProperty().SetColor(colors.GetColor3d('Green'))
+        actor.GetProperty().SetColor(0, 0.8, 0)
+        actor.GetProperty().SetLineWidth(3)
 
         self.structure_plot_widget.plotter.add_actor(actor)
         self.bond_length_actors.append(actor)
@@ -841,7 +875,7 @@ class StructureControlsWidget(QWidget):
         # Create label actor
         bond_label_actor = self.plotter.add_point_labels(
             [midpoint], [distance_text], font_size=24,
-            show_points=False, always_visible=True, text_color="green"
+            show_points=False, always_visible=True, text_color=(0,220,0), shape=None
         )
         self.bond_label_actors.append(bond_label_actor)
 

@@ -303,7 +303,7 @@ class MainWindow(QMainWindow):
             self.structure_plot_interactor_widget.update_data(self.data)
             self.structure_plot_control_tab.update_data()
             self.structure_variable_control_tab.update_data()
-            self.chgcar_control_widget.update_data()
+            self.chgcar_control_widget.update_data(self.data)
             #self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
 
             self.dir = selected_dir
