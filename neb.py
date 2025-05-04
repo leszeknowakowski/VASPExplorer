@@ -402,11 +402,14 @@ class NebWindow(QMainWindow):
         self.label = QLabel()
         self.button = QPushButton("copy view from 1st window")
         self.button.clicked.connect(self.copy_view)
+        self.print_data_button = QPushButton("Print data")
+        self.print_data_button.clicked.connect(self.print_data)
         self.Eakt_label = QLabel()
         self.set_Eakt_label()
         self.label_layout.addWidget(self.label)
         self.label_layout.addWidget(self.Eakt_label)
         self.label_layout.addWidget(self.button)
+        self.label_layout.addWidget(self.print_data_button)
 
         self.label_and_btn_widget.setLayout(self.label_layout)
         self.splitter.addWidget(self.label_and_btn_widget)
@@ -476,6 +479,10 @@ class NebWindow(QMainWindow):
         y.append(self.neb.start_stop_energies[1])
         y = [item for sublist in y for item in (sublist if isinstance(sublist, list) else [sublist])]
         return x, y
+
+    def print_data(self):
+        x, y = self.update_energy_data()
+        print(" ".join([str(n) for n in x]))
 
     def update_chart(self):
         for item in self.energy_plot_widget.listDataItems():
