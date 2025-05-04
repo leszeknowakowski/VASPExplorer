@@ -482,7 +482,7 @@ class NebWindow(QMainWindow):
 
     def print_data(self):
         x, y = self.update_energy_data()
-        print(" ".join([str(n) for n in x]))
+        print(" ".join([str(n) for n in y]))
 
     def update_chart(self):
         for item in self.energy_plot_widget.listDataItems():
