@@ -9,6 +9,7 @@ from pyvistaqt import QtInteractor
 tic = time.perf_counter()
 from vtk import vtkPolyDataMapper, vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
     vtkPoints, vtkUnstructuredGrid, vtkHexahedron, vtkDataSetMapper
+import vtk
 toc = time.perf_counter()
 print(f'importing vtk, time: {toc - tic} seconds')
 
@@ -111,6 +112,22 @@ class StructureViewer(QWidget):
         self.setLayout(self.layout)
         self.reset_unit_cell()
 
+        #self.setup_lighting(self.plotter.renderer)
+
+    def setup_lighting(self, renderer):
+        # Add a headlight (follows camera)
+        light = vtk.vtkLight()
+        light.SetLightTypeToHeadlight()
+        light.SetIntensity(0.1)
+        renderer.AddLight(light)
+
+        # Add subtle ambient light
+        ambient_light = vtk.vtkLight()
+        ambient_light.SetLightTypeToSceneLight()
+        ambient_light.SetPosition(1, 1, 1)
+        ambient_light.SetIntensity(0.1)
+        renderer.AddLight(ambient_light)
+
     def reset_unit_cell(self):
         try:
             self.plotter.renderer.RemoveActor(self.cube_actor)
@@ -150,41 +167,6 @@ class StructureViewer(QWidget):
     def update_atom_colors(self):
         self.atom_colors = [self.color_data[self.data.symbols[i]] for i in range(len(self.data.atoms_symb_and_num))]
 
-    def add_sphere(self, coord, col, radius):
-        #sphere = pv.Sphere(radius=radius, center=(coord[0], coord[1], coord[2])) # TODO: change to vtk
-        #actor = self.plotter.add_mesh(sphere, color=col, smooth_shading=True, render=False)
-        actor = self._create_vtk_sphere(radius, coord, col)
-        self.plotter.add_actor(actor)
-        self.sphere_actors.append(actor)
-        self.plotter.update()
-        return self.sphere_actors
-
-    def _create_vtk_sphere(self, radius, coord, col, theta_resolution=20, phi_resolution=20):
-        # Create a sphere
-        sphere_source = vtkSphereSource()
-        sphere_source.SetRadius(radius)
-        sphere_source.SetCenter(coord[0], coord[1], coord[2])
-        sphere_source.SetThetaResolution(theta_resolution)
-        sphere_source.SetPhiResolution(phi_resolution)
-        sphere_source.Update()
-
-        # Create a mapper
-        mapper = vtkPolyDataMapper()
-        mapper.SetInputConnection(sphere_source.GetOutputPort())
-
-        # Create an actor
-        actor = vtkActor()
-        actor.SetMapper(mapper)
-        col = list(np.array(col) / np.array([255, 255, 255]))
-        actor.GetProperty().SetColor(col)  # col should be an RGB tuple like (1.0, 0.0, 0.0)
-        actor.GetProperty().SetInterpolationToPhong()  # Smooth shading
-        # Optional: disable rendering until ready
-        # actor.VisibilityOff()  # Equivalent to render=False in PyVista
-        return actor
-
-    def add_structure(self):
-        for idx, coord in enumerate(self.coordinates):
-            self.add_sphere(coord, self.atom_colors[idx], 0.5)
 
     def add_unit_cell(self, x, y, z):
         """renders an parallelpipe representig an unit cell"""

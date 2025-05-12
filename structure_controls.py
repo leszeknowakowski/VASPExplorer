@@ -314,10 +314,10 @@ class StructureControlsWidget(QWidget):
         self.plane_height_range_slider.setRange(40,80)
         self.plane_height_range_slider.setMin(0)
         self.plane_height_range_slider.setMax(100)
-        #self.plane_height_range_slider.setBackgroundStyle(
-            #'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
-        #self.plane_height_range_slider.handle.setStyleSheet(
-           # 'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #858583, stop:1 #cbcbc9);')
+        self.plane_height_range_slider.setBackgroundStyle(
+            'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
+        self.plane_height_range_slider.handle.setStyleSheet(
+            'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #858583, stop:1 #cbcbc9);')
         self.plane_height_range_slider.handle.setTextColor((218,224,218))
 
         self.plane_height_range_slider.startValueChanged.connect(self.toggle_mag_above_plane)
@@ -334,10 +334,15 @@ class StructureControlsWidget(QWidget):
         self.add_plane_higher(self.plane_height_range_slider.getRange()[1])
         self.structure_plot_widget.plane_actor_heigher.GetProperty().SetOpacity(0)
 
+
+        self.plane_color_button = pg.ColorButton()
+        self.plane_color_button.sigColorChanged.connect(self.change_plane_color)
+
         planes_layout = QtWidgets.QHBoxLayout()
         planes_layout.addWidget(top_plane_cb)
         planes_layout.addWidget(bottom_plane_cb)
         planes_layout.addWidget(self.plane_height_range_slider)
+        planes_layout.addWidget(self.plane_color_button)
 
         self.planes_frame_layout.addLayout(planes_layout)
         self.vlayout.addWidget(self.planes_frame)
@@ -471,8 +476,18 @@ class StructureControlsWidget(QWidget):
         actor = vtkActor()
         actor.SetMapper(mapper)
         col = list(np.array(col)/np.array([255,255,255]))
-        actor.GetProperty().SetColor(col)
-        actor.GetProperty().SetInterpolationToPhong()  # Smooth shading
+
+        prop = actor.GetProperty()
+        prop.SetColor(col)
+        prop.SetInterpolationToPhong()  # Smooth shading
+
+        #actor.GetProperty().SetColor(*color)
+        prop.SetSpecular(0.33)
+        prop.SetSpecularPower(14)
+        prop.SetAmbient(0.37)
+        prop.SetDiffuse(0.64)
+        prop.SetInterpolationToPhong()
+
         # Optional: disable rendering until ready
         actor.VisibilityOff()  # Equivalent to render=False in PyVista
         return actor
@@ -598,6 +613,13 @@ class StructureControlsWidget(QWidget):
         self.planeSource_heigher.Update()
 
         self.structure_plot_widget.plotter.renderer.Render()
+
+    def change_plane_color(self):
+        color = self.plane_color_button.color()
+        r = color.red()/255
+        g = color.green()/255
+        b = color.blue()/255
+        self.structure_plot_widget.plane_actor.GetProperty().SetColor((r,g,b))
 
     def toggle_plane(self, flag):
         """ switches on and off plane visibility"""

@@ -258,11 +258,12 @@ class MainWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         elif platform.system() == 'Windows':
-            path = "F:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt"
-            if os.path.isdir(path):
-                dir = path
-            else:
+            cwd = os.getcwd()
+            files_to_check = ['CONTCAR', 'POSCAR', 'OUTCAR']
 
+            if any(os.path.isfile(os.path.join(cwd, fname)) for fname in files_to_check):
+                dir = cwd
+            else:
                 dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
@@ -307,7 +308,7 @@ class MainWindow(QMainWindow):
             #self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
 
             self.dir = selected_dir
-            set_window_title(self, self.dir)
+            self.set_window_title(self, self.dir)
 
         #except Exception as e:
         #QMessageBox.critical(self, "Error Loading Data", str(e))
