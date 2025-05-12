@@ -265,7 +265,7 @@ class MainWindow(QMainWindow):
                 dir = cwd
             else:
                 dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
                 #dir = r"D:\syncme\modelowanie DFT\lobster_tests\Si\Si"
                 #dir = r"D:\syncme\test_for_doswizard\9.CHGCAR\1.spinel_spinupdown"
@@ -275,6 +275,7 @@ class MainWindow(QMainWindow):
             #print("can't resolve operating system")
             self.dir = dir
         return dir
+
     def set_window_title(self, path):
         abs_path = os.path.abspath(path)
         parts = abs_path.strip(os.sep).split(os.sep)
@@ -308,7 +309,7 @@ class MainWindow(QMainWindow):
             #self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
 
             self.dir = selected_dir
-            self.set_window_title(self, self.dir)
+            self.set_window_title(self.dir)
 
         #except Exception as e:
         #QMessageBox.critical(self, "Error Loading Data", str(e))

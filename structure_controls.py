@@ -96,7 +96,7 @@ class StructureControlsWidget(QWidget):
         self.add_line_plot()
         self.add_scatter_plot()
         self.update_scatter()
-        self.clear_bond_label()
+        self.clear_bond_labels()
 
     def initUI(self):
         self.vlayout = QVBoxLayout(self)
@@ -311,13 +311,12 @@ class StructureControlsWidget(QWidget):
         # setRange -> aktualny, teraźniejszy zares slidera
         # setMin, setMax - maksymalna wartość slidera (granice)
         self.plane_height_range_slider = QRangeSlider()
-        self.plane_height_range_slider.setRange(40,80)
-        self.plane_height_range_slider.setMin(0)
+        self.plane_height_range_slider.show()
+        self.plane_height_range_slider.setMin(-1)
         self.plane_height_range_slider.setMax(100)
-        self.plane_height_range_slider.setBackgroundStyle(
-            'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
-        self.plane_height_range_slider.handle.setStyleSheet(
-            'background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #858583, stop:1 #cbcbc9);')
+        self.plane_height_range_slider.setRange(50,90)
+
+
         self.plane_height_range_slider.handle.setTextColor((218,224,218))
 
         self.plane_height_range_slider.startValueChanged.connect(self.toggle_mag_above_plane)
@@ -334,14 +333,17 @@ class StructureControlsWidget(QWidget):
         self.add_plane_higher(self.plane_height_range_slider.getRange()[1])
         self.structure_plot_widget.plane_actor_heigher.GetProperty().SetOpacity(0)
 
+        plane_color_label = QtWidgets.QLabel("planes color:")
 
         self.plane_color_button = pg.ColorButton()
-        self.plane_color_button.sigColorChanged.connect(self.change_plane_color)
+        self.plane_color_button.setColor(np.array([0.890, 0.8119, 0.341])*255)
+        self.plane_color_button.sigColorChanging.connect(self.change_plane_color)
 
         planes_layout = QtWidgets.QHBoxLayout()
         planes_layout.addWidget(top_plane_cb)
         planes_layout.addWidget(bottom_plane_cb)
         planes_layout.addWidget(self.plane_height_range_slider)
+        planes_layout.addWidget(plane_color_label)
         planes_layout.addWidget(self.plane_color_button)
 
         self.planes_frame_layout.addLayout(planes_layout)
@@ -566,6 +568,7 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.plane_actor = vtkActor()
         self.structure_plot_widget.plane_actor.SetMapper(mapper)
         self.structure_plot_widget.plane_actor.GetProperty().SetColor(colors.GetColor3d('Banana'))
+        self.structure_plot_widget.plane_actor.GetProperty().SetAmbient(100)
         #  self.plane_actor.GetProperty().SetOpacity()
 
         self.structure_plot_widget.plotter.renderer.AddActor(self.structure_plot_widget.plane_actor)
@@ -620,6 +623,7 @@ class StructureControlsWidget(QWidget):
         g = color.green()/255
         b = color.blue()/255
         self.structure_plot_widget.plane_actor.GetProperty().SetColor((r,g,b))
+        self.structure_plot_widget.plane_actor_heigher.GetProperty().SetColor((r,g,b))
 
     def toggle_plane(self, flag):
         """ switches on and off plane visibility"""
@@ -791,11 +795,24 @@ class StructureControlsWidget(QWidget):
         self.self.structure_plot_widget.data.constrains[row] = constraints
 
     def delete_row(self, row):
-        self.structure_plot_widget.data.atoms_symb_and_num.pop(row)
-        self.structure_plot_widget.data.symbols.pop(row)
-        self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()].pop(row) # delete all geo??
-        self.structure_plot_widget.data.constrains.pop(row)
+        import inspect
+        atoms = len(self.structure_plot_widget.data.atoms_symb_and_num)
+        data = self.structure_plot_widget.data
+        values = [value for name, value in inspect.getmembers(data)
+                  if type(value) == list and len(value) == atoms]
+        properties = [name for name, value in inspect.getmembers(data)
+                  if type(value) == list and len(value) == atoms]
+        for value, property in zip(values, properties):
+            value.pop(row)
+            setattr(data, property, value)
         self.structure_plot_widget.atom_colors.pop(row)
+        outcar_data = self.structure_plot_widget.data.outcar_data
+
+        for geo in self.structure_plot_widget.data.outcar_coordinates:
+            geo.pop(row) # delete atom from all geometries
+        for mag in outcar_data.magnetizations:
+            mag.pop(row)
+
         for actor in self.structure_plot_widget.sphere_actors:
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors.pop(row)

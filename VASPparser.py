@@ -13,7 +13,8 @@ class OutcarParser:
         self.magnetizations = []
         self.scf_energies = []
         self.section_scf_energies = []
-        self.geo_step = None
+        current_geom_step = None
+        current_energy_list = []
         if os.path.exists(os.path.join(dir, 'POSCAR')):
             poscar = 'POSCAR'
         else:
@@ -124,19 +125,21 @@ class OutcarParser:
 
                 self.magmoms = magmom_section
             elif iteration in line:
-                geo_step = int(line.strip().split()[2][:-1])
+                geom_step = int(line.strip().split()[2][:-1])
                 electronic_step = int(line.strip().split()[3][:-1])
 
-                if self.geo_step is not None and geo_step != self.geo_step:
-                    self.scf_energies.append(self.section_scf_energies)
-                    self.section_scf_energies = []
-
-                self.geo_step = geo_step
-
+                if current_geom_step is None:
+                    current_geom_step = geom_step
+                if geom_step != current_geom_step:
+                    # Save the completed geometry step's energies
+                    self.scf_energies.append(current_energy_list)
+                    current_energy_list = []
+                    current_geom_step = geom_step
 
             elif electronic_energy in line:
-                scf_energy = float(line.split()[-2])
-                self.section_scf_energies.append(scf_energy)
+                    # Extract energy value
+                    energy_str = line.split('=')[-1].split()[0]
+                    current_energy_list.append(float(energy_str))
 
             if line.startswith(voluntary):
                 if len(self.magnetizations) > 0:
@@ -154,8 +157,9 @@ class OutcarParser:
                         self.section_position.append(atom_data)
                     self.positions.append(self.section_position)
             # self.magnetizations = [["N/A" for atom in self.atom_count]]
-        if self.section_scf_energies:
-            self.scf_energies.append(self.section_scf_energies)
+
+        if current_energy_list:
+            self.scf_energies.append(current_energy_list)
 
         if self.energies == []:
             print(

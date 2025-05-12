@@ -116,7 +116,7 @@ class VaspData():
         self.orb_types = [["s"], ["py", "pz", "px"], ["dxy", "dyz", "dz", "dxz", "dx2y2"],
                           ["fy(3x2-y2)", "fxyz", "fyz2", "fz3", "fxz2", "fz(x2-y2)", "fx(x2-3y2)"]]
 
-        self.partitioned_lists = [[] for _ in range(len(self.atomic_symbols))]
+
 
         self.x = self.poscar.unit_cell_vectors()[0][0]
         self.y = self.poscar.unit_cell_vectors()[1][1]
@@ -127,9 +127,11 @@ class VaspData():
         self.all_constrains = self.poscar.all_constrains()
         self.suffixes = ["" for _ in range(self.number_of_atoms)]
 
-        # Partition the original list
-        #for item in self.atoms_symb_and_num:
-        for item in atoms_underline_number:
+        self.partition_atoms(atoms_underline_number)
+
+    def partition_atoms(self, atom_underline_number):
+        self.partitioned_lists = [[] for _ in range(len(self.atomic_symbols))]
+        for item in atom_underline_number:
             for i, atom in enumerate(self.atomic_symbols): # TODO: doesn't work good, put C and Ce in same list
                 splitted = item.split("_")
                 if len(splitted)>2:

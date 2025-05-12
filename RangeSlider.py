@@ -43,19 +43,19 @@ QRangeSlider * {
     padding: 0px;
 }
 QRangeSlider #Head {
-    background: #222;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6b6b6b, stop:1 #FFF);
 }
 QRangeSlider #Span {
-    background: #393;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #282, stop:1 #FFF);
 }
 QRangeSlider #Span:active {
-    background: #282;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #282, stop:1 #FFF);
 }
 QRangeSlider #Tail {
-    background: #6b6b6b;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6b6b6b, stop:1 #FFF);
 }
 QRangeSlider > QSplitter::handle {
-    background: #6b6b6b;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6b6b6b, stop:1 #FFF);
 }
 QRangeSlider > QSplitter::handle:vertical {
     height: 4px;
@@ -77,7 +77,7 @@ class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("QRangeSlider")
         Form.resize(300, 30)
-        #Form.setStyleSheet(DEFAULT_CSS)
+        Form.setStyleSheet(DEFAULT_CSS)
         self.gridLayout = QtWidgets.QGridLayout(Form)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setSpacing(0)
@@ -414,9 +414,10 @@ if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     rs = QRangeSlider()
     rs.show()
-    rs.setRange(15, 70)
     rs.setMin(1)
-    rs.setMax(100)
-    rs.setBackgroundStyle('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);')
-    rs.handle.setStyleSheet('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #282, stop:1 #393);')
+    rs.setMax(300)
+    rs.setRange(15, 100)
+
+    #rs.setBackgroundStyle('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF, stop:1 #FFF);')
+    #rs.handle.setStyleSheet('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #282, stop:1 #FFFFFF);')
     app.exec_()
