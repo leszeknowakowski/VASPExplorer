@@ -314,7 +314,7 @@ class StructureControlsWidget(QWidget):
         self.plane_height_range_slider.show()
         self.plane_height_range_slider.setMin(-1)
         self.plane_height_range_slider.setMax(100)
-        self.plane_height_range_slider.setRange(50,90)
+        self.plane_height_range_slider.setRange(38,90)
 
 
         self.plane_height_range_slider.handle.setTextColor((218,224,218))
