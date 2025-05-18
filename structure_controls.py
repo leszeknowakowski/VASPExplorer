@@ -1,4 +1,7 @@
 import time
+
+from vtkmodules.vtkFiltersSources import vtkPointSource
+
 tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
@@ -549,55 +552,44 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.cube_actor.SetVisibility(flag)
 
     def add_plane(self, value):
-        if self.structure_plot_widget.plane_actor is not None:
-            self.structure_plot_widget.plotter.remove_actor(self.structure_plot_widget.plane_actor)
-        z = self.structure_plot_widget.data.z
-        colors = vtkNamedColors()
-        colors.SetColor('BkgColor', [26, 51, 77, 255])
+
         self.planeSource = vtkPlaneSource()
-        self.planeSource.SetNormal(0.0, 0.0, 1.0)
-        self.planeSource.SetOrigin(-5, -5, z/100 * value)
-        self.planeSource.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z/100 * value)
-        self.planeSource.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z/100 * value)
-        self.planeSource.Update()
-        plane = self.planeSource.GetOutput()
-
-        # Create a mapper and actor
-        mapper = vtkPolyDataMapper()
-        mapper.SetInputData(plane)
         self.structure_plot_widget.plane_actor = vtkActor()
-        self.structure_plot_widget.plane_actor.SetMapper(mapper)
-        self.structure_plot_widget.plane_actor.GetProperty().SetColor(colors.GetColor3d('Banana'))
-        self.structure_plot_widget.plane_actor.GetProperty().SetAmbient(100)
-        #  self.plane_actor.GetProperty().SetOpacity()
+        self._add_plane(self.planeSource, self.structure_plot_widget.plane_actor, value)
 
-        self.structure_plot_widget.plotter.renderer.AddActor(self.structure_plot_widget.plane_actor)
 
     def add_plane_higher(self, value):
         """renders a plane perpendicular to XY plane at value height"""
-        if self.structure_plot_widget.plane_actor_heigher is not None:
-            self.structure_plot_widget.plotter.remove_actor(self.structure_plot_widget.plane_actor_heigher)
+
+        self.planeSource_heigher = vtkPlaneSource()
+        self.structure_plot_widget.plane_actor_heigher = vtkActor()
+        self._add_plane(self.planeSource_heigher, self.structure_plot_widget.plane_actor_heigher, value)
+
+    def _add_plane(self, source, actor, value):
+        """renders a plane perpendicular to XY plane at value height"""
+        if actor is not None:
+            self.structure_plot_widget.plotter.remove_actor(actor)
         z = self.structure_plot_widget.data.z
         colors = vtkNamedColors()
         colors.SetColor('BkgColor', [26, 51, 77, 255])
-        self.planeSource_heigher = vtkPlaneSource()
-        self.planeSource_heigher.SetNormal(0.0, 0.0, 1.0)
-        self.planeSource_heigher.SetOrigin(-5, -5, z/100 * value)
-        self.planeSource_heigher.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z/100 * value)
-        self.planeSource_heigher.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z/100 * value)
-        self.planeSource_heigher.Update()
-        plane = self.planeSource_heigher.GetOutput()
+
+        source.SetNormal(0.0, 0.0, 1.0)
+        source.SetOrigin(-5, -5, z / 100 * value)
+        source.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z / 100 * value)
+        source.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z / 100 * value)
+        source.Update()
+        plane = source.GetOutput()
 
         # Create a mapper and actor
         mapper = vtkPolyDataMapper()
         mapper.SetInputData(plane)
-        self.structure_plot_widget.plane_actor_heigher = vtkActor()
-        self.structure_plot_widget.plane_actor_heigher.SetMapper(mapper)
-        self.structure_plot_widget.plane_actor_heigher.GetProperty().SetColor(colors.GetColor3d('Banana'))
+
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(colors.GetColor3d('White'))
+        actor.GetProperty().SetAmbient(100)
         #  self.plane_actor_heigher.GetProperty().SetOpacity()
 
-        self.structure_plot_widget.plotter.renderer.AddActor(self.structure_plot_widget.plane_actor_heigher)
-
+        self.structure_plot_widget.plotter.renderer.AddActor(actor)
 
     def all_planes_position(self):
         val = self.plane_height_range_slider.getRange()
