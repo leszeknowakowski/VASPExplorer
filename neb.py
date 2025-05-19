@@ -90,8 +90,8 @@ class NebWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
-            #dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+            #dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
+            dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
@@ -708,6 +708,8 @@ class NebWindow(QMainWindow):
             plotter = self.plotters[i+1]
             self.add_structure(image_coordinates[i], plotter)
             self.add_bonds(image_coordinates[i], plotter)
+            value = self.plane_slider_widget.value()
+            self.add_plane(value, plotter)
         for i in range(0, images - 2):  # loop for plotters
             plotter.GetRenderWindow().Render()
     def set_Eakt_label(self):
