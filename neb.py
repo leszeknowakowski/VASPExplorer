@@ -571,10 +571,6 @@ class NebWindow(QMainWindow):
             plotter.RemoveActor(actor)
         self.planes_actors = []
 
-        startVal = value
-        z = self.neb.data.z
-        #self.plane_position = startVal
-        print(z/100 * startVal)
         for plotter in self.plotters:
             self.add_plane(value, plotter)
             plotter.GetRenderWindow().Render()
