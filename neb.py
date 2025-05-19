@@ -13,7 +13,7 @@ from scipy.spatial.distance import pdist, squareform
 import numpy as np
 import pyqtgraph as pg
 from vtkmodules.vtkCommonColor import vtkNamedColors
-from vtkmodules.vtkFiltersSources import vtkSphereSource,  vtkLineSource
+from vtkmodules.vtkFiltersSources import vtkSphereSource,  vtkLineSource, vtkPlaneSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
 from vtkmodules.vtkInteractionWidgets import vtkCameraOrientationWidget, vtkOrientationMarkerWidget
 from vtkmodules.vtkRenderingCore import vtkActor,  vtkRenderer, vtkPolyDataMapper
@@ -211,6 +211,9 @@ class NebWindow(QMainWindow):
         self.add_start_end_structures()
         self.add_intermediate_structures()
 
+        for plotter in self.plotters:
+            self.add_plane(38, plotter)
+
 
         # Set main window properties
         self.setWindowTitle("NEBviewer v0.0.1")
@@ -281,6 +284,9 @@ class NebWindow(QMainWindow):
         self.widget.Initialize()
         self.widget.GetRenderWindow().Render()
         self.widget.Start()
+
+        self.add_plane_slider()
+        self.topLayout.addWidget(self.plane_slider_widget)
 
     def on_left_click(self, obj, event):
         # Get the position of the mouse click
@@ -398,6 +404,17 @@ class NebWindow(QMainWindow):
             for row in [4,5,6]:
                 text = f"{bonds[col][row-4]:.2f}"
                 self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
+
+    def add_plane_slider(self):
+        self.plane_slider_widget = QSlider()
+        self.plane_slider_widget.setMinimum(-1)
+        self.plane_slider_widget.setMaximum(100)
+
+        self.plane_slider_widget.setValue(38)
+        self.plane_slider_widget.valueChanged.connect(self.all_planes_position)
+
+        self.planes_actors = []
+        return self.plane_slider_widget
 
 
     def add_label_and_button(self):
@@ -522,6 +539,51 @@ class NebWindow(QMainWindow):
         actor.GetProperty().SetColor(colors.GetColor3d(color))
 
         plotter.AddActor(actor)
+
+    def _add_plane(self, source, actor, value, plotter):
+        """renders a plane perpendicular to XY plane at value height"""
+        z = self.neb.data.z
+        colors = vtkNamedColors()
+        colors.SetColor('BkgColor', [26, 51, 77, 255])
+
+        source.SetNormal(0.0, 0.0, 1.0)
+        source.SetOrigin(-500, -500, z / 100 * value)
+        source.SetPoint1(self.neb.data.x + 500, -500, z / 100 * value)
+        source.SetPoint2(-500, self.neb.data.y + 500, z / 100 * value)
+        source.Update()
+        plane = source.GetOutput()
+
+        # Create a mapper and actor
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputData(plane)
+
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(colors.GetColor3d('White'))
+        actor.GetProperty().SetAmbient(100)
+        #  self.plane_actor_heigher.GetProperty().SetOpacity()
+
+        plotter.AddActor(actor)
+
+        return actor
+
+    def all_planes_position(self, value):
+        for actor, plotter in zip(self.planes_actors, self.plotters):
+            plotter.RemoveActor(actor)
+        self.planes_actors = []
+
+        startVal = value
+        z = self.neb.data.z
+        #self.plane_position = startVal
+        print(z/100 * startVal)
+        for plotter in self.plotters:
+            self.add_plane(value, plotter)
+            plotter.GetRenderWindow().Render()
+
+    def add_plane(self, value, plotter):
+        planeSource = vtkPlaneSource()
+        plane_actor = vtkActor()
+        actor = self._add_plane(planeSource, plane_actor, value, plotter)
+        self.planes_actors.append(actor)
 
     def add_bonds(self, coordinates, plotter):
         """
