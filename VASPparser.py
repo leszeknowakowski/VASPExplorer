@@ -138,7 +138,11 @@ class OutcarParser:
 
             elif electronic_energy in line:
                     # Extract energy value
-                    energy_str = line.split('=')[-1].split()[0]
+                    if binary:
+                        splitter = b"="
+                    elif text:
+                        splitter = "="
+                    energy_str = line.split(splitter)[-1].split()[0]
                     current_energy_list.append(float(energy_str))
 
             if line.startswith(voluntary):

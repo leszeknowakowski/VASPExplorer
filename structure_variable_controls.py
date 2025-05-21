@@ -6,7 +6,7 @@ from structure_controls import StructureControlsWidget
 import sys, platform, os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
-    QDialog, QDialogButtonBox, QSlider
+    QDialog, QDialogButtonBox, QSlider, QGroupBox
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from collections import OrderedDict
 import numpy as np
@@ -230,11 +230,13 @@ class StructureVariableControls(QWidget):
         self.sort_by_tags_btn = QPushButton("sort")
         self.set_tags_btn = QPushButton("set tags")
         self.rattle_btn = QPushButton("rattle")
+        self.rotate_btn = QPushButton("rotate")
         self.set_tags_input_field = QLineEdit()
 
         self.set_tags_btn.clicked.connect(self.set_tags)
         self.sort_by_tags_btn.clicked.connect(self.sort_by_tags)
         self.rattle_btn.clicked.connect(self.rattle)
+        self.rotate_btn.clicked.connect(self.rotate)
 
         self.tags_btn_layout.addWidget(self.sort_by_tags_btn)
         self.tags_btn_layout.addWidget(self.rattle_btn)
@@ -332,7 +334,7 @@ class StructureVariableControls(QWidget):
                     self.structure_control_widget.structure_plot_widget.data.all_constrains[row][
                         column - 6] = new_value.upper()
                 else:
-                    raise ValueError("Movement constraint must be 'T' , 'F' or 'N/A'. Resetting to latter")
+                    print("Movement constraint must be 'T' , 'F' or 'N/A'. Resetting to latter")
                     self.structure_control_widget.structure_plot_widget.data.all_constrains[row][
                         column - 6] = 'N/A'
             if header in ["MagMom"]:
@@ -341,39 +343,8 @@ class StructureVariableControls(QWidget):
                 pass
             if header in ["Tag"]:
                 pass
-            self.after_update_data()
-            '''
-            self.data[row][field_index] = new_value  # Update the data list with the new value
-            print(f"Updated data[{row}]['{header}'] to {new_value}")
-            
-            
-            
-            
-        if column in [1, 2, 3, 4, 5, 6]:  # Only update if X, Y, Z, Move X, Move Y, or Move Z columns are edited
-            try:
-                if column in [1, 2, 3]:  # X, Y, Z columns (float)
-                    new_value = float(self.tableWidget.item(row, column).text())
-                    self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 1] = new_value
-
-                elif column in  [4,5,6]:  # Move X, Move Y, Move Z columns (T or F)
-                    new_value = self.tableWidget.item(row, column).text()
-                    if new_value.upper() in ['T', 'F', 'N/A']:
-                        self.structure_control_widget.structure_plot_widget.data.all_constrains[row][column - 4] = new_value.upper()
-                    else:
-                        raise ValueError("Movement constraint must be 'T' or 'F'.")
-                self.structure_control_widget.add_sphere()
-                self.structure_control_widget.add_bonds()
-            except ValueError:
-                print("Invalid input.")
-                # Revert to the old value
-                if column in [1, 2, 3]:
-                    old_value = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()][row][column - 1]
-                else:
-                    old_value = self.structure_control_widget.structure_plot_widget.data.constrains[row][column - 4]
-                self.tableWidget.blockSignals(True)
-                self.tableWidget.setItem(row, column, QTableWidgetItem(str(old_value)))
-                self.tableWidget.blockSignals(False)
-            '''
+            if header in ["X", "Y", "Z"]:
+                self.after_update_data()
 
     def after_update_data(self):
         self.structure_control_widget.add_sphere()
@@ -435,13 +406,18 @@ class StructureVariableControls(QWidget):
         for actor in self.structure_control_widget.selected_actors:
             if actor in self.structure_control_widget.structure_plot_widget.sphere_actors:
                 rows.append(self.structure_control_widget.structure_plot_widget.sphere_actors.index(actor))
+        if rows == []:
+            for item in self.tableWidget.selectedItems():
+                rows.append(item.row())
         return rows
 
-    def save_poscar(self):
+    def save_poscar(self, name="default"):
         # Open a file dialog to save the text file
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "", "All Files (*)", options=options)
-
+        if name == "default":
+            file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "", "All Files (*)", options=options)
+        else:
+            file_name = name
         x = self.structure_control_widget.structure_plot_widget.data.x
         y = self.structure_control_widget.structure_plot_widget.data.y
         z = self.structure_control_widget.structure_plot_widget.data.z
@@ -540,6 +516,7 @@ class StructureVariableControls(QWidget):
             self.updateData(index.row(), column)
             self.structure_control_widget.structure_plot_widget.data.constrains[index.row()] = constrain
 
+
     def translate_object(self, direction):
         camera = self.structure_control_widget.plotter.camera
 
@@ -620,6 +597,56 @@ class StructureVariableControls(QWidget):
 
         # Update the plotter
         #self.plotter.update()
+
+    def rotate_objects(self, lst):
+        phi, theta, psi, center = lst
+
+        import ast
+        center = ast.literal_eval(center)
+        from ase.io import read
+        self.save_poscar(name="tmp")
+        atoms = read("tmp", format="vasp")
+        os.remove("tmp")
+
+        selected_rows = self.get_selected_rows()
+        try:
+            rot_atoms = atoms[selected_rows].copy()
+            rot_atoms.euler_rotate(phi=float(phi),
+                                   theta=float(theta),
+                                   psi=float(psi),
+                                   center=center)
+
+            rot_positions = rot_atoms.positions
+            coordinates = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[
+                self.structure_control_widget.geometry_slider.value()]
+
+            for pos, row in zip(rot_positions, selected_rows):
+                coordinates[row][0] = pos[0]
+                coordinates[row][1] = pos[1]
+                coordinates[row][2] = pos[2]
+
+            self.tableWidget.blockSignals(True)
+            self.tableWidget.clearContents()
+            self.layout.removeWidget(self.tableWidget)
+            self.tableWidget.blockSignals(False)
+
+            # Rebuild the table with the updated data
+            self.createTable()
+
+            # Add the new table to the layout
+            self.layout.addWidget(self.tableWidget)
+
+            self.tableWidget.clearSelection()
+            for row in selected_rows:
+                self.tableWidget.selectRow(row)
+            self.structure_control_widget.add_sphere()
+            self.structure_control_widget.add_bonds()
+        except IndexError:
+            print("no atoms selected")
+
+        # Update the plotter
+        # self.plotter.update()
+
 
     def print_selected_atoms(self):
         selected_rows = self.get_selected_rows()
@@ -718,6 +745,9 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.add_bonds()
         self.structure_control_widget.add_sphere()
 
+    def rotate(self):
+        pass
+
     def modify_constraints(self):
         self.atom_choose_window = ConstraintsWindow(self)
         self.atom_choose_window.show()
@@ -730,6 +760,8 @@ class StructureVariableControls(QWidget):
         self.move_atoms_qwidget.show()
         self.move_atoms_qwidget.atom_moved.connect(self.translate_object)
         self.move_atoms_qwidget.slider_value_changed.connect(self.set_movement_sensibility)
+
+        self.move_atoms_qwidget.atom_rotated.connect(self.rotate_objects)
 
 
 class AtomChooseWindow(QWidget):
@@ -830,7 +862,7 @@ class ConstraintsWindow(QWidget):
         self.poscar =  self.set_structure_file(self.dir)
         self.constraints_list = []
         self.process_structure_file()
-        #self.atoms = read(self.poscar)
+
         self.initUI()
 
     def initUI(self):
@@ -1008,6 +1040,7 @@ class ConstraintsWindow(QWidget):
 
 class MoveAtomsWindow(QWidget):
     atom_moved = pyqtSignal(str)
+    atom_rotated = pyqtSignal(list)
     slider_value_changed = pyqtSignal(int)  # Emits slider value
 
     def __init__(self):
@@ -1017,10 +1050,19 @@ class MoveAtomsWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.layout = QVBoxLayout()
+        self.main_layout = QHBoxLayout()
+
+        self.movement_layout = QVBoxLayout()
+        self.rotation_layout = QVBoxLayout()
+
+        self.init_movement_layout()
+        self.init_rotation_layout()
+
+    def init_movement_layout(self):
 
         # Layout for movement buttons
         self.movement_buttons_layout = QVBoxLayout()
+        movement_group = QGroupBox("movement")
 
         icon_path = os.path.join(self.exec_dir, 'icons')
 
@@ -1040,7 +1082,7 @@ class MoveAtomsWindow(QWidget):
         inwards_button = QPushButton()
         inwards_button.setIcon(QIcon(os.path.join(icon_path, "in-plane.png")))
         inwards_button.setToolTip('Move atoms inwards')
-        inwards_button.clicked.connect(lambda: self.atom_moved.emit("inwards"))
+        inwards_button.clicked.connect(lambda: self.atom_moved.emit("in"))
 
         right_button = QPushButton()
         right_button.setIcon(QIcon(os.path.join(icon_path, "right_arrow.png")))
@@ -1061,7 +1103,7 @@ class MoveAtomsWindow(QWidget):
         outwards_button = QPushButton()
         outwards_button.setIcon(QIcon(os.path.join(icon_path, "out-of-plane.png")))
         outwards_button.setToolTip('Move atoms outwards')
-        outwards_button.clicked.connect(lambda: self.atom_moved.emit("outwards"))
+        outwards_button.clicked.connect(lambda: self.atom_moved.emit("out"))
 
         # Assemble layout
         self.movement_buttons_layout.addWidget(up_button, alignment=Qt.AlignCenter)
@@ -1069,7 +1111,8 @@ class MoveAtomsWindow(QWidget):
         self.movement_buttons_layout.addWidget(down_button, alignment=Qt.AlignCenter)
         self.movement_buttons_layout.addWidget(outwards_button, alignment=Qt.AlignCenter)
 
-        self.layout.addLayout(self.movement_buttons_layout)
+        movement_group.setLayout(self.movement_buttons_layout)
+        self.movement_layout.addWidget(movement_group)
 
         # Slider
         self.slider_label = QLabel("Movement Speed: 50")
@@ -1081,13 +1124,58 @@ class MoveAtomsWindow(QWidget):
         # Connect slider to update label and emit signal
         self.slider.valueChanged.connect(self.update_slider_value)
 
-        self.layout.addWidget(self.slider_label)
-        self.layout.addWidget(self.slider)
+        self.movement_buttons_layout.addWidget(self.slider_label)
+        self.movement_buttons_layout.addWidget(self.slider)
 
-        self.setLayout(self.layout)
+        self.main_layout.addLayout(self.movement_layout)
+        self.setLayout(self.main_layout)
 
         # Connect signals
         self.atom_moved.connect(self.handle_button_click)
+
+    def init_rotation_layout(self):
+        rotation_group = QGroupBox("rotation")
+        self.rotation_layout = QHBoxLayout()
+        self.rotation_widgets_layout = QVBoxLayout()
+
+        fi_layout = QHBoxLayout()
+        fi_label = QLabel("Fi angle: ")
+        self.fi_line_edit = QLineEdit("0")
+        fi_layout.addWidget(fi_label)
+        fi_layout.addWidget(self.fi_line_edit)
+
+        theta_layout = QHBoxLayout()
+        theta_label = QLabel("Theta angle: ")
+        self.theta_line_edit = QLineEdit('0')
+        theta_layout.addWidget(theta_label)
+        theta_layout.addWidget(self.theta_line_edit)
+
+        psi_layout = QHBoxLayout()
+        psi_label = QLabel("Psi angle: ")
+        self.psi_line_edit = QLineEdit('0')
+        psi_layout.addWidget(psi_label)
+        psi_layout.addWidget(self.psi_line_edit)
+
+        center_layout = QHBoxLayout()
+        center_label = QLabel("Center (x,y,x): ")
+        self.center_line_edit = QLineEdit("(0,0,0)")
+        center_layout.addWidget(center_label)
+        center_layout.addWidget(self.center_line_edit)
+
+        self.rotate_button = QPushButton("rotate!")
+        self.rotate_button.setToolTip('Rotate atoms at euler angles phi, theta, psi around the center')
+        self.rotate_button.clicked.connect(self.rotate_atoms)
+
+        self.rotation_widgets_layout.addLayout(fi_layout)
+        self.rotation_widgets_layout.addLayout(theta_layout)
+        self.rotation_widgets_layout.addLayout(psi_layout)
+        self.rotation_widgets_layout.addLayout(center_layout)
+        self.rotation_widgets_layout.addWidget(self.rotate_button)
+
+        rotation_group.setLayout(self.rotation_widgets_layout)
+        self.rotation_layout.addWidget(rotation_group)
+
+        self.main_layout.addLayout(self.rotation_layout)
 
     def handle_button_click(self, direction):
         print(f"Button clicked: {direction}")
@@ -1095,3 +1183,10 @@ class MoveAtomsWindow(QWidget):
     def update_slider_value(self, value):
         self.slider_label.setText(f"Movement Speed: {value}")
         self.slider_value_changed.emit(value)  # Emit the slider value for other classes
+
+    def rotate_atoms(self):
+        phi = self.fi_line_edit.text()
+        theta = self.theta_line_edit.text()
+        psi = self.psi_line_edit.text()
+        center = self.center_line_edit.text()
+        self.atom_rotated.emit([phi, theta, psi, center])
