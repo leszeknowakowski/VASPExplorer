@@ -41,8 +41,9 @@ class ReadNebData:
         self.start_stop_positions = []
         self.start_stop_magnetizations = []
 
-        self.parse_middle_dirs()
+
         self.parse_start_stop_dirs()
+        self.parse_middle_dirs()
 
     def find_start_stop_dirs(self):
         for item in os.listdir(self.dir):
@@ -65,7 +66,7 @@ class ReadNebData:
                 self.neb_positions.append(data.outcar_data.find_coordinates())
                 self.neb_magnetizations.append(data.outcar_data.magnetizations)
             except:
-                self.neb_energies.append([1])
+                self.neb_energies.append([np.min(np.array(self.start_stop_energies))])
                 self.neb_positions.append([data.coordinates])
                 self.neb_magnetizations.append([[1]*72])
 
@@ -90,8 +91,8 @@ class NebWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            #dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
-            dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+            dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
+            #dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
