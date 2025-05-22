@@ -160,7 +160,7 @@ class StructureVariableControls(QWidget):
 
         # create and connect buttons
         self.save_poscar_btn = QPushButton("Save Poscar")
-        self.save_poscar_btn.clicked.connect(self.save_poscar)
+        self.save_poscar_btn.clicked.connect(lambda : self.save_poscar(name="default"))
 
         self.delete_atoms_btn = QPushButton("Delete")
         self.delete_atoms_btn.clicked.connect(self.delete_atoms)
