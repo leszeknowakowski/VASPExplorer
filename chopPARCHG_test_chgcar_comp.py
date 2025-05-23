@@ -286,6 +286,14 @@ class PoscarParser:
         grid_points = xgrid * ygrid * zgrid
         return grid_list
 
+    def voxel_size(self):
+        vecs = np.array(self.unit_cell_vectors_lenghts())
+        grid = np.array(self.grid())
+
+        voxel_size = vecs / grid
+
+        return voxel_size
+
     def read_numbers(self):
         """get the whole rest of file after first grid dimensions line
         Returns:

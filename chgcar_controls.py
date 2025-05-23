@@ -97,9 +97,22 @@ class ChgcarVis(QWidget):
         self.chg_eps_slider.sliderReleased.connect(self.add_contours)
         self.chg_eps_slider.valueChanged.connect(self.change_eps_label)
 
+        self.add_box_button = QPushButton('Add box')
+        self.add_box_button.clicked.connect(self.add_flip_box_widget)
+
+        self.flip_spin_button = QPushButton('Flip spin density')
+        self.flip_spin_button.clicked.connect(self.flip_spin_density)
+
+        save_chgcar_button = QPushButton('Save CHGCAR')
+        save_chgcar_button.clicked.connect(self.write_chgcar)
+
         self.eps_layout.addWidget(self.chg_eps_text)
         self.eps_layout.addWidget(self.chg_eps_value_label)
         self.eps_layout.addWidget(self.chg_eps_slider)
+        self.eps_layout.addWidget(self.add_box_button)
+        self.eps_layout.addWidget(self.flip_spin_button)
+        self.eps_layout.addWidget(save_chgcar_button)
+
         self.layout.addLayout(self.eps_layout)
 
         self.setLayout(self.layout)
@@ -294,6 +307,33 @@ class ChgcarVis(QWidget):
             self.create_chgcar_data()
             self.w.close()
 
+    def add_flip_box_widget(self):
+        self.box_widget = self.chg_plotter.add_box_widget(self.box_widget_callback)
+
+    def box_widget_callback(self, widget):
+        bounds = widget.bounds
+        self.box_bounds = bounds
+
+    def flip_spin_density(self):
+        x_start, x_stop, y_start, y_stop, z_start, z_stop = [x if x >= 0 else 0 for x in self.box_bounds]
+        box_min = np.array([x_start, y_start, z_start])
+        box_max = np.array([x_stop, y_stop, z_stop])
+        voxel_size = self.charge_data.voxel_size()
+        x_min, y_min, z_min = np.floor(box_min / voxel_size).astype(int)
+        x_max, y_max, z_max = np.ceil(box_max / voxel_size).astype(int)
+        grid_max = self.charge_data.grid()
+        x_max, y_max, z_max = [min(v, l) for v,l in zip(grid_max, [x_max, y_max, z_max])]
+
+        self.charge_data.all_numbers[1][z_min:z_max,y_min:y_max,x_min:x_max] *= -1
+        self.add_contours()
+        print(np.sum(self.charge_data.all_numbers[1]))
+
+    def write_chgcar(self):
+        file_dialog = QFileDialog()
+        file_dialog.setDirectory(self.chg_file_path)
+        file_path, _ = file_dialog.getSaveFileName()
+        self.charge_data.save_all_file(file_path, 1)
+
     def closeEvent(self, QCloseEvent):
         """former closeEvent in case of many interactors"""
         super().closeEvent(QCloseEvent)
@@ -314,7 +354,10 @@ if __name__ == "__main__":
     main_layout.addWidget(chg_widget)
     main_layout.addWidget(plotter)
 
-    chg_widget.chg_file_path = "D:\\syncme-from-c120\\test_for_doswizard\\9.CHGCAR\\1.spinel_spinupdown\\CHGCAR"
+
+    chg_widget.chg_file_path = "D:\\syncme\\test_for_doswizard\\9.CHGCAR\\1.spinel_spinupdown\\CHGCAR"
+    chg_widget.set_spin_type("spin")
+    chg_widget.show_chg_dialog()
     chg_widget.setWindowTitle("Main Window")
     #chg_widget.create_chgcar_data()
     win.resize(1000, 850)
