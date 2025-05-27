@@ -1,25 +1,19 @@
 import time
-import pdb
+
 import sys
 import platform
 import os
-import faulthandler
-import signal
-from datetime import datetime
-import getpass
-import csv
 
 tic = time.perf_counter()
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, QPlainTextEdit, \
-QToolBar, QMenuBar, QAction, QTabBar, QFileDialog, QMessageBox, QMenu
-from PyQt5.QtGui import QCloseEvent, QIcon,QMouseEvent
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
+QToolBar, QAction, QFileDialog,  QMenu
+from PyQt5.QtGui import  QIcon
+
 toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
 
 tic = time.perf_counter()
 import pyqtgraph as pg
-from functools import partial
 toc = time.perf_counter()
 print(f'import pyqtgraph in main: {toc - tic:0.4f}')
 
@@ -30,9 +24,9 @@ from dos_control_widget import DosControlWidget
 from structure_plot import StructureViewer
 from console_widget import ConsoleWidget
 from structure_controls import StructureControlsWidget
-from structure_variable_controls import StructureVariableControls, MoveAtomsWindow
+from structure_variable_controls import StructureVariableControls
+from kpoints_create import  Kpoints_tab
 from chgcar_controls import ChgcarVis
-from draggable_tab import DraggableTabBar, DraggableTabWidget, FloatingWindow
 from deatachedtabs import DetachableTabWidget
 toc = time.perf_counter()
 print(f'import local modules in main: {toc - tic:0.4f}')
@@ -145,8 +139,7 @@ class MainWindow(QMainWindow):
         clear_bonds_menu_action = QAction("Clear Bonds", self)
         actors_menu.addAction(clear_bonds_menu_action)
 
-
-
+        # main layout
         splitter = QFloatingSplitter()
         main_layout.addWidget(splitter)
 
@@ -183,15 +176,26 @@ class MainWindow(QMainWindow):
         self.structure_variable_control_tab = StructureVariableControls(self.structure_plot_control_tab)
         structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
-        right_tab_widget.addTab(structure_tabs, "Crystal structure")
-        right_tab_widget.setCurrentIndex(1)
-        structure_tabs.setCurrentIndex(1)
-
         # tab for controlling the charge density plots
         self.chgcar_control_widget = ChgcarVis(self.structure_plot_control_tab.plotter)
         self.chgcar_control_widget.chg_file_path = os.path.join(self.dir, "CHGCAR")
         #self.chgcar_control_widget.chg_file_path = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Vacancy\\CeO2_100_CeO4-t\\CeO2_100_CeO4-t_asymmetric\\2VOa"
         structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
+
+        right_tab_widget.addTab(structure_tabs, "Crystal structure")
+        structure_tabs.setCurrentIndex(1)
+
+        # tab for controlling the input parameters
+        input_tab = QTabWidget()
+        right_tab_widget.addTab(input_tab, "Input")
+
+        kpoint_tab = Kpoints_tab(self.structure_plot_interactor_widget)
+        input_tab.addTab(kpoint_tab, "Kpoints")
+
+
+
+        right_tab_widget.setCurrentIndex(1)
+
 
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)
@@ -266,7 +270,7 @@ class MainWindow(QMainWindow):
             else:
                 #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                dir = "D:\\syncme\\test_for_doswizard\\99.binar_outcar"
+                dir = "D:\\syncme-from-c120\\test_for_doswizard\\9.CHGCAR\\1.spinel_spinupdown"
                 #dir = r"D:\syncme\modelowanie DFT\lobster_tests\Si\Si"
                 #dir = r"D:\syncme\test_for_doswizard\9.CHGCAR\1.spinel_spinupdown"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
