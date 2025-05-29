@@ -1,3 +1,5 @@
+import vtk
+
 from vasp_data import VaspData
 import os
 import sys
@@ -5,7 +7,7 @@ import json
 from dataclasses import dataclass
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QHBoxLayout,
                              QSlider, QSplitter, QTableWidget, QTableWidgetItem, QHeaderView,
-                             QPushButton)
+                             QPushButton, QCheckBox)
 
 from PyQt5.QtGui import QFont
 from PyQt5 import QtCore
@@ -23,7 +25,7 @@ from vtkmodules.vtkFiltersCore import vtkAppendPolyData
 from vtkmodules.vtkRenderingCore import vtkActor2D, vtkPolyDataMapper2D, vtkRenderer
 from vtkmodules.vtkRenderingCore import vtkCoordinate
 import platform
-from vtk import vtkCamera
+from vtk import vtkCamera, vtkAreaPicker, vtkInteractorStyleRubberBandPick
 import QVTKRenderWindowInteractor as QVTK
 QVTKRenderWindowInteractor = QVTK.QVTKRenderWindowInteractor
 colors = vtkNamedColors()
@@ -40,7 +42,6 @@ class ReadNebData:
         self.start_stop_energies = []
         self.start_stop_positions = []
         self.start_stop_magnetizations = []
-
 
         self.parse_start_stop_dirs()
         self.parse_middle_dirs()
@@ -91,8 +92,8 @@ class NebWindow(QMainWindow):
         if platform.system() == 'Linux':
             dir = './'
         else:
-            dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
-            #dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+            #dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
+            dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
         self.neb = ReadNebData(dir)
 
         script_dir = os.path.dirname(__file__)
@@ -100,7 +101,9 @@ class NebWindow(QMainWindow):
         with open(colors_file, 'r') as file:
             self.color_data = json.load(file)
         self.atom_colors = [self.color_data[self.neb.data.symbols[i]] for i in range(len(self.neb.data.atoms_symb_and_num))]
-
+        self.original_colors = {}
+        self.selected_actors = []
+        self.actors = []
         self.init_UI()
 
     def viewport_border(self, renderer, sides, border_color, border_width):
@@ -215,6 +218,7 @@ class NebWindow(QMainWindow):
         for plotter in self.plotters:
             self.add_plane(38, plotter)
 
+        self.add_numbers()
 
         # Set main window properties
         self.setWindowTitle("NEBviewer v0.0.1")
@@ -248,7 +252,8 @@ class NebWindow(QMainWindow):
         self.widget = QVTKRenderWindowInteractor() # maybe add parent
         self.topLayout.addWidget(self.widget)
         style = vtkInteractorStyleTrackballCamera()
-        self.widget.GetRenderWindow().GetInteractor().SetInteractorStyle(style)
+        interactor = self.widget.GetRenderWindow().GetInteractor()
+        interactor.SetInteractorStyle(style)
 
         x = list(np.linspace(0, 1, len(self.neb.neb_dirs)+1))
         for i in range(len(self.neb.neb_dirs)):
@@ -276,11 +281,17 @@ class NebWindow(QMainWindow):
                 left_border = False
             borders = [True, left_border, True, True]
             self.viewport_border(ren, borders, border_color, border_width)
+            if i == 1:
+                areaPicker = vtkAreaPicker()
+                style = vtkInteractorStyleRubberBandPick()
+                interactor.SetInteractorStyle(style)
+                interactor.SetPicker(areaPicker)
+                areaPicker.AddObserver("EndPickEvent", self.end_pick)
 
             self.plotters.append(ren)
 
         self.last_renderer = None
-        self.widget.GetRenderWindow().GetInteractor().AddObserver("LeftButtonPressEvent", self.on_left_click)
+        interactor.AddObserver("LeftButtonPressEvent", self.on_left_click)
 
         self.widget.Initialize()
         self.widget.GetRenderWindow().Render()
@@ -288,6 +299,51 @@ class NebWindow(QMainWindow):
 
         self.add_plane_slider()
         self.topLayout.addWidget(self.plane_slider_widget)
+
+    def point_in_frustum(self, frustum, point):
+        """Check if a point is inside the frustum using vtkPlanes."""
+        return frustum.EvaluateFunction(point) <= 0.0
+
+
+    def end_pick(self, caller, event):
+
+        """Callback: select actors whose center is inside the frustum."""
+
+        selector = caller
+        planes = selector.GetFrustum()
+
+        newly_selected = []
+
+        print("\nActors with center inside frustum:")
+        for actor in self.actors:
+            bounds = actor.GetBounds()
+            center = [(bounds[0] + bounds[1]) / 2,
+                      (bounds[2] + bounds[3]) / 2,
+                      (bounds[4] + bounds[5]) / 2]
+
+            if self.point_in_frustum(planes, center):
+                print(f"  * {actor.GetClassName()} (ID: {id(actor)})")
+                newly_selected.append(actor)
+
+        if not newly_selected:
+            print("  None selected. Resetting all.")
+            # Reset all
+            for actor in self.actors:
+                actor.GetProperty().SetColor(*self.original_colors[actor])
+            self.selected_actors.clear()
+
+        else:
+            for actor in newly_selected:
+                if actor in self.selected_actors:
+                    # Deselect it
+                    actor.GetProperty().SetColor(*self.original_colors[actor])
+                    self.selected_actors.remove(actor)
+                else:
+                    # Select it
+                    actor.GetProperty().SetColor(1.0, 1.0, 0.0)  # Yellow
+                    self.selected_actors.append(actor)
+
+        self.widget.GetRenderWindow().Render()
 
     def on_left_click(self, obj, event):
         # Get the position of the mouse click
@@ -313,98 +369,76 @@ class NebWindow(QMainWindow):
 
     def add_table_widget(self):
         self.mag_table_widget = QTableWidget()
-        self.mag_table_widget.setRowCount(7)
-        columns_count = 2*len(self.neb.neb_dirs)
+        self.splitter.addWidget(self.mag_table_widget)
+        self._populate_mag_table(init=True)
+
+    def update_table(self):
+        self._populate_mag_table(init=False)
+
+    def _populate_mag_table(self, init=False):
+        num_atoms = len(self.selected_actors)
+        columns_count = 2 * len(self.neb.neb_dirs)
+        rows_count = num_atoms + 1
+
         self.mag_table_widget.setColumnCount(columns_count)
+        self.mag_table_widget.setRowCount(rows_count)
+
         for i in range(columns_count):
             self.mag_table_widget.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
-        rows = ['mag:' ,'Co18', 'O70', 'O71', 'O72', 'Co18-O71', 'Co25-O72', 'O71-O72']
 
+        rows = ["mag:"]
+        indices = []
+
+        for actor in self.selected_actors:
+            idx = self.actors.index(actor)
+            atom = self.neb.data.atoms_symb_and_num[idx]
+            rows.append(f"{atom}:")
+            indices.append(idx)
+
+        self.indices = indices
+
+        # Display row headers
         for column in range(0, columns_count, 2):
             for row, item in enumerate(rows):
                 self.mag_table_widget.setItem(row, column, QTableWidgetItem(item))
+
+        # Fetch magnetizations
         mags = []
         total_mag = []
 
-        #indices of atoms to add information to table, further to imporove with user input or DOSwizard input
-        self.indices = (17,69,70,71)
         try:
-            mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
+            start_mag = [self.neb.start_stop_magnetizations[0][i] for i in self.indices]
         except IndexError:
-            input_indices = input("Write indices of atoms to show separates by commas : ")
-            self.indices = tuple(int(x) for x in input_indices.split(','))
-            mags = []
-        mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
-        total_mag.append(sum(self.neb.start_stop_magnetizations[0]))
-        for i in range(int(columns_count/2 -2)):
-            mags.append([self.neb.neb_magnetizations[i][0][j] for j in self.indices])
-            total_mag.append(sum(self.neb.neb_magnetizations[i][0]))
-        mags.append([self.neb.start_stop_magnetizations[1][i] for i in self.indices])
-        total_mag.append(sum(self.neb.start_stop_magnetizations[1]))
+            if init:
+                input_indices = input("Write indices of atoms to show separated by commas: ")
+                self.indices = tuple(int(x) for x in input_indices.split(','))
+                start_mag = [self.neb.start_stop_magnetizations[0][i] for i in self.indices]
+            else:
+                return
 
-        bond_lengths = self.update_bond_lengths()
-        start_stop_bond_length = self.get_start_stop_bond_length()
-
-        bonds = []
-        bonds.append(start_stop_bond_length[0])
-        for i in range(len(bond_lengths)):
-            bonds.append(bond_lengths[i])
-        bonds.append(start_stop_bond_length[1])
-
-        for column in range(1, columns_count, 2):
-            col = int((column-1)/2)
-            self.mag_table_widget.setItem(0, column, QTableWidgetItem(str(total_mag[col])))
-            for row in [0,1,2,3]:
-                text = str(mags[col][row])
-                self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
-            for row in [4,5,6]:
-                text = f"{bonds[col][row-4]:.2f}"
-                self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
-
-        self.mag_table_widget.resizeRowsToContents()
-        self.mag_table_widget.resizeColumnsToContents()
-        self.splitter.addWidget(self.mag_table_widget)
-
-    def update_table(self):
-        columns_count = 2 * len(self.neb.neb_dirs)
-        mags = []
-        total_mag = []
-        # indices of atoms to choose magnetization from (num of atom - 1 )
-        #self.indices = (17, 24, 70, 71)
-
-        # append start magnetization
-        mags.append([self.neb.start_stop_magnetizations[0][i] for i in self.indices])
+        mags.append(start_mag)
         total_mag.append(sum(self.neb.start_stop_magnetizations[0]))
 
-        val = self.geo_slider.value()
+        num_middle = int(columns_count / 2 - 2)
+        val = 0 if init else self.geo_slider.value()
 
-        # append middle magnetizations
-        for i in range(int(columns_count / 2 - 2)):
-            mags.append([self.neb.neb_magnetizations[i][val][j] for j in self.indices])
+        for i in range(num_middle):
+            mid_mag = [self.neb.neb_magnetizations[i][val][j] for j in self.indices]
+            mags.append(mid_mag)
             total_mag.append(sum(self.neb.neb_magnetizations[i][val]))
 
-        # append stop magnetization
-        mags.append([self.neb.start_stop_magnetizations[1][i] for i in self.indices])
+        end_mag = [self.neb.start_stop_magnetizations[1][i] for i in self.indices]
+        mags.append(end_mag)
         total_mag.append(sum(self.neb.start_stop_magnetizations[1]))
 
-        bond_lengths = self.update_bond_lengths()
-        start_stop_bond_length = self.get_start_stop_bond_length()
-
-        bonds = []
-        bonds.append(start_stop_bond_length[0])
-        for i in range(len(bond_lengths)):
-            bonds.append(bond_lengths[i])
-        bonds.append(start_stop_bond_length[1])
-
+        # Fill in magnetization values
         for column in range(1, columns_count, 2):
-            col = int((column-1)/2)
-            self.mag_table_widget.setItem(0, column, QTableWidgetItem(str(f"{total_mag[col]:.2f}")))
-            for row in [0,1,2,3]:
-                text = str(mags[col][row])
-                self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
-            for row in [4,5,6]:
-                text = f"{bonds[col][row-4]:.2f}"
-                self.mag_table_widget.setItem(row+1, column, QTableWidgetItem(text))
+            col = (column - 1) // 2
+            self.mag_table_widget.setItem(0, column, QTableWidgetItem(f"{total_mag[col]:.2f}"))
+            for row, mag in enumerate(mags[col]):
+                self.mag_table_widget.setItem(row + 1, column, QTableWidgetItem(str(mag)))
+
+        self.mag_table_widget.resizeRowsToContents()
 
     def add_plane_slider(self):
         self.plane_slider_widget = QSlider()
@@ -427,10 +461,19 @@ class NebWindow(QMainWindow):
         self.button.clicked.connect(self.copy_view)
         self.print_data_button = QPushButton("Print data")
         self.print_data_button.clicked.connect(self.print_data)
+        self.get_selected_actors_btn = QPushButton("Get the selected actors data")
+        self.get_selected_actors_btn.clicked.connect(self.create_table_from_selected_actors)
+
+        self.actors_numbers_checkbox = QCheckBox()
+        self.actors_numbers_checkbox.setChecked(False)
+        self.actors_numbers_checkbox.clicked.connect(self.toggle_numbers)
+
         self.Eakt_label = QLabel()
         self.set_Eakt_label()
         self.label_layout.addWidget(self.label)
         self.label_layout.addWidget(self.Eakt_label)
+        self.label_layout.addWidget(self.actors_numbers_checkbox)
+        self.label_layout.addWidget(self.get_selected_actors_btn)
         self.label_layout.addWidget(self.button)
         self.label_layout.addWidget(self.print_data_button)
 
@@ -507,6 +550,47 @@ class NebWindow(QMainWindow):
         x, y = self.update_energy_data()
         print("\n".join([str(n) for n in y]))
 
+    def create_table_from_selected_actors(self):
+        self.update_table()
+
+    def add_numbers(self):
+        indices = []
+        self.symbol_actors = []
+
+        def create_label(text, position):
+            label = vtk.vtkBillboardTextActor3D()
+            label.SetInput(text)
+            label.SetPosition(*position)
+            label.GetTextProperty().SetFontSize(30)
+            label.GetTextProperty().SetColor(0,0,0)
+            label.ForceOpaqueOn()
+            label.GetTextProperty().SetBold(1)
+            return label
+
+        for actor, symbol in zip(self.actors, self.neb.data.atoms_symb_and_num):
+            bounds = actor.GetBounds()
+            center = [(bounds[0] + bounds[1]) / 2,
+                      (bounds[2] + bounds[3]) / 2,
+                      (bounds[4] + bounds[5]) / 2 + 0.3]
+            idx = self.actors.index(actor)
+            indices.append(idx)
+            label = create_label(symbol, center)
+            label.SetVisibility(False)
+            self.plotters[0].AddActor(label)
+            self.symbol_actors.append(label)
+
+    def toggle_numbers(self):
+        indices = []
+        for actor in self.selected_actors:
+            idx = self.actors.index(actor)
+            indices.append(idx)
+        for i, actor in enumerate(self.symbol_actors):
+            if i in indices:
+                actor.SetVisibility(True)
+            else:
+                actor.SetVisibility(False)
+
+
     def update_chart(self):
         for item in self.energy_plot_widget.listDataItems():
             if isinstance(item, pg.graphicsItems.PlotDataItem.PlotDataItem) or isinstance(item, pg.graphicsItems.ScatterPlotItem.ScatterPlotItem):
@@ -533,13 +617,12 @@ class NebWindow(QMainWindow):
 
         actor = vtkActor()
         actor.SetMapper(mapper)
-        if col == [0, 0, 175]:
-           color='Blue'
-        elif col == [254,3,0]:
-            color = "Red"
-        actor.GetProperty().SetColor(colors.GetColor3d(color))
+        color = [x/255 for x in col]
+        actor.GetProperty().SetColor(color)
 
         plotter.AddActor(actor)
+
+        return actor
 
     def _add_plane(self, source, actor, value, plotter):
         """renders a plane perpendicular to XY plane at value height"""
@@ -623,9 +706,13 @@ class NebWindow(QMainWindow):
                 plotter.AddActor(actor)
                 #self.structure_plot_widget.bond_actors.append(actor)
 
-    def add_structure(self, coordinates, plotter):
+    def add_structure(self, coordinates, plotter, append_actors=False):
         for idx, coord in enumerate(coordinates):
-            self.add_sphere(coord, self.atom_colors[idx], 0.5, plotter)
+            color = self.atom_colors[idx]
+            actor = self.add_sphere(coord, color, 0.5, plotter)
+            if append_actors:
+                self.actors.append(actor)
+                self.original_colors[actor] = [x/255 for x in color]
 
     def find_bond_length(self, coord1, coord2):
         A = np.array([coord1[0], coord1[1], coord1[2]])
@@ -674,7 +761,7 @@ class NebWindow(QMainWindow):
         start_pos = self.neb.start_stop_positions[0]
         stop_pos = self.neb.start_stop_positions[1]
 
-        self.add_structure(start_pos, plotter1)
+        self.add_structure(start_pos, plotter1, append_actors=True)
         self.add_bonds(start_pos, plotter1)
         self.add_structure(stop_pos, plotter_last)
         self.add_bonds(stop_pos, plotter_last)
@@ -723,6 +810,7 @@ class NebWindow(QMainWindow):
         self.Eakt_label.setFont(my_font)
 
 
+
 if __name__ == "__main__":
     #dir = ("D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1"
     #       ".2ominus_o2ads\\2.second")
@@ -730,6 +818,7 @@ if __name__ == "__main__":
     dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
     #neb = ReadNebData(dir)
     app = QApplication(sys.argv)
+
     #app.setStyleSheet(STYLE_SHEET)
     window = NebWindow()
     window.show()
