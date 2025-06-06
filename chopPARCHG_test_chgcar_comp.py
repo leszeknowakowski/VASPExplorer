@@ -24,6 +24,7 @@ import time
 import sys
 import os
 import re
+from PyQt5.QtCore import pyqtSignal, QThread
 
 total_tic = time.time()
 import numpy as np
@@ -44,7 +45,7 @@ def print_colored_message(message, color):
     print(f"{color}{message}{Colors.RESET}")
 
 
-class PoscarParser:
+class PoscarParser(QThread):
     """class to parse POSCAR / CONTCAR files
     Parameters
     ------------------
@@ -53,11 +54,15 @@ class PoscarParser:
     chop_number: int
         how many times CHGCAR grid should be shrinked (helps to save memory
     """
+    progress = pyqtSignal(int)
+
 
     def __init__(self, filename, chop_number):
+        super().__init__()
         self.filename = filename
         self.chop_number = int(chop_number)
 
+    def run(self):
         # read all file at once (not very efficient though...)
         with open(self.filename, 'r') as file:
             self.lines = file.readlines()
@@ -317,7 +322,7 @@ class PoscarParser:
             if a % i == 0 and b % 1 == 0 and c % i == 0:
                 divisors.append(i)
         return divisors
-        
+
     def split_grid(self):
         """ splits the grid into total and spin density
         Returns:
@@ -327,17 +332,60 @@ class PoscarParser:
         list
              list of spin density points
         """
+        # whole file as list of line-strings
         content = self.read_numbers()
+
+        # line with grid numbers
         search_grid_str=self.grid_string()[:10]
+
+        # number of line at which next grid numbers appears
         chopping_index = next((i for i, s in enumerate(content) if search_grid_str in s), None)
-        total=[num if '*' not in num else 0 for row in content[:chopping_index] for num in row.split()]
-        total = [float(x) for x in total[:grid_points]]
-        print("total density  expected points: ", grid_points, " read points: ", len(total))
-        spin = [num if '*' not in num else 0 for row in content[1+chopping_index:] for num in row.split()]
-        spin = [float(x) for x in spin[:grid_points]]
-        print("spin density  expected points: ", grid_points, " read points: ", len(spin))
+
+        print("total density expected points: ", grid_points)
+        total = []
+        flat_data = [num for row in content[:chopping_index] for num in row.split()]
+        total_items = 2 * len(flat_data)
+        count = 0
+
+        signal_emit = int(total_items / 100)
+
+        for i, num in enumerate(flat_data):
+            try:
+                val = float(num)
+                count += 1
+            except:
+                val = 0
+            total.append(val)
+
+            if count % signal_emit == 0:
+                sig = int(count/total_items*100)
+                self.progress.emit(sig)
+
+        total = total[:grid_points]
+
+        print("total density read points: ", len(total))
+
+        print("spin density expected points: ", grid_points)
+        #spin = [num if '*' not in num else 0 for row in content[1+chopping_index:] for num in row.split()]
+        #spin = [float(x) for x in spin[:grid_points]]
+        spin = []
+        flat_spin_data = [num for row in content[1+chopping_index:] for num in row.split()]
+        for i, num in enumerate(flat_spin_data):
+            try:
+                val = float(num)
+                count += 1
+            except:
+                val = 0
+            spin.append(val)
+
+            if count % signal_emit == 0:
+                sig = int(count / total_items * 100)
+                self.progress.emit(sig)
+        spin = spin[:grid_points]
+
+        print("spin density read points: ", len(spin))
         return total,spin
-        
+
     def change_numbers(self, chop_number):
         """chop and reshape the grid
         Returns:
@@ -355,8 +403,6 @@ class PoscarParser:
         if chop_number not in divisors:
             raise ValueError("chooping factor is not a divisor of grid points")  
         # all_numbers store the whole rest of file beyond header, one by one as separete elements
-        
-        print("spin density expected points: ", grid_points, ", read points: ", len(spindensity))
 
         totalmatrix = np.array(totaldensity, dtype=float).reshape(zgrid, ygrid, xgrid)
         total_chopped_matrix = totalmatrix[:zgrid:chop_number, :ygrid:chop_number, :xgrid:chop_number]
@@ -548,6 +594,7 @@ if __name__ == "__main__":
             if os.path.isfile(filepath):
                 print_colored_message(f'processing: {filename}', Colors.GREEN)
                 poscar = PoscarParser(filepath, chop_number)
+                poscar.run()
                 for type in dens_type:
                     if type in ['alfa', 'beta', 'total', 'spin', 'all']:
                         print(f'saving {type}')

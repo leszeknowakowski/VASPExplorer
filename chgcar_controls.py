@@ -4,7 +4,7 @@ import vtk
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
-    QFileDialog, QPushButton, QHBoxLayout, QSlider,  QMainWindow
+    QFileDialog, QPushButton, QHBoxLayout, QSlider, QMainWindow, QProgressBar, QDialog
 from PyQt5 import QtCore
 import numpy as np
 import chopPARCHG_test_chgcar_comp as chp
@@ -14,7 +14,7 @@ toc = time.perf_counter()
 print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
 
 
-class DialogWIndow(QWidget):
+class DialogWIndow(QDialog):
     """
     This class provides a window which is shown when heavy I/O operations
     are done, e.g. reading CHGCAR file
@@ -22,12 +22,22 @@ class DialogWIndow(QWidget):
     def __init__(self):
         """ Initialize """
         super().__init__()
+        self.setModal(True)
         layout = QVBoxLayout()
-        self.setMinimumSize(300,300)
-        self.label1 = QLabel('processing...')
+        #self.setMinimumSize(300,300)
+        self.label1 = QLabel('processing CHGCAR file...')
         layout.addWidget(self.label1)
+
+        self.progressBar = QProgressBar()
+        self.progressBar.setRange(0,100)
+        self.progressBar.setValue(0)
+        self.progressBar.setAlignment(QtCore.Qt.AlignCenter)
+
+        layout.addWidget(self.progressBar)
         self.setLayout(layout)
 
+    def update_progress(self, value):
+        self.progressBar.setValue(value)
 
 class ChgcarVis(QWidget):
     """ this class provides functionality for reading, displaying and
@@ -57,7 +67,7 @@ class ChgcarVis(QWidget):
 
         # create buttons
         self.chg_file_button = QPushButton('open CHGCAR')
-        self.chg_file_button.clicked.connect(self.show_chg_dialog)
+        self.chg_file_button.clicked.connect(self.select_chg_file)
         self.layout.addWidget(self.chg_file_button)
 
         self.spin_buttons = {
@@ -138,20 +148,19 @@ class ChgcarVis(QWidget):
 
     def create_chgcar_data(self):
         """ creates data for plotting  """
-        # timer
-        tic = time.perf_counter()
+
         chopping_factor = 1
         if os.path.exists(self.chg_file_path):
             try:
                 self.charge_data = chp.PoscarParser(self.chg_file_path, chopping_factor)
-            except:
+                self.charge_data.progress.connect(self.progress_window.update_progress)
+                self.charge_data.start()
+                self.charge_data.finished.connect(self.add_contours)
+                self.charge_data.finished.connect(self.close_progress_window)
+
+            except Exception as e:
                 print("ooopsie! cannot read data")
-
-        # add contours
-        self.add_contours()
-
-        toc = time.perf_counter()
-        print(f'charge density data read and displayed. Time elapsed: {toc - tic} s')
+                print(f"An error occurred: {e}")
 
     def update_eps(self):
         """ update isosurface value with slider """
@@ -287,29 +296,35 @@ class ChgcarVis(QWidget):
         self.chg_plotter.remove_actor(actor)
         print('cleared')
 
-    def show_chg_dialog(self):
+    def select_chg_file(self):
         """
         functon to create window with charge density file choose.
         When button is clicked first, it will load CHGCAR from chg_file_path, if it exists.
         When clicked again (or is there is no CHGCAR), it will open file dialog
         """
-
         if os.path.exists(self.chg_file_path) and self.chg_button_counter == 0:
-            self.create_chgcar_data()
-            self.chg_button_counter += 1
+            self.process_chg_file(self.chg_file_path)
         else:
-            self.chg_button_counter += 1
-            self.w = DialogWIndow()
-            self.w.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-            self.w.show()
-
             file_dialog = QFileDialog()
             file_dialog.setDirectory(self.chg_file_path)
             file_path, _ = file_dialog.getOpenFileName(self, "choose charge density file")
             self.chg_file_path = file_path
+            self.process_chg_file(self.chg_file_path)
+        self.chg_button_counter += 1
 
-            self.create_chgcar_data()
-            self.w.close()
+    def process_chg_file(self, file_path):
+        """
+        function to process CHGCAR file
+        """
+
+        self.progress_window = DialogWIndow()
+        self.progress_window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        self.progress_window.show()
+        self.chg_file_path = file_path
+        self.create_chgcar_data()
+
+    def close_progress_window(self):
+        self.progress_window.close()
 
     def add_flip_box_widget(self):
         self.box_widget = self.chg_plotter.add_box_widget(self.box_widget_callback)
@@ -359,9 +374,10 @@ if __name__ == "__main__":
     main_layout.addWidget(plotter)
 
 
-    chg_widget.chg_file_path = "D:\\syncme\\test_for_doswizard\\9.CHGCAR\\1.spinel_spinupdown\\CHGCAR"
+    chg_widget.chg_file_path = r"D:\syncme\modelowanie DFT\CeO2\Vacancy\CeO2_100_CeO4-t\CeO2_100_CeO4-t_asymmetric\2VOa\CHGCAR"
+    chg_widget.chg_file_path = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff\CHGCAR"
     chg_widget.set_spin_type("spin")
-    chg_widget.show_chg_dialog()
+    chg_widget.select_chg_file()
     chg_widget.setWindowTitle("Main Window")
     #chg_widget.create_chgcar_data()
     win.resize(1000, 850)
