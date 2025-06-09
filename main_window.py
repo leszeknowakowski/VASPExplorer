@@ -4,8 +4,6 @@ import sys
 import platform
 import os
 
-from PyQt5.QtCore import QTimer
-
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
     QToolBar, QAction, QFileDialog, QMenu, QSplashScreen
@@ -16,7 +14,9 @@ toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
 
 def get_splash():
-    splash_pix = QPixmap("./icons/splash.png")
+    exec_dir = os.path.dirname(os.path.abspath(__file__))
+    pix_path = os.path.join(exec_dir, 'icons', "splash.png")
+    splash_pix = QPixmap(pix_path)
     splash = QSplashScreen(splash_pix)
     splash.setMask(splash_pix.mask())
     splash.setFont(QFont("Arial", 18))
