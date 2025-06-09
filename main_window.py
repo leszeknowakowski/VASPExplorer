@@ -15,31 +15,17 @@ from PyQt5.QtCore import Qt
 toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
 
-tic = time.perf_counter()
-import pyqtgraph as pg
-toc = time.perf_counter()
-print(f'import pyqtgraph in main: {toc - tic:0.4f}')
-
-tic = time.perf_counter()
-from vasp_data import VaspData
-from dos_plot_widget import DosPlotWidget
-from dos_control_widget import DosControlWidget
-from structure_plot import StructureViewer
-from console_widget import ConsoleWidget
-from structure_controls import StructureControlsWidget
-from structure_variable_controls import StructureVariableControls
-from kpoints_create import  Kpoints_tab
-from chgcar_controls import ChgcarVis
-from deatachedtabs import DetachableTabWidget
-toc = time.perf_counter()
-print(f'import local modules in main: {toc - tic:0.4f}')
-
-pg.setConfigOptions(antialias=True)
+def get_splash():
+    splash_pix = QPixmap("./icons/splash.png")
+    splash = QSplashScreen(splash_pix)
+    splash.setMask(splash_pix.mask())
+    splash.setFont(QFont("Arial", 18))
+    splash.show()
+    splash.showMessage("Initializing...", Qt.AlignBottom | Qt.AlignCenter, Qt.black)
+    return splash
 
 STYLE_SHEET = []
 LOG_FILE = os.path.join(os.path.dirname(__file__), "launch_log.txt")
-
-
 
 class QFloatingSplitter(QSplitter):
     def __init__(self):
@@ -54,12 +40,8 @@ class MainWindow(QMainWindow):
     """
     def __init__(self, parent=None, show=True):
         """ Initialize GUI """
-        splash_pix = QPixmap("./icons/splash.png")
-        self.splash = QSplashScreen(splash_pix)
-        self.splash.setMask(splash_pix.mask())
-        self.splash.setFont(QFont("Arial", 18))
-        self.splash.show()
-        self.splash.showMessage("Initializing...", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
+        print("setting splash screen")
+        self.splash = get_splash()
         QMainWindow.__init__(self, parent)
         super().__init__(parent)
         self.__version__ = "0.0.1"
@@ -72,6 +54,26 @@ class MainWindow(QMainWindow):
 
     def initUI(self):
         """ initialize all GUI widgets, sets titles, toolbars, layouts, actions """
+        self.splash.showMessage("loading modules", Qt.AlignBottom | Qt.AlignCenter, Qt.black)
+        tic = time.perf_counter()
+        import pyqtgraph as pg
+        toc = time.perf_counter()
+        pg.setConfigOptions(antialias=True)
+        print(f'import pyqtgraph in main: {toc - tic:0.4f}')
+
+        tic = time.perf_counter()
+        from dos_plot_widget import DosPlotWidget
+        from dos_control_widget import DosControlWidget
+        from structure_plot import StructureViewer
+        from console_widget import ConsoleWidget
+        from structure_controls import StructureControlsWidget
+        from structure_variable_controls import StructureVariableControls
+        from kpoints_create import  Kpoints_tab
+        from chgcar_controls import ChgcarVis
+        from deatachedtabs import DetachableTabWidget
+        toc = time.perf_counter()
+        print(f'import local modules in main: {toc - tic:0.4f}')
+
         self.splash.showMessage("Initializing UI", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
         self.setWindowTitle('DOSWave v.0.0.0')
         self.resize(1400, 800)
@@ -264,6 +266,8 @@ class MainWindow(QMainWindow):
             print(f"Error logging launch: {e}")
 
     def create_data(self):
+        self.splash.showMessage("loading data...",Qt.AlignBottom | Qt.AlignCenter, Qt.black)
+        from vasp_data import VaspData
         dir = self.set_working_dir()
         self.data = VaspData(dir)
 
@@ -299,6 +303,7 @@ class MainWindow(QMainWindow):
 
     def load_data(self):
         """Open a directory and reload all VASP data from it, updating the GUI."""
+        from vasp_data import VaspData
         default_dir = self.dir
         #default_dir = r'D:\syncme\modelowanie DFT\co3o4_new_new\0.bulk\scale_0.9900'
         selected_file = QFileDialog.getOpenFileName(self,
