@@ -4,10 +4,13 @@ import sys
 import platform
 import os
 
+from PyQt5.QtCore import QTimer
+
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
-QToolBar, QAction, QFileDialog,  QMenu
-from PyQt5.QtGui import  QIcon
+    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen
+from PyQt5.QtGui import QIcon, QPixmap, QFont
+from PyQt5.QtCore import Qt
 
 toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
@@ -51,6 +54,12 @@ class MainWindow(QMainWindow):
     """
     def __init__(self, parent=None, show=True):
         """ Initialize GUI """
+        splash_pix = QPixmap("./icons/splash.png")
+        self.splash = QSplashScreen(splash_pix)
+        self.splash.setMask(splash_pix.mask())
+        self.splash.setFont(QFont("Arial", 18))
+        self.splash.show()
+        self.splash.showMessage("Initializing...", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
         QMainWindow.__init__(self, parent)
         super().__init__(parent)
         self.__version__ = "0.0.1"
@@ -63,6 +72,7 @@ class MainWindow(QMainWindow):
 
     def initUI(self):
         """ initialize all GUI widgets, sets titles, toolbars, layouts, actions """
+        self.splash.showMessage("Initializing UI", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
         self.setWindowTitle('DOSWave v.0.0.0')
         self.resize(1400, 800)
 
@@ -322,11 +332,12 @@ class MainWindow(QMainWindow):
 if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
-#    faulthandler.register(signal.SIGUSR1)
+
     window = MainWindow()
     window.log_program_launch()
     window.set_window_title(window.dir)
     toc = time.perf_counter()
     print(f'Execution time: {toc - tic:0.4f} seconds')
+    window.splash.close()
     window.show()
     sys.exit(app.exec_())

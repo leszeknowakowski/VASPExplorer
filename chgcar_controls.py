@@ -375,7 +375,7 @@ if __name__ == "__main__":
 
 
     chg_widget.chg_file_path = r"D:\syncme\modelowanie DFT\CeO2\Vacancy\CeO2_100_CeO4-t\CeO2_100_CeO4-t_asymmetric\2VOa\CHGCAR"
-    chg_widget.chg_file_path = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff\CHGCAR"
+    #chg_widget.chg_file_path = r"D:\syncme\test_for_doswizard\9.CHGCAR"
     chg_widget.set_spin_type("spin")
     chg_widget.select_chg_file()
     chg_widget.setWindowTitle("Main Window")
