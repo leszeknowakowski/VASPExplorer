@@ -110,7 +110,7 @@ class DosPlotWidget(QWidget):
                 plot.removeItem(item)
         self.legend.clear()
 
-    def update_plot(self, data, selected_atoms, selected_orbitals):
+    def plot_separate(self, data, selected_atoms, selected_orbitals):
         """
         Updates the DOS plots with data for specified atoms and orbitals.
         First clear the whole plots, then update the selected atoms and orbitals.
@@ -135,15 +135,8 @@ class DosPlotWidget(QWidget):
         counter = 0
         self.full_range_plot.addLegend()
 
-        # if more than 10 different dataset have to be plotted
-        # TODO: plot merged data instead, automatically
-
-
         for atom_index in selected_atoms:
             for orbital_index in selected_orbitals:
-                counter += 1
-                if counter > 10:
-                    pass
                 atom_name = self.data.atoms_symb_and_num[atom_index]
                 orbital_name = self.data.orbitals[orbital_index]
                 plot_color = next(color_gen_up)  # Cycle through colors
@@ -162,8 +155,6 @@ class DosPlotWidget(QWidget):
         # plot dataset down
         for atom_index in selected_atoms:
             for orbital_index in selected_orbitals:
-                if counter > 10:
-                    pass
                 plot_color = next(color_gen_down)
                 plot_data = dataset_down[atom_index][orbital_index]
                 self.full_range_plot.plot([-x for x in plot_data],

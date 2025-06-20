@@ -36,6 +36,7 @@ class StructureControlsWidget(QWidget):
         like atoms, bonds, and planes, along with managing display and interaction properties.
     """
     selected_actors_changed = QtCore.pyqtSignal(list)
+
     def __init__(self, structure_plot_widget):
         super().__init__()
         self.structure_plot_widget = structure_plot_widget
@@ -81,7 +82,7 @@ class StructureControlsWidget(QWidget):
         self.planes_layout()
         self.energy_plot_layout()
         self.bond_length_actors = []
-        self.bond_label_actors = []
+        self.bond_label_actors = [] #TODO: maybe create another clas for handlling bond actors?
 
 
         self.add_bonds()

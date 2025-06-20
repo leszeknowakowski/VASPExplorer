@@ -3,12 +3,12 @@ import time
 import sys
 import platform
 import os
-
+from config import AppConfig
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
-    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen
+    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel
 from PyQt5.QtGui import QIcon, QPixmap, QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 
 toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
@@ -50,6 +50,9 @@ class MainWindow(QMainWindow):
         self.create_data()
         self.qmainwindow = QMainWindow()
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
+        self.blink_timer = QTimer()
+        self.blink_timer.timeout.connect(self.toggle_blink)
+        self.blink_counter = 0
         self.initUI()
 
     def initUI(self):
@@ -62,15 +65,6 @@ class MainWindow(QMainWindow):
         print(f'import pyqtgraph in main: {toc - tic:0.4f}')
 
         tic = time.perf_counter()
-        from dos_plot_widget import DosPlotWidget
-        from dos_control_widget import DosControlWidget
-        from structure_plot import StructureViewer
-        from console_widget import ConsoleWidget
-        from structure_controls import StructureControlsWidget
-        from structure_variable_controls import StructureVariableControls
-        from kpoints_create import  Kpoints_tab
-        from chgcar_controls import ChgcarVis
-        from deatachedtabs import DetachableTabWidget
         toc = time.perf_counter()
         print(f'import local modules in main: {toc - tic:0.4f}')
 
@@ -82,6 +76,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
+        self.create_main_layout(main_layout, central_widget)
+        self.create_toolbar(main_layout, central_widget)
+        self.create_menubar(main_layout, central_widget)
+
+        self.create_status_bar()
+
+    def create_toolbar(self, main_layout, central_widget):
         # Toolbar
         toolbar = QToolBar()
         toolbar.setMovable(False)
@@ -89,26 +90,6 @@ class MainWindow(QMainWindow):
 
         # Toolbar Actions
         icon_path = os.path.join(self.exec_dir, 'icons')
-        new_action = QAction(QIcon(os.path.join(icon_path, "new.png")), "New", self)
-        new_action.setShortcut('Ctrl+N')
-        open_action = QAction(QIcon(os.path.join(icon_path, "open.png")), "Open", self)
-        open_action.setShortcut("Ctrl+O")
-        open_action.triggered.connect(self.load_data)
-
-        save_action = QAction(QIcon(os.path.join(icon_path, "save.png")), "Save", self)
-        save_action.setShortcut("Ctrl+S")
-        quit_action = QAction("Quit", self)
-        quit_action.setShortcut("Ctrl+Q")
-
-        copy_action = QAction(QIcon(os.path.join(icon_path, "copy.png")), "Copy", self)
-        #copy_action.setShortcut('Ctrl+C')
-        cut_action = QAction(QIcon(os.path.join(icon_path, "cut.png")), "Cut", self)
-        cut_action.setShortcut("Ctrl+X")
-        paste_action = QAction(QIcon(os.path.join(icon_path, "paste.png")), "Paste", self)
-        paste_action.setShortcut("Ctrl+V")
-
-        modify_constraints_action = QAction("Modify Constraints", self)
-        move_atoms_window = QAction("Move atoms", self)
 
         right_action = QAction(QIcon(os.path.join(icon_path, "right_arrow.png")), "Move atoms to the right", self)
         left_action = QAction(QIcon(os.path.join(icon_path, "left-arrow.png")), "Move atoms to the left", self)
@@ -119,12 +100,52 @@ class MainWindow(QMainWindow):
         delete_action = QAction(QIcon(os.path.join(icon_path, "delete.png")), "delete atoms", self)
         add_action = QAction(QIcon(os.path.join(icon_path, "add.png")), "add atoms", self)
         render_bond_distance_action = QAction(QIcon(os.path.join(icon_path, "add_bond.png")), "Bond distance", self)
+
+        right_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='right'))
+        left_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='left'))
+        down_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='down'))
+        up_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='up'))
+        in_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction="out"))
+        out_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction="in"))
+        delete_action.triggered.connect(self.structure_variable_control_tab.delete_atoms)
+        add_action.triggered.connect(self.structure_variable_control_tab.add_atom)
+        render_bond_distance_action.triggered.connect(self.structure_plot_control_tab.add_bond_length)
+
         # Add action to toolbar
-        actions = [new_action, open_action, save_action, right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action, render_bond_distance_action]
+        actions = [right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action, render_bond_distance_action]
         toolbar.addActions(actions)
 
+    def create_menubar(self, main_layout, central_widget):
         # menu bar
         menubar = self.menuBar()
+        icon_path = os.path.join(self.exec_dir, 'icons')
+        new_action = QAction(QIcon(os.path.join(icon_path, "new.png")), "New", self)
+        new_action.setShortcut('Ctrl+N')
+        open_action = QAction(QIcon(os.path.join(icon_path, "open.png")), "Open", self)
+        open_action.setShortcut("Ctrl+O")
+        open_action.triggered.connect(lambda: self.load_data(self.choose_dir()))
+
+        save_action = QAction(QIcon(os.path.join(icon_path, "save.png")), "Save", self)
+        save_action.setShortcut("Ctrl+S")
+        quit_action = QAction("Quit", self)
+        quit_action.setShortcut("Ctrl+Q")
+
+        copy_action = QAction(QIcon(os.path.join(icon_path, "copy.png")), "Copy", self)
+        # copy_action.setShortcut('Ctrl+C')
+        cut_action = QAction(QIcon(os.path.join(icon_path, "cut.png")), "Cut", self)
+        cut_action.setShortcut("Ctrl+X")
+        paste_action = QAction(QIcon(os.path.join(icon_path, "paste.png")), "Paste", self)
+        paste_action.setShortcut("Ctrl+V")
+
+        modify_constraints_action = QAction("Modify Constraints", self)
+        move_atoms_window = QAction("Move atoms", self)
+        clear_bonds_menu_action = QAction("Clear Bonds", self)
+
+        save_action.triggered.connect(self.structure_variable_control_tab.save_poscar)
+        copy_action.triggered.connect(self.structure_variable_control_tab.tableWidget.copy_table)
+        modify_constraints_action.triggered.connect(self.structure_variable_control_tab.modify_constraints)
+        move_atoms_window.triggered.connect(self.structure_variable_control_tab.move_atoms_widget)
+        clear_bonds_menu_action.triggered.connect(self.structure_plot_control_tab.clear_bond_labels)
 
         # Create menu items
         file_menu = menubar.addMenu('File')
@@ -148,8 +169,19 @@ class MainWindow(QMainWindow):
         view_menu = menubar.addMenu('View')
         actors_menu = QMenu("Actors", self)
         view_menu.addMenu(actors_menu)
-        clear_bonds_menu_action = QAction("Clear Bonds", self)
+
         actors_menu.addAction(clear_bonds_menu_action)
+
+    def create_main_layout(self, main_layout, central_widget):
+        from dos_plot_widget import DosPlotWidget
+        from dos_control_widget import DosControlWidget
+        from structure_plot import StructureViewer
+        from console_widget import ConsoleWidget
+        from structure_controls import StructureControlsWidget
+        from structure_variable_controls import StructureVariableControls
+        from kpoints_create import  Kpoints_tab
+        from chgcar_controls import ChgcarVis
+        from deatachedtabs import DetachableTabWidget
 
         # main layout
         splitter = QFloatingSplitter()
@@ -175,6 +207,7 @@ class MainWindow(QMainWindow):
 
         # widget for controling the DOS plot
         self.dos_control_widget = DosControlWidget(self.data, self.dos_plot_widget)
+        self.dos_control_widget.statusMessage.connect(self.show_blinking_status)
         right_tab_widget.addTab(self.dos_control_widget, "DOS Parameters")
 
         # topmost tab widget for all structure plot manipulations
@@ -189,8 +222,9 @@ class MainWindow(QMainWindow):
         structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
         # tab for controlling the charge density plots
-        self.chgcar_control_widget = ChgcarVis(self.structure_plot_control_tab.plotter)
+        self.chgcar_control_widget = ChgcarVis(self.structure_variable_control_tab)
         self.chgcar_control_widget.chg_file_path = os.path.join(self.dir, "CHGCAR")
+        self.chgcar_control_widget.load_data.connect(self.load_data)
         #self.chgcar_control_widget.chg_file_path = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Vacancy\\CeO2_100_CeO4-t\\CeO2_100_CeO4-t_asymmetric\\2VOa"
         structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
 
@@ -204,36 +238,36 @@ class MainWindow(QMainWindow):
         kpoint_tab = Kpoints_tab(self.structure_plot_interactor_widget)
         input_tab.addTab(kpoint_tab, "Kpoints")
 
-
-
         right_tab_widget.setCurrentIndex(1)
-
 
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,5)
         splitter.setStretchFactor(1,10)
 
-        save_action.triggered.connect(self.structure_variable_control_tab.save_poscar)
-        copy_action.triggered.connect(self.structure_variable_control_tab.tableWidget.copy_table)
+    def create_status_bar(self):
+        self.status_bar = self.statusBar()
 
-        right_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='right'))
-        left_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='left'))
-        down_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='down'))
-        up_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction='up'))
-        in_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction="out"))
-        out_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction="in"))
-        delete_action.triggered.connect(self.structure_variable_control_tab.delete_atoms)
-        add_action.triggered.connect(self.structure_variable_control_tab.add_atom)
-        render_bond_distance_action.triggered.connect(self.structure_plot_control_tab.add_bond_length)
+        self.blinking_label = QLabel()
+        self.status_bar.addPermanentWidget(self.blinking_label)
 
-        modify_constraints_action.triggered.connect(self.structure_variable_control_tab.modify_constraints)
-        move_atoms_window.triggered.connect(self.structure_variable_control_tab.move_atoms_widget)
-        clear_bonds_menu_action.triggered.connect(self.structure_plot_control_tab.clear_bond_labels)
+    def show_blinking_status(self, message):
+        self.blinking_label.setText(message)
+        self.blinking_label.setStyleSheet("color: red; font-weight: bold;")
+        self.blinking_label.show()
 
+        self.blink_counter = 0
+        self.blink_timer.start(500)  # Blink every 500ms
 
-        # self.console_widget = ConsoleWidget()
-        # main_layout.addWidget(self.console_widget)
-        # self.console_widget.setFixedHeight(100)
+    def toggle_blink(self):
+        if self.blink_counter >= 10:  # 500ms * 10 = 5s
+            self.blink_timer.stop()
+            self.blinking_label.clear()
+            return
+
+        # Toggle visibility
+        self.blinking_label.setVisible(not self.blinking_label.isVisible())
+        self.blink_counter += 1
+
 
     def log_program_launch(self):
         import os
@@ -283,15 +317,16 @@ class MainWindow(QMainWindow):
                 dir = cwd
             else:
                 #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme\\test_for_doswizard\\9.CHGCAR\\1.spinel_spinupdown"
                 #dir = r"D:\syncme\modelowanie DFT\lobster_tests\Si\Si"
-                #dir = r"D:\syncme\test_for_doswizard\9.CHGCAR\1.spinel_spinupdown"
+                dir = r"D:\syncme\modelowanie DFT\lobster_tests\h_chain"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             #print("can't resolve operating system")
             self.dir = dir
+        AppConfig.dir = dir
         return dir
 
     def set_window_title(self, path):
@@ -301,9 +336,9 @@ class MainWindow(QMainWindow):
         last_6_dirs = os.sep.join(parts[-6:])
         self.setWindowTitle("VASPy-vis v. " + self.__version__ + ": " +last_6_dirs)
 
-    def load_data(self):
+    def choose_dir(self):
         """Open a directory and reload all VASP data from it, updating the GUI."""
-        from vasp_data import VaspData
+
         default_dir = self.dir
         #default_dir = r'D:\syncme\modelowanie DFT\co3o4_new_new\0.bulk\scale_0.9900'
         selected_file = QFileDialog.getOpenFileName(self,
@@ -312,7 +347,10 @@ class MainWindow(QMainWindow):
         selected_dir = os.path.dirname(selected_file[0])
         if not selected_dir:
             return  # user cancelled
+        return selected_dir
 
+    def load_data(self, selected_dir):
+        from vasp_data import VaspData
         #try:
         if True:
             # Load new data

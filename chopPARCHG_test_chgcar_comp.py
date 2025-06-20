@@ -25,6 +25,7 @@ import sys
 import os
 import re
 from PyQt5.QtCore import pyqtSignal, QThread
+from VASPparser import PoscarParser as _PoscarParser
 
 total_tic = time.time()
 import numpy as np
@@ -61,6 +62,8 @@ class PoscarParser(QThread):
         super().__init__()
         self.filename = filename
         self.chop_number = int(chop_number)
+        self._unit_cell_vectors = None
+        self._grid = None
 
     def run(self):
         # read all file at once (not very efficient though...)
@@ -69,6 +72,8 @@ class PoscarParser(QThread):
 
         # grid dimensions [x, y, z]
         self.grid_result = self.grid()
+        self.scale_factor()
+        self.unit_cell_vectors()
 
         # chopped grid of numbers
         self.all_numbers = self.change_numbers(self.chop_number)
@@ -77,7 +82,19 @@ class PoscarParser(QThread):
         # TODO: execute this function only when alfa,beta density is chosen
         [self.alfa, self.beta] = self.calc_alfa_beta(self.chop_number)
 
-        self.header = self.lines[:self.end_coords_line() + 1]
+        self.header = self.lines[:self.end_coords_line() + 2]
+
+    def create_new_header(self, input):
+        """ create a new header from a file or buffer"""
+
+        poscar = _PoscarParser(input)
+        number_of_atoms = poscar.number_of_atoms()
+        start_line = 8
+        end_line = start_line + number_of_atoms
+        self.header = poscar.lines[:end_line + 1]
+        self.header.append(" \n")
+        self.header.append(" ".join([str(x) for x in self._grid])+'\n')
+        self.lines[:self.end_coords_line() + 2] = self.header
 
     def title(self):
         """title line of CHGCAR
@@ -96,7 +113,8 @@ class PoscarParser(QThread):
         float
             unit cell scale factor
         """
-        return float(self.lines[1].strip())
+        self._scale_factor = float(self.lines[1].strip())
+        return self._scale_factor
 
     def unit_cell_vectors(self):
         """
@@ -105,10 +123,12 @@ class PoscarParser(QThread):
         list
             unit cell basis vectors as a list [[a1, a2, a3], [b1, b2, b3], [c1, c2, c3]]
         """
-        unit_cell_vectors = []
-        for line in self.lines[2:5]:
-            unit_cell_vectors.append([float(value) for value in line.split()])
-        return unit_cell_vectors
+        if self._unit_cell_vectors is None:
+            unit_cell_vectors = []
+            for line in self.lines[2:5]:
+                unit_cell_vectors.append([float(value) for value in line.split()])
+            self._unit_cell_vectors = unit_cell_vectors
+        return self._unit_cell_vectors
 
     def calculate_volume(self):
         """ Calculates volume of unit cell
@@ -285,11 +305,13 @@ class PoscarParser(QThread):
         list
             list of int with grid points in each dimensions, eg. [10,10,20]
         """
-        grid_list = [int(x) for x in self.grid_string().split()]
-        global xgrid, ygrid, zgrid, grid_points
-        xgrid, ygrid, zgrid = grid_list[0], grid_list[1], grid_list[2]
-        grid_points = xgrid * ygrid * zgrid
-        return grid_list
+        if self._grid is None:
+            grid_list = [int(x) for x in self.grid_string().split()]
+            global xgrid, ygrid, zgrid, grid_points
+            xgrid, ygrid, zgrid = grid_list[0], grid_list[1], grid_list[2]
+            self._grid = grid_list
+            grid_points = xgrid * ygrid * zgrid
+        return self._grid
 
     def voxel_size(self):
         vecs = np.array(self.unit_cell_vectors_lenghts())
@@ -332,8 +354,11 @@ class PoscarParser(QThread):
         list
              list of spin density points
         """
+
+
         # whole file as list of line-strings
         content = self.read_numbers()
+        self.aug, self.aug_diff = self.find_augmentations(content)
 
         # line with grid numbers
         search_grid_str=self.grid_string()[:10]
@@ -350,6 +375,8 @@ class PoscarParser(QThread):
         signal_emit = int(total_items / 100)
 
         for i, num in enumerate(flat_data):
+            if num == "augmentation":
+                break
             try:
                 val = float(num)
                 count += 1
@@ -360,6 +387,7 @@ class PoscarParser(QThread):
             if count % signal_emit == 0:
                 sig = int(count/total_items*100)
                 self.progress.emit(sig)
+
 
         total = total[:grid_points]
 
@@ -385,6 +413,108 @@ class PoscarParser(QThread):
 
         print("spin density read points: ", len(spin))
         return total,spin
+
+    def find_augmentations(self, lines):
+        first_aug_idx = None
+        stop_idx = None
+        second_aug_idx = None
+
+        for i, line in enumerate(lines):
+            if first_aug_idx is None and 'augmentation' in line:
+                first_aug_idx = i
+            elif first_aug_idx is not None and stop_idx is None and line == self.grid_string():
+                stop_idx = i
+            elif stop_idx is not None and 'augmentation' in line:
+                second_aug_idx = i
+                break  # We don't need to go further
+
+        # Slice according to what was found
+        aug = lines[first_aug_idx:stop_idx] if first_aug_idx is not None and stop_idx is not None else []
+        aug_diff = lines[second_aug_idx:] if second_aug_idx is not None else []
+
+        return "".join(aug), "".join(aug_diff)
+
+    def read_augmentation(self, aug):
+        lines = aug.split("\n")
+
+        # Parsed results and leftovers storage
+        atoms = {}
+        leftovers = []
+        j = 0  # Initialize the line index
+
+        while j < len(lines):
+            line = lines[j].strip()
+            if line.startswith("augmentation"):
+                # Extract atom number and number of occupancies
+                parts = line.split()
+                atom_number = int(parts[2])
+                num_occupancies = int(parts[3])
+                occupancies = []
+
+                # Read as many numbers as needed for occupancies
+                j += 1
+                while len(occupancies) < num_occupancies and j < len(lines):
+                    numbers = list(map(float, lines[j].split()))
+                    occupancies.extend(numbers)
+                    j += 1
+
+                # Store the data for the current atom
+                atoms[atom_number] = occupancies[:num_occupancies]
+            else:
+                # Collect leftovers (numbers associated with the last atom)
+                leftovers.extend(list(map(float, lines[j].split())))
+                j += 1
+        return atoms, leftovers
+
+    def tile_dict_and_list(self, d, lst, times):
+        if lst is None:
+            lst = []
+
+        if not isinstance(lst, list):
+            raise TypeError("Second argument must be a list or None.")
+
+        if len(lst) != 0 and len(lst) != len(d):
+            raise ValueError("List must be either empty or the same length as the dictionary.")
+
+        new_dict = {}
+        new_list = []
+        key_counter = 1
+
+        for i, value in enumerate(d.values()):
+            for _ in range(times):
+                new_dict[key_counter] = value.copy()
+                if lst:
+                    new_list.append(lst[i])
+                key_counter += 1
+
+        return new_dict, new_list
+
+    def format_numbers(self, numbers, format, per_line=5):
+        """Format a list of numbers into a string with a specified number per line."""
+        lines = []
+        for i in range(0, len(numbers), per_line):
+            if format == "aug":
+                line = " ".join(f"{num: .7E}" for num in numbers[i:i + per_line])
+            elif format == "leftovers":
+                line = " ".join(f"{num: .12E}" for num in numbers[i:i + per_line])
+            lines.append(" "+line)
+        return "\n".join(lines)
+
+    def rebuild_string(self, atoms, leftovers):
+        """Rebuild the original string with updated atoms and leftovers."""
+        result = []
+
+        # Write occupancies for each atom
+        for atom_key in sorted(atoms.keys()):
+            occupancies = atoms[atom_key]
+            result.append(f"augmentation occupancies   {atom_key} {len(occupancies)}")
+            result.append(self.format_numbers(occupancies, "aug"))
+
+        # Write leftovers at the end
+        if leftovers:
+            result.append(self.format_numbers(leftovers, "leftovers"))
+
+        return "\n".join(result)
 
     def change_numbers(self, chop_number):
         """chop and reshape the grid
@@ -415,7 +545,7 @@ class PoscarParser(QThread):
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
                 output_file.write(list)
-            output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
+            #output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
 
             for i, item in enumerate(self.all_numbers[0].flatten(), 1):
                 formatted_item = format(item, ".3f")
@@ -431,7 +561,7 @@ class PoscarParser(QThread):
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
                 output_file.write(list)
-            output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
+            #output_file.write(" ".join([str(x // chop_number) for x in self._grid]) + "\n")
 
             for i, item in enumerate(self.all_numbers[0].flatten(), 1):
                 formatted_item = format(item, ".3f")
@@ -443,8 +573,9 @@ class PoscarParser(QThread):
                     output_file.write("\t")
 
             output_file.write("\n")
+            output_file.write(self.aug)
             output_file.write("\n")
-            output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
+            output_file.write(" ".join([str(x // chop_number) for x in self._grid]) + "\n")
             for i, item in enumerate(self.all_numbers[1].flatten(), 1):
                 formatted_item = format(item, ".3f")
                 # formatted_item = format(item, ".3f")
@@ -453,13 +584,15 @@ class PoscarParser(QThread):
                     output_file.write("\n")
                 else:
                     output_file.write("\t")
+            output_file.write("\n")
+            output_file.write(self.aug_diff)
 
     def save_spin_file(self, output_file_path, chop_number):
         """" save chopped file as CHGCAR-spin-choppedx{chop_num}.vasp with total charge density """
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
                 output_file.write(list)
-            output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
+            #output_file.write(" ".join([str(x // chop_number) for x in self._grid]) + "\n")
 
             for i, item in enumerate(self.all_numbers[1].flatten(), 1):
                 formatted_item = format(item, ".3f")
@@ -491,7 +624,7 @@ class PoscarParser(QThread):
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
                 output_file.write(list)
-            output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
+            #output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
 
             for i, item in enumerate(alfa.flatten(), 1):
                 formatted_item = format(item, ".3f")
@@ -507,7 +640,7 @@ class PoscarParser(QThread):
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
                 output_file.write(list)
-            output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
+            #output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
 
             for i, item in enumerate(beta.flatten(), 1):
                 formatted_item = format(item, ".3f")

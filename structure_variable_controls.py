@@ -6,7 +6,7 @@ from structure_controls import StructureControlsWidget
 import sys, platform, os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
-    QDialog, QDialogButtonBox, QSlider, QGroupBox
+    QDialog, QDialogButtonBox, QSlider, QGroupBox, QMessageBox
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from collections import OrderedDict
 import numpy as np
@@ -17,6 +17,7 @@ from ase.io import read
 from ase.neighborlist import NeighborList, natural_cutoffs
 from ase.constraints import FixAtoms, FixBondLength, FixLinearTriatomic
 from vtk import vtkNamedColors
+from config import AppConfig
 toc = time.perf_counter()
 print(f'importing in structure variable controls: {toc - tic:0.4f}')
 
@@ -145,6 +146,8 @@ class TableWidgetDragRows(QTableWidget):
 
 
 class StructureVariableControls(QWidget):
+    atom_deleted = pyqtSignal(int)
+    all_atoms_deleted = pyqtSignal(str)
     def __init__(self, structure_control_widget):
         super().__init__(structure_control_widget)
         self.layout = QVBoxLayout(self)
@@ -160,7 +163,7 @@ class StructureVariableControls(QWidget):
 
         # create and connect buttons
         self.save_poscar_btn = QPushButton("Save Poscar")
-        self.save_poscar_btn.clicked.connect(lambda : self.save_poscar(name="default"))
+        self.save_poscar_btn.clicked.connect(lambda : self.save_poscar(target="default"))
 
         self.delete_atoms_btn = QPushButton("Delete")
         self.delete_atoms_btn.clicked.connect(self.delete_atoms)
@@ -411,57 +414,68 @@ class StructureVariableControls(QWidget):
                 rows.append(item.row())
         return rows
 
-    def save_poscar(self, name="default"):
-        # Open a file dialog to save the text file
-        options = QFileDialog.Options()
-        if name == "default":
+    def save_poscar(self, target="default"):
+        import io
+        # Decide if we're writing to a file or a stream
+        if target == "default":
+            options = QFileDialog.Options()
             file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "", "All Files (*)", options=options)
+            if not file_name:
+                QMessageBox.warning(self, "No File", "No file selected.")
+                return
+            stream = open(file_name, 'w')
+            close_after = True
+        elif isinstance(target, str):
+            stream = open(target, 'w')
+            close_after = True
+        elif isinstance(target, io.StringIO):
+            stream = target
+            close_after = False
         else:
-            file_name = name
-        x = self.structure_control_widget.structure_plot_widget.data.x
-        y = self.structure_control_widget.structure_plot_widget.data.y
-        z = self.structure_control_widget.structure_plot_widget.data.z
-        atoms_list = self.structure_control_widget.structure_plot_widget.data.symbols
-        tags_list = self.structure_control_widget.structure_plot_widget.data.suffixes
-        atoms_list = [a + b for a, b in zip(atoms_list, tags_list)]
+            raise ValueError("Target must be 'default', a file path string, or an io.StringIO object.")
+
+        # Prepare data
+        data = self.structure_control_widget.structure_plot_widget.data
+        x, y, z = data.x, data.y, data.z
+        atoms_list = [a + b for a, b in zip(data.symbols, data.suffixes)]
+        coordinates = data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()]
+        constrains = data.all_constrains
+
+        # Count atoms
         count_dict = OrderedDict()
         for element in atoms_list:
-            if element in count_dict:
-                count_dict[element] += 1
-            else:
-                count_dict[element] = 1
+            count_dict[element] = count_dict.get(element, 0) + 1
         atoms = list(count_dict.keys())
         numbers = list(count_dict.values())
-        atoms_line = ' '.join(map(str, atoms))
-        numbers_line = ' '.join(map(str, numbers))
 
-        coordinates = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()]
-        constrains = self.structure_control_widget.structure_plot_widget.data.all_constrains
-        if file_name:
-            # Remove file extension if it exists
-            if '.' in file_name:
-                file_name = file_name.rsplit('.', 1)[0]
-            with open(file_name, 'w') as file:
-                file.write("created by Leszek Nowakowski with DOSwizard \n")
-                file.write("1.0000000000000\n")
-                file.write(f" {x:.6f}\t0.000000 0.000000\n")
-                file.write(f" 0.0000000 {y:.6f} 0.000000\n")
-                file.write(f" 0.0000000 0.0000000 {z:.6f}\n")
-                file.write(atoms_line+"\n")
-                file.write(numbers_line + "\n")
-                file.write("Selective dynamics\n")
-                file.write("Cartesian\n")
-                for index, (coord, const) in enumerate(zip(coordinates, constrains)):
-                    coord_str = ' '.join(f"{x:.6f}" for x in coord)
-                    const_str = ' '.join(const)
-                    file.write(f" {coord_str}\t{const_str}\n")
+        # Write POSCAR content
+        stream.write("created by Leszek Nowakowski with VASPy-vis \n")
+        stream.write("1.0000000000000\n")
+        stream.write(f" {x:.6f}\t0.000000 0.000000\n")
+        stream.write(f" 0.0000000 {y:.6f} 0.000000\n")
+        stream.write(f" 0.0000000 0.0000000 {z:.6f}\n")
+        stream.write(' '.join(atoms) + "\n")
+        stream.write(' '.join(map(str, numbers)) + "\n")
+        stream.write("Selective dynamics\n")
+        stream.write("Cartesian\n")
+        for coord, const in zip(coordinates, constrains):
+            coord_str = ' '.join(f"{c:.6f}" for c in coord)
+            const_str = ' '.join(const)
+            stream.write(f" {coord_str}\t{const_str}\n")
+
+        # Finalize
+        if close_after:
+            stream.close()
+            QMessageBox.information(self, "Success", "File saved successfully.")
 
     def delete_atoms(self):
         selected_rows = sorted(set(item.row() for item in self.tableWidget.selectedItems()), reverse=True)
         for index in selected_rows:
             self.deleteRow(index)
+            self.atom_deleted.emit(index)
         self.structure_control_widget.add_sphere()
         self.structure_control_widget.add_bonds()
+        self.all_atoms_deleted.emit("done")
 
     def add_atom(self):
         self.atom_choose_window = AtomChooseWindow()
@@ -604,7 +618,7 @@ class StructureVariableControls(QWidget):
         import ast
         center = ast.literal_eval(center)
         from ase.io import read
-        self.save_poscar(name="tmp")
+        self.save_poscar(target="tmp")
         atoms = read("tmp", format="vasp")
         os.remove("tmp")
 
@@ -668,7 +682,7 @@ class StructureVariableControls(QWidget):
         text = strip_if_not_number(self.add_selection_input_field.text())
         atoms = [int(x) for x in text.split(',')]
         for number in atoms:
-            self.tableWidget.selectRow(number)
+            self.tableWidget.selectRow(number-1)
 
     def print_magmoms(self): #TODO fix wrong column print
         mags = []
@@ -684,11 +698,26 @@ class StructureVariableControls(QWidget):
         print('MAGMOM = ' + compressed_string)
 
     def set_magmoms(self):
+        def check_type(s):
+            try:
+                int_val = int(s)
+                return 'int'
+            except ValueError:
+                try:
+                    float_val = float(s)
+                    return 'float'
+                except ValueError:
+                    return 'neither'
+
         indexes = self.tableWidget.selectionModel().selectedRows()
-        for index in sorted(indexes):
-            self.tableWidget.setItem(index.row(), 9, QTableWidgetItem(self.set_magmom_input_field.text()))
-            self.updateData(index.row(), 9)
-        self.after_update_data()
+        magmom = self.set_magmom_input_field.text()
+        if check_type(magmom) == 'int' or check_type(magmom) == 'float':
+            for index in sorted(indexes):
+                self.tableWidget.setItem(index.row(), 9, QTableWidgetItem(magmom))
+                self.updateData(index.row(), 9)
+            self.after_update_data()
+        else:
+            QMessageBox.warning(self, "Not a number", "A provided text is not a number")
 
     def set_tags(self):
         tic = time.perf_counter()
@@ -895,19 +924,7 @@ class ConstraintsWindow(QWidget):
 
     def set_working_dir(self):
         """ gets the current working dir. Useful for building"""
-        if platform.system() == 'Linux':
-            dir = './'
-        elif platform.system() == 'Windows':
-            path = "F:\\syncme\\modelowanie DFT\\lobster_tests\\Mn"
-            if os.path.isdir(path):
-                dir = path
-            else:
-                dir = ("D:\\test_fir_doswizard\\4.strange_atom_definition")
-                #dir = ("F:\\syncme-from-c120\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Adsorption\\CeO2_100_CeO4-t\\CO\\O1_site"
-                #dir = "D:\\syncme-from-c120\\modelowanie DFT\\lobster_tests\\Mn"
-                #dir = "C:\\Users\\lesze\\OneDrive\\Dokumenty"
-            #print("can't resolve operating system")
+        dir = AppConfig.dir
         return dir
 
     def set_structure_file(self, dir):
@@ -1010,7 +1027,9 @@ class ConstraintsWindow(QWidget):
 
     def write_ICONST(self):
         file_name = "ICONST"
-        with open(file_name, 'w') as file:
+        dir = AppConfig.dir
+        path = os.path.join(dir, file_name)
+        with open(path, 'w') as file:
             for const in self.constraints_list:
                 line = self.constraint_to_ICONST(const)
                 line = " ".join(map(str, line))

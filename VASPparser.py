@@ -220,17 +220,25 @@ class OutcarParser:
 class PoscarParser:
     """class to parse POSCAR / CONTCAR files"""
 
-    def __init__(self, filename):
-        self.filename = filename
+    def __init__(self, source):
+        from io import StringIO, TextIOBase
+        self.filename = source
         self.atom_symbols_exists = None
         self.dynamic_exists = None
         self.total_atoms = 0
-        with open(self.filename, 'r') as file:
-            self.lines = file.readlines()
-            self.scale = self.scale_factor()
-            self.unit_cell_vectors()
-            self.atomic_symbols()
-            self.dynamics()
+
+        if isinstance(source, str):
+            with open(source, 'r') as file:
+                self.lines = file.readlines()
+        elif isinstance(source, (StringIO, TextIOBase)):
+            source.seek(0)  # Rewind the buffer to the beginning
+            self.lines = source.readlines()
+        else:
+            raise ValueError("Input must be a filename or a file-like object (e.g., io.StringIO)")
+        self.scale = self.scale_factor()
+        self.unit_cell_vectors()
+        self.atomic_symbols()
+        self.dynamics()
 
     def title(self):
         title = self.lines[0].strip()

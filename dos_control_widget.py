@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel, QScrollArea, QFrame, QPushButton, QGridLayout, QPlainTextEdit
-from PyQt5 import QtCore
+from PyQt5 import QtCore, Qt
 import pyqtgraph as pg
 import numpy as np
 
@@ -18,6 +18,9 @@ class DosControlWidget(QWidget):
     saved_colors
         list of saved plot colors
     """
+
+    statusMessage = Qt.pyqtSignal(str)
+
     def __init__(self, data, plot_widget):
         """initialize"""
         super().__init__()
@@ -332,9 +335,9 @@ class DosControlWidget(QWidget):
     def checkbox_changed(self):
         """function to update values when checkbox is checked/unchecked"""
         self.update_indexes()
-        self.update_plot()
         self.orbital_up = [checkbox.text() for checkbox in self.orbital_checkboxes if checkbox.isChecked()]
         self.atoms_up = [checkbox.text() for checkbox in self.atom_checkboxes if checkbox.isChecked()]
+        self.update_plot()
 
     def parameter_changed(self, param, changes):
         for param, change, data in changes:
@@ -347,10 +350,20 @@ class DosControlWidget(QWidget):
 
     def update_plot(self):
         """update the DOS plot"""
-        self.plot_widget.update_plot(self.data, self.selected_atoms, self.selected_orbitals)
+        counter = len(self.selected_atoms) * len(self.selected_orbitals)
+        if counter < 10:
+            self.plot_widget.plot_separate(self.data, self.selected_atoms, self.selected_orbitals)
+        else:
+            self.statusMessage.emit("Too many plots. Click \" Plot merged \" button to plot")
+            self.plot_widget.full_range_plot.setTitle("Too many plots!!")
+            self.plot_widget.bounded_plot.setTitle("Click \"Plot merged\" to plot")
+
+
 
     def plot_merged(self):
         """plot the merged DOS for all selected atoms and orbitals"""
+        self.plot_widget.full_range_plot.setTitle("")
+        self.plot_widget.bounded_plot.setTitle("")
         lbl = self.create_label()
         color = self.color_button.color()
         self.saved_labels.append(lbl)
