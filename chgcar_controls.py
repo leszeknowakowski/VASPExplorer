@@ -555,7 +555,7 @@ class ChgcarVis(QWidget):
         if self.supercell_made is not None:
             self.charge_data.create_new_header(self.buffer)
 
-        self.charge_data.save_all_file(file_path, 1)
+        self.charge_data.save_all_file(file_path, 1, format='vasp')
 
     def closeEvent(self, QCloseEvent):
         """former closeEvent in case of many interactors"""

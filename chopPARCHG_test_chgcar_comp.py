@@ -25,6 +25,8 @@ import sys
 import os
 import re
 from PyQt5.QtCore import pyqtSignal, QThread
+from sympy.physics.optics import medium
+
 from VASPparser import PoscarParser as _PoscarParser
 
 total_tic = time.time()
@@ -540,7 +542,26 @@ class PoscarParser(QThread):
         spin_chopped_matrix = spinmatrix[:zgrid:chop_number, :ygrid:chop_number, :xgrid:chop_number]
         return total_chopped_matrix, spin_chopped_matrix
 
-    def save_total_file(self, output_file_path, chop_number):
+    def get_formatted_item(self, item, format='small'):
+        if format == 'small':
+            formatted_item = format(item, ".3f")
+        elif format == 'vasp':
+            x = item
+            if x == 0.0:
+                return " 0.00000000000E+00"  # special case
+            exp = 0
+            norm_x = abs(x)
+            while norm_x >= 1.0:
+                norm_x /= 10.0
+                exp += 1
+            while norm_x < 0.1:
+                norm_x *= 10.0
+                exp -= 1
+            sign = "-" if x < 0 else ""
+            formatted_item =  f"{sign}{norm_x:.11f}E{exp:+03d}"
+        return formatted_item
+
+    def save_total_file(self, output_file_path, chop_number, format='small'):
         """" save chopped file as CHGCAR-total-choppedx{chop_num}.vasp with total charge density """
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
@@ -548,15 +569,14 @@ class PoscarParser(QThread):
             #output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
 
             for i, item in enumerate(self.all_numbers[0].flatten(), 1):
-                formatted_item = format(item, ".3f")
-                # formatted_item = format(item, ".3f")
+                formatted_item = self.get_formatted_item(item, format)
                 output_file.write(str(formatted_item))
                 if i % 10 == 0:
                     output_file.write("\n")
                 else:
                     output_file.write("\t")
 
-    def save_all_file(self, output_file_path, chop_number):
+    def save_all_file(self, output_file_path, chop_number, format='small'):
         """" save chopped file as CHGCAR-all-choppedx{chop_num}.vasp with total charge density """
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
@@ -564,30 +584,35 @@ class PoscarParser(QThread):
             #output_file.write(" ".join([str(x // chop_number) for x in self._grid]) + "\n")
 
             for i, item in enumerate(self.all_numbers[0].flatten(), 1):
-                formatted_item = format(item, ".3f")
-                # formatted_item = format(item, ".3f")
-                output_file.write(str(formatted_item))
-                if i % 10 == 0:
-                    output_file.write("\n")
-                else:
-                    output_file.write("\t")
-
+                formatted_item = self.get_formatted_item(item, format)
+                output_file.write(" "+str(formatted_item))
+                if format == 'small':
+                    if i % 10 == 0:
+                        output_file.write("\n")
+                    else:
+                        output_file.write("\t")
+                elif format == 'vasp':
+                    if i % 5 == 0:
+                        output_file.write("\n")
             output_file.write("\n")
             output_file.write(self.aug)
             output_file.write("\n")
             output_file.write(" ".join([str(x // chop_number) for x in self._grid]) + "\n")
             for i, item in enumerate(self.all_numbers[1].flatten(), 1):
-                formatted_item = format(item, ".3f")
-                # formatted_item = format(item, ".3f")
-                output_file.write(str(formatted_item))
-                if i % 10 == 0:
-                    output_file.write("\n")
-                else:
-                    output_file.write("\t")
+                formatted_item = self.get_formatted_item(item, format)
+                output_file.write(" "+str(formatted_item))
+                if format == 'small':
+                    if i % 10 == 0:
+                        output_file.write("\n")
+                    else:
+                        output_file.write("\t")
+                elif format == 'vasp':
+                    if i % 5 == 0:
+                        output_file.write("\n")
             output_file.write("\n")
             output_file.write(self.aug_diff)
 
-    def save_spin_file(self, output_file_path, chop_number):
+    def save_spin_file(self, output_file_path, chop_number, format='small'):
         """" save chopped file as CHGCAR-spin-choppedx{chop_num}.vasp with total charge density """
         with open(output_file_path, 'w') as output_file:
             for list in self.header:
@@ -595,8 +620,7 @@ class PoscarParser(QThread):
             #output_file.write(" ".join([str(x // chop_number) for x in self._grid]) + "\n")
 
             for i, item in enumerate(self.all_numbers[1].flatten(), 1):
-                formatted_item = format(item, ".3f")
-                # formatted_item = format(item, ".3f")
+                formatted_item = self.get_formatted_item(item, format)
                 output_file.write(str(formatted_item))
                 if i % 10 == 0:
                     output_file.write("\n")
@@ -618,7 +642,7 @@ class PoscarParser(QThread):
         beta_density = (sum_total - sum_spin) / 4
         return alfa_density, beta_density
 
-    def save_alfa_file(self, output_file_path, chop_number):
+    def save_alfa_file(self, output_file_path, chop_number, format='small'):
         """" save chopped file as CHGCAR-alfa-choppedx{chop_num}.vasp with total charge density """
         alfa = self.alfa
         with open(output_file_path, 'w') as output_file:
@@ -627,14 +651,14 @@ class PoscarParser(QThread):
             #output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
 
             for i, item in enumerate(alfa.flatten(), 1):
-                formatted_item = format(item, ".3f")
+                formatted_item = self.get_formatted_item(item, format)
                 output_file.write(str(formatted_item))
                 if i % 10 == 0:
                     output_file.write("\n")
                 else:
                     output_file.write("\t")
 
-    def save_beta_file(self, output_file_path, chop_number):
+    def save_beta_file(self, output_file_path, chop_number, format='small'):
         """" save chopped file as CHGCAR-beta-choppedx{chop_num}.vasp with total charge density """
         beta = self.beta
         with open(output_file_path, 'w') as output_file:
@@ -643,14 +667,14 @@ class PoscarParser(QThread):
             #output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
 
             for i, item in enumerate(beta.flatten(), 1):
-                formatted_item = format(item, ".3f")
+                formatted_item = self.get_formatted_item(item, format)
                 output_file.write(str(formatted_item))
                 if i % 10 == 0:
                     output_file.write("\n")
                 else:
                     output_file.write("\t")
 
-    def save_final_file(self, dens_type, file_path, chop):
+    def save_final_file(self, dens_type, file_path, chop, format='small'):
         """wrapper to all 4 saving functions"""
         file_suffix = f"-{dens_type}-chopped-x{chop}.vasp"
         file_path = file_path + file_suffix
@@ -658,7 +682,7 @@ class PoscarParser(QThread):
         save_method = getattr(poscar, method_name, None)
 
         if save_method:
-            save_method(file_path, int(chop))
+            save_method(file_path, int(chop), format)
         else:
             pass
             
