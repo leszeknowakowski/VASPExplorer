@@ -559,6 +559,9 @@ class PoscarParser(QThread):
                 exp -= 1
             sign = "-" if x < 0 else ""
             formatted_item =  f"{sign}{norm_x:.11f}E{exp:+03d}"
+            if formatted_item[0] == '-':
+                formatted_item = formatted_item[2:]
+                formatted_item = "-" + formatted_item
         return formatted_item
 
     def save_total_file(self, output_file_path, chop_number, format='small'):
