@@ -799,12 +799,14 @@ class StructureControlsWidget(QWidget):
             value.pop(row)
             setattr(data, property, value)
         self.structure_plot_widget.atom_colors.pop(row)
-        outcar_data = self.structure_plot_widget.data.outcar_data
+        if hasattr(self.structure_plot_widget.data, 'outcar_data'):
+            outcar_data = self.structure_plot_widget.data.outcar_data
+            for mag in outcar_data.magnetizations:
+                mag.pop(row)
 
         for geo in self.structure_plot_widget.data.outcar_coordinates:
             geo.pop(row) # delete atom from all geometries
-        for mag in outcar_data.magnetizations:
-            mag.pop(row)
+
 
         for actor in self.structure_plot_widget.sphere_actors:
             self.plotter.renderer.RemoveActor(actor)

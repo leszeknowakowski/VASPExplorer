@@ -12,7 +12,7 @@ import sys
 import os
 toc = time.perf_counter()
 print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
-
+sys.path.append(os.path.join(os.path.dirname(__file__), 'third_party'))
 
 class DialogWIndow(QDialog):
     """
@@ -418,7 +418,6 @@ class ChgcarVis(QWidget):
         Args:
             matrix (array): an array of (X, Y, Z) factors to duplicate in selected directions
         """
-        from ase.build import make_supercell
         x = matrix[0]
         y = matrix[1]
         z = matrix[2]
@@ -445,8 +444,8 @@ class ChgcarVis(QWidget):
         Args:
             matrix (array): an array of (X, Y, Z) factors to duplicate in selected directions
         """
-        from ase.io import read, write
-        from ase.build import make_supercell
+        from  ase.io import read, write
+        from  ase.build import make_supercell
         import io
 
         chgcar = read(self.chg_file_path, format='vasp')
@@ -509,13 +508,12 @@ class ChgcarVis(QWidget):
 
     def make_supercell(self):
         matrix = (2,2,1) # #######################TODO: CHANGE LATER!!!###############################################################
-        try:
-            self.make_atoms_supercell(matrix)
-            self.make_charge_supercell(matrix)
-            self.read_supercell_to_vaspy(matrix)
-            self.supercell_made = True
-        except Exception as e:
-            pass
+
+        self.make_atoms_supercell(matrix)
+        self.make_charge_supercell(matrix)
+        self.read_supercell_to_vaspy(matrix)
+        self.supercell_made = True
+
 
     def delete_atom(self, index):
         print(f'index from chgcar tab {index}')
