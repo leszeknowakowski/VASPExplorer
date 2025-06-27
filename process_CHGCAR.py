@@ -26,7 +26,10 @@ import sys
 import os
 import re
 from PyQt5.QtCore import pyqtSignal, QThread, QObject
-from memory_profiler import profile
+try:
+    from memory_profiler import profile
+except ImportError:
+    pass
 from VASPparser import PoscarParser as _PoscarParser
 
 total_tic = time.time()

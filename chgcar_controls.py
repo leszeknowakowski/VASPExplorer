@@ -9,7 +9,10 @@ from PyQt5 import QtCore
 import numpy as np
 #import chopPARCHG_test_chgcar_comp as chp
 from process_CHGCAR import CHGCARParser
-from memory_profiler import profile
+try:
+    from memory_profiler import profile
+except ImportError:
+    pass
 import sys
 import os
 toc = time.perf_counter()
