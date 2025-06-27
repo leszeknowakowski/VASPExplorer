@@ -226,7 +226,7 @@ class ChgcarVis(QWidget):
             )
         elif self.contour_type == "spin":
             volumetric_data = self.charge_data.chop(
-                self.charge_data.all_numbers[0],
+                self.charge_data.all_numbers[1],
                 chopping_factor
             )
         elif self.contour_type == "alfa":
@@ -309,7 +309,7 @@ class ChgcarVis(QWidget):
 
         # Set isosurface values
         if self.contour_type == "spin":
-            if largest_value> 10:
+            if largest_value> 1:
                 contour_filter.SetValue(0, -self.eps * largest_value)
                 contour_filter.SetValue(1, self.eps * largest_value)
             else:
