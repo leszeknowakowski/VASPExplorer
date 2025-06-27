@@ -7,7 +7,9 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
     QFileDialog, QPushButton, QHBoxLayout, QSlider, QMainWindow, QProgressBar, QDialog, QMessageBox
 from PyQt5 import QtCore
 import numpy as np
-import chopPARCHG_test_chgcar_comp as chp
+#import chopPARCHG_test_chgcar_comp as chp
+from process_CHGCAR import CHGCARParser
+from memory_profiler import profile
 import sys
 import os
 toc = time.perf_counter()
@@ -56,7 +58,6 @@ class ChgcarVis(QWidget):
         self.structure_variable_control = structure_variable_control
         self.chg_plotter = self.structure_variable_control.structure_control_widget.plotter
         self.contour_type = 'total'
-        self.charge_data = None
         self.chg_button_counter = 0
         self.current_contour_actor = None
         self.box_widget = None
@@ -169,21 +170,22 @@ class ChgcarVis(QWidget):
 
         self.contour_type = type
 
+    #@profile
     def create_chgcar_data(self):
         """ creates data for plotting  """
 
         chopping_factor = 1
         if os.path.exists(self.chg_file_path):
-            try:
-                self.charge_data = chp.PoscarParser(self.chg_file_path, chopping_factor)
-                self.charge_data.progress.connect(self.progress_window.update_progress)
-                self.charge_data.start()
-                self.charge_data.finished.connect(self.add_contours)
-                self.charge_data.finished.connect(self.close_progress_window)
+            #try:
+            self.charge_data = CHGCARParser(self.chg_file_path, chopping_factor)
+            self.charge_data.progress.connect(self.progress_window.update_progress)
+            self.charge_data.start()
+            self.charge_data.finished.connect(self.add_contours)
+            self.charge_data.finished.connect(self.close_progress_window)
 
-            except Exception as e:
-                print("ooopsie! cannot read data")
-                print(f"An error occurred: {e}")
+            #except Exception as e:
+            #    print("ooopsie! cannot read data")
+            #    print(f"An error occurred: {e}")
 
     def update_eps(self):
         """ update isosurface value with slider """
@@ -201,6 +203,53 @@ class ChgcarVis(QWidget):
 
         self.chg_eps_value_label.setText(str(value/100))
 
+    def get_chopping_factor(self):
+        voxel_size = self.charge_data.voxel_size()
+        optimal_size = 0.25
+        grid = self.charge_data.chgcar._grid
+        common_divisors = self.charge_data.common_divisors(*grid)
+        if voxel_size[0] < optimal_size:
+            chop = optimal_size / voxel_size[0]
+            if int(chop) not in common_divisors:
+                chop = int(chop) - 1
+            else:
+                chop = int(chop)
+            return chop
+        else:
+            return 1
+
+    def get_volumetric_data(self, chopping_factor):
+        if self.contour_type == "total":
+            volumetric_data = self.charge_data.chop(
+                self.charge_data.all_numbers[0],
+                chopping_factor
+            )
+        elif self.contour_type == "spin":
+            volumetric_data = self.charge_data.chop(
+                self.charge_data.all_numbers[0],
+                chopping_factor
+            )
+        elif self.contour_type == "alfa":
+            if self.charge_data.alfa is None:
+                self.charge_data.calc_alfa_beta()
+                volumetric_data = self.charge_data.chop(
+                    self.charge_data.alfa,
+                    chopping_factor
+                )
+        elif self.contour_type == "beta":
+            if self.charge_data.beta is None:
+                self.charge_data.calc_alfa_beta()
+                volumetric_data = self.charge_data.chop(
+                    self.charge_data.beta,
+                    chopping_factor
+                )
+        if volumetric_data is None:
+            print("Invalid contour type")
+            return
+        else:
+            return volumetric_data
+
+    #@profile
     def add_contours(self):
         """ creates the isosurface contours from charge density data """
 
@@ -208,37 +257,23 @@ class ChgcarVis(QWidget):
             # if no charge data was loaded, print message
             print("no data was found")
             return
+        chopping_factor = self.get_chopping_factor()
 
         if self.current_contour_actor is not None:
             self.chg_plotter.remove_actor(self.current_contour_actor)
-        total, spin = self.charge_data.all_numbers
-        alfa, beta = [self.charge_data.alfa, self.charge_data.beta]
 
-        # volumetric_data is the actual data with charge
-        volumetric_data = {
-            "total": total,
-            "spin": spin,
-            "alfa": alfa,
-            "beta": beta
-        }.get(self.contour_type, None)
-
-        if volumetric_data is None:
-            print("Invalid contour type")
-            return
-
-        volumetric_data = volumetric_data.swapaxes(0, 2)
+        volumetric_data = self.get_volumetric_data(chopping_factor)
 
         max_val = np.max(volumetric_data)
         min_val = np.min(volumetric_data)
         largest_value = np.max([np.abs(max_val), np.abs(min_val)])
 
-        basis = np.array(self.charge_data._unit_cell_vectors)*self.charge_data._scale_factor
+        basis = self.charge_data.atoms.cell[:]
 
         nx, ny, nz = volumetric_data.shape
 
         from vtk.util import numpy_support
-        volumetric_data = volumetric_data.ravel(order='F')
-        vtk_data = numpy_support.numpy_to_vtk(num_array=volumetric_data, deep=True, array_type=vtk.VTK_DOUBLE)
+        vtk_data = numpy_support.numpy_to_vtk(num_array=volumetric_data.ravel(order='F'), deep=False, array_type=vtk.VTK_DOUBLE)
         vtk_data.SetName("values")
 
         # Create vtkImageData
@@ -376,13 +411,7 @@ class ChgcarVis(QWidget):
         """
         if density_type not in ['total', 'spin', 'alfa', 'beta']:
             return
-        data_map = {
-            'total': self.charge_data.all_numbers[0],
-            'spin': self.charge_data.all_numbers[1],
-            'alfa': self.charge_data.alfa,
-            'beta': self.charge_data.beta,
-        }
-        data = data_map[density_type]
+        data = self.get_volumetric_data(1)
 
         x_start, x_stop, y_start, y_stop, z_start, z_stop = [x if x >= 0 else 0 for x in self.box_bounds]
         box_min = np.array([x_start, y_start, z_start])
@@ -390,7 +419,7 @@ class ChgcarVis(QWidget):
         voxel_size = self.charge_data.voxel_size()
         x_min, y_min, z_min = np.floor(box_min / voxel_size).astype(int)
         x_max, y_max, z_max = np.ceil(box_max / voxel_size).astype(int)
-        grid_max = self.charge_data._grid
+        grid_max = list(self.charge_data.chgcar._grid)
         x_max, y_max, z_max = [min(v, l) for v, l in zip(grid_max, [x_max, y_max, z_max])]
 
         data[z_min: z_max, y_min: y_max, x_min: x_max] *= factor
@@ -424,7 +453,6 @@ class ChgcarVis(QWidget):
         total_supercell = np.tile(self.charge_data.all_numbers[0], (z, y, x))
         spin_supercell = np.tile(self.charge_data.all_numbers[1], (z, y, x))
         self.charge_data.all_numbers = [total_supercell, spin_supercell]
-        self.charge_data.alfa, self.charge_data.beta = self.charge_data.calc_alfa_beta(1)
 
         multiplication = x * y * z
         aug_dict, aug_leftovers = self.charge_data.read_augmentation(self.charge_data.aug)
@@ -439,7 +467,7 @@ class ChgcarVis(QWidget):
         self.charge_data.aug_diff = new_aug_diff
         print("done")
 
-    def make_atoms_supercell(self, matrix):
+    def make_atoms_supercell(self, matrix, write_buffer=True):
         """ make a supercell from atoms. If CONTCAR or POSCAR exists, constraints will be added
         Args:
             matrix (array): an array of (X, Y, Z) factors to duplicate in selected directions
@@ -468,18 +496,17 @@ class ChgcarVis(QWidget):
         else:
             print("Neither CONTCAR nor POSCAR found. No constraints will be added")
 
-
         ase_matrix = self.matrix_to_ase_matrix(matrix)
         supercell_atoms = make_supercell(atoms, ase_matrix, order="atom-major")
-
-        self.buffer = io.StringIO()
-        write(self.buffer, supercell_atoms, format='vasp')
+        if write_buffer:
+            self.buffer = io.StringIO()
+            write(self.buffer, supercell_atoms, format='vasp')
 
         return supercell_atoms
 
     def read_supercell_to_vaspy(self, matrix):
         from ase.io import write, read
-        supercell = self.make_atoms_supercell(matrix)
+        supercell = self.make_atoms_supercell(matrix, write_buffer=True)
         if not os.path.exists("tmp"):
             os.mkdir("tmp")
         os.chdir("tmp")
@@ -509,7 +536,7 @@ class ChgcarVis(QWidget):
     def make_supercell(self):
         matrix = (2,2,1) # #######################TODO: CHANGE LATER!!!###############################################################
 
-        self.make_atoms_supercell(matrix)
+        #self.make_atoms_supercell(matrix)
         self.make_charge_supercell(matrix)
         self.read_supercell_to_vaspy(matrix)
         self.supercell_made = True
@@ -545,15 +572,17 @@ class ChgcarVis(QWidget):
             stream = io.StringIO()
             self.structure_variable_control.save_poscar(stream)
             self.charge_data.create_new_header(stream)
+            stream.close()
 
     def write_chgcar(self):
         file_dialog = QFileDialog()
         file_dialog.setDirectory(self.chg_file_path)
         file_path, _ = file_dialog.getSaveFileName()
-        if self.supercell_made is not None:
-            self.charge_data.create_new_header(self.buffer)
+        if file_path:
+            #if self.supercell_made is not None:
+            #    self.charge_data.create_new_header(self.buffer)
 
-        self.charge_data.save_all_file(file_path, 1, format='vasp')
+            self.charge_data.save_all_file(file_path, 1, format='vasp')
 
     def closeEvent(self, QCloseEvent):
         """former closeEvent in case of many interactors"""

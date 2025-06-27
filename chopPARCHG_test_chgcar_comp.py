@@ -25,12 +25,12 @@ import sys
 import os
 import re
 from PyQt5.QtCore import pyqtSignal, QThread
-from sympy.physics.optics import medium
 
 from VASPparser import PoscarParser as _PoscarParser
 
 total_tic = time.time()
 import numpy as np
+#from memory_profiler import profile
 
 
 class Colors:
@@ -67,15 +67,18 @@ class PoscarParser(QThread):
         self._unit_cell_vectors = None
         self._grid = None
 
+    @profile
     def run(self):
         # read all file at once (not very efficient though...)
         with open(self.filename, 'r') as file:
             self.lines = file.readlines()
 
+        self.parse_coordinates()
         # grid dimensions [x, y, z]
         self.grid_result = self.grid()
         self.scale_factor()
         self.unit_cell_vectors()
+
 
         # chopped grid of numbers
         self.all_numbers = self.change_numbers(self.chop_number)
@@ -85,6 +88,7 @@ class PoscarParser(QThread):
         [self.alfa, self.beta] = self.calc_alfa_beta(self.chop_number)
 
         self.header = self.lines[:self.end_coords_line() + 2]
+
 
     def create_new_header(self, input):
         """ create a new header from a file or buffer"""
@@ -96,7 +100,9 @@ class PoscarParser(QThread):
         self.header = poscar.lines[:end_line + 1]
         self.header.append(" \n")
         self.header.append(" ".join([str(x) for x in self._grid])+'\n')
-        self.lines[:self.end_coords_line() + 2] = self.header
+        poscar.parse_coordinates()
+        end_line = poscar.end_coords_line_number
+        self.lines[:end_line + 2] = self.header
 
     def title(self):
         """title line of CHGCAR
@@ -259,18 +265,24 @@ class PoscarParser(QThread):
                 y = coor[1] * vectors[1][1]
                 z = coor[2] * vectors[2][2]
                 coords_cart.append([x, y, z])
-            return coords_cart, constrain, end_line
+                coords_cart, constrain, end_line
+            self.coords_cart, self.constrain, self.end_line = coords_cart, constrain, end_line
+            return self.coords_cart, self.constrain, self.end_line
         else:
-            return coordinates, constrain, end_line
+            self.coordinates, self.constrain, self.end_line = coordinates, constrain, end_line
+            return self.coordinates, self.constrain, self.end_line
 
-    def coordinates(self):
+    def get_coordinates(self):
         """
         Returns:
         _____________________
         list
             list of coordinates in cartesian for every atom
         """
-        return self.parse_coordinates()[0]
+        if self.coordinate_type() == "Direct":
+            return self.coordinates
+        else:
+            return self.coords_cart
 
     def constrains(self):
         """
@@ -279,7 +291,7 @@ class PoscarParser(QThread):
         list
             list of constrains for every atom
         """
-        return self.parse_coordinates()[1]
+        return self.constrain
 
     def end_coords_line(self):
         """
@@ -288,7 +300,7 @@ class PoscarParser(QThread):
         int
             number of line at which structural part of CHGCAR has ended
         """
-        return self.parse_coordinates()[2]
+        return self.end_line
         
     def grid_string(self):
         """get the line where grid numbers are defined

@@ -128,6 +128,7 @@ class VaspData():
         self.suffixes = ["" for _ in range(self.number_of_atoms)]
 
         self.partition_atoms(atoms_underline_number)
+        self.end_coords_line_number = self.poscar.end_coords_line_number
 
     def partition_atoms(self, atom_underline_number):
         self.partitioned_lists = [[] for _ in range(len(self.atomic_symbols))]

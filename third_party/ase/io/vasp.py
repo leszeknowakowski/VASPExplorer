@@ -281,15 +281,18 @@ def read_velocities_if_present(fd, natoms) -> np.ndarray | None:
     # Check if velocities are present
     if not ac_type:
         return None
-
+    is_poscar = True
     atoms_vel = np.empty((natoms, 3))
     for atom in range(natoms):
         words = fd.readline().split()
+        if any(y > 4 for y in [float(x) for x in words]):
+            is_poscar = False
         if len(words) == 3:
             atoms_vel[atom] = (float(words[0]), float(words[1]), float(words[2]))
 
-            # unit conversion from Angstrom/fs to ASE units
-    return atoms_vel * (Ang / fs)
+        # unit conversion from Angstrom/fs to ASE units
+    if is_poscar:
+        return atoms_vel * (Ang / fs)
 
 
 def set_constraints(atoms: Atoms, selective_flags: np.ndarray):

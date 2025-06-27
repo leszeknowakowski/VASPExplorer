@@ -358,6 +358,7 @@ class PoscarParser:
         coordinates = []
         constrain = []
         all_constrains = []
+        self.end_coords_line_number = start_line + self.number_of_atoms()
         for line in self.lines[start_line:start_line + self.number_of_atoms()]:
             values = line.split()
             coordinates.append([float(value) for value in values[:3]])
