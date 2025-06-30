@@ -1,6 +1,7 @@
 import time
 
 import vtk
+from PyQt5.QtCore import QFileInfo
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
@@ -190,10 +191,14 @@ class ChgcarVis(QWidget):
         functon to create window with bader charge file choose.
         """
         if self.bader_file is None:
-            #file_dialog = QFileDialog()
-            #file_dialog.setDirectory(self.chg_file_path)
-            #file_path, _ = file_dialog.getOpenFileName(self, "choose bader charge file")
-            file_path = r'D:\syncme\modelowanie DFT\co3o4_new_new\2.ROS\1.large_slab\1.old_random_mag\8.NEB\HSE\02\DOS_new\ACF.dat-corrected'
+            file_path = os.path.join(self.chg_file_path, "ACF.dat-corrected")
+            if os.path.exists(file_path):
+                self.bader_file = file_path
+            else:
+                file_dialog = QFileDialog()
+                file_dialog.setDirectory(self.chg_file_path)
+                file_path, _ = file_dialog.getOpenFileName(self, "choose bader charge file")
+
             if file_path != "":
                 self.bader_file = file_path
                 self.process_bader_file(self.bader_file)

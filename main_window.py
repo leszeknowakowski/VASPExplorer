@@ -323,7 +323,7 @@ class MainWindow(QMainWindow):
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
-                dir = r'D:\syncme\modelowanie DFT\co3o4_new_new\2.ROS\1.large_slab\1.old_random_mag\8.NEB\HSE\02\DOS_new'
+                dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\2.closer\1.FF'
 
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
