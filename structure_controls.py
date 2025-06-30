@@ -82,7 +82,7 @@ class StructureControlsWidget(QWidget):
         self.planes_layout()
         self.energy_plot_layout()
         self.bond_length_actors = []
-        self.bond_label_actors = [] #TODO: maybe create another clas for handlling bond actors?
+        self.bond_label_actors = [] #TODO: maybe create another class for handlling bond actors?
 
 
         self.add_bonds()

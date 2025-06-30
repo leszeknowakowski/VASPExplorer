@@ -215,7 +215,12 @@ class ChgcarVis(QWidget):
         num = [item[0] for item in bader.atoms]
         symb_and_num = [a+b for a, b, in zip(symb, num)]
 
-        if self.structure_variable_control.structure_control_widget.structure_plot_widget.data.atoms_symb_and_num != symb_and_num:
+        symbols = self.structure_variable_control.structure_control_widget.structure_plot_widget.data.stripped_symbols
+        symbols_and_numbers = []
+        for i, symbol in enumerate(symbols):
+            symbols_and_numbers.append(symbol + str(i+1))
+
+        if symbols_and_numbers != symb_and_num:
             print('oopsie, bader elements doesnt match this structure. Choose other bader file')
 
         coords = self.structure_variable_control.structure_control_widget.structure_plot_widget.data.outcar_data.find_coordinates()[-1]

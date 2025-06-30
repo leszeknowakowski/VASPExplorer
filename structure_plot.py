@@ -141,6 +141,7 @@ class StructureViewer(QWidget):
     def assign_missing_colors(self):
         splitted_symbols = [symbol.split("_")[0] for symbol in self.data.symbols]
         stripped_symbols = [''.join([char for char in input_string if char.isalpha()]) for input_string in splitted_symbols]
+        self.data.stripped_symbols = stripped_symbols
         missing_symbols = set(stripped_symbols) - set(self.color_data.keys())
 
         # Create a mapping of missing symbols to known elements
