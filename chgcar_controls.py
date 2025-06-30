@@ -225,13 +225,14 @@ class ChgcarVis(QWidget):
         coords_bader = [[float(x_), float(y_), float(z_)] for x_, y_, z_, in zip(x, y, z)]
 
         matches = []
+        lst = ['X', 'Y', 'Z']
         for i, (sub1, sub2) in enumerate(zip(coords, coords_bader)):
             for j, (a, b) in enumerate(zip(sub1, sub2)):
                 match = round(a, 2) == round(b, 2)
                 matches.append(match)
                 if not match:
                     atom = symb_and_num[i]
-                    print(f"Element {atom} at coordinate {["x","y","z"][j]}: {round(a, 2)} vs {round(b, 2)} does not match!")
+                    print(f"Element {atom} at coordinate {lst[j]}: {round(a, 2)} vs {round(b, 2)} does not match!")
 
         if not all(matches):
             reply = QMessageBox.question(self, 'Proceed',
