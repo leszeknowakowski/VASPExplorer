@@ -340,6 +340,9 @@ class ChgcarVis(QWidget):
                     self.charge_data.alfa,
                     chopping_factor
                 )
+            else:
+                volumetric_data = self.charge_data.alfa
+
         elif self.contour_type == "beta":
             if self.charge_data.beta is None:
                 self.charge_data.calc_alfa_beta()
@@ -347,6 +350,9 @@ class ChgcarVis(QWidget):
                     self.charge_data.beta,
                     chopping_factor
                 )
+            else:
+                volumetric_data = self.charge_data.beta
+
         if volumetric_data is None:
             print("Invalid contour type")
             return

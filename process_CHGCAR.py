@@ -248,7 +248,7 @@ class VaspChargeDensity(QObject):
             return True
         return False
 
-    def _read_chg(self, fobj, chg, volume, spin=False):
+    def _read_chg(self, fobj, chg, volume, spin=False, debug=False):
         """Read charge from file object
 
         Utility method for reading the actual charge density (or
@@ -269,17 +269,21 @@ class VaspChargeDensity(QObject):
             if i % sig_interval == 0:
                 # Calculate percentage for this half (0 to 50 or 50 to 100)
                 progress_half = int((i / max_z) * 50)
+                if debug:
+                    print(f"reading z-plane {i} out of {max_z}")
                 if not spin:
                     self.progress.emit(progress_half + 1)  # from 1 to 50
                 else:
                     self.progress.emit(progress_half + 51)  # from 51 to 100
 
-            for yy in range(chg.shape[1]):
+            for j, yy in enumerate(range(chg.shape[1])):
+                if debug:
+                    print(f"reading y-plane {j} out of {chg.shape[1]}")
                 chg[:, yy, zz] = np.fromfile(fobj, count=chg.shape[0], sep=' ')
 
         chg /= volume
 
-    def read(self, filename):
+    def read(self, filename, debug=False):
         """Read CHG or CHGCAR file.
 
         If CHG contains charge density from multiple steps all the
@@ -320,7 +324,7 @@ class VaspChargeDensity(QObject):
                 self._grid = ng
                 self.voxel_size = atoms.cell.cellpar()[:3] / self._grid
                 chg = np.empty(ng)
-                self._read_chg(fd, chg, atoms.get_volume(), spin=False)
+                self._read_chg(fd, chg, atoms.get_volume(), spin=False, debug=True)
                 self.chg.append(chg)
                 self.atoms.append(atoms)
                 # Check if the file has a spin-polarized charge density part,
@@ -339,7 +343,7 @@ class VaspChargeDensity(QObject):
                             self.aug = ''.join(augs)
                             augs = []
                             chgdiff = np.empty(ng)
-                            self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True)
+                            self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=True)
                             self.chgdiff.append(chgdiff)
                         elif line2 == '':
                             break
@@ -353,7 +357,7 @@ class VaspChargeDensity(QObject):
                         augs = []
                 elif line1.split() == ngr:
                     chgdiff = np.empty(ng)
-                    self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True)
+                    self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=True)
                     self.chgdiff.append(chgdiff)
                 else:
                     fd.seek(fl)

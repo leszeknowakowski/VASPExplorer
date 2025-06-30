@@ -6,6 +6,7 @@ import warnings
 from typing import Dict, Iterator, List, Sequence, Set, Union
 
 import numpy as np
+import re
 
 from ase.data import atomic_numbers, chemical_symbols
 from ase.formula import Formula
@@ -24,7 +25,13 @@ def symbols2numbers(symbols) -> List[int]:
     numbers = []
     for s in symbols:
         if isinstance(s, str):
-            numbers.append(atomic_numbers[s])
+            try:
+                numbers.append(atomic_numbers[s])
+            except KeyError:
+                s = re.sub(r'[\d_].*', '', s)
+                if s == "D":
+                    s = "Ce"
+                numbers.append(atomic_numbers[s])
         else:
             numbers.append(int(s))
     return numbers
