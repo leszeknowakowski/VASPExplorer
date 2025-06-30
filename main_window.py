@@ -179,7 +179,7 @@ class MainWindow(QMainWindow):
         from dos_plot_widget import DosPlotWidget
         from dos_control_widget import DosControlWidget
         from structure_plot import StructureViewer
-        from console_widget import ConsoleWidget
+        #from console_widget import ConsoleWidget
         from structure_controls import StructureControlsWidget
         from structure_variable_controls import StructureVariableControls
         from kpoints_create import  Kpoints_tab
