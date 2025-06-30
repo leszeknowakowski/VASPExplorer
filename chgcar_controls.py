@@ -4,7 +4,8 @@ import vtk
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
-    QFileDialog, QPushButton, QHBoxLayout, QSlider, QMainWindow, QProgressBar, QDialog, QMessageBox
+    QFileDialog, QPushButton, QHBoxLayout, QSlider, QMainWindow, QProgressBar, QDialog, QMessageBox, \
+    QGroupBox, QSpacerItem, QSizePolicy
 from PyQt5 import QtCore
 import numpy as np
 #import chopPARCHG_test_chgcar_comp as chp
@@ -15,6 +16,7 @@ except ImportError:
     pass
 import sys
 import os
+from bader import BaderParser
 toc = time.perf_counter()
 print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
 sys.path.append(os.path.join(os.path.dirname(__file__), 'third_party'))
@@ -72,14 +74,27 @@ class ChgcarVis(QWidget):
         self.initUI()
 
     def initUI(self):
-        """ initialize GUI for this tab """
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(QtCore.Qt.AlignTop)
+        self.init_chgcar_UI()
+        spacer = QSpacerItem(20,40,QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.layout.addSpacerItem(spacer)
+        self.init_bader_UI()
+
+    def init_chgcar_UI(self):
+        """ initialize GUI for this tab """
+
+        self.chgcar_frame = QGroupBox(self)
+        self.chgcar_frame.setTitle("CHGCAR manipulation")
+        self.chgcar_frame.setMaximumHeight(200)
+
+        self.chgcar_frame_layout = QVBoxLayout(self.chgcar_frame)
+        self.chgcar_frame_layout.setAlignment(QtCore.Qt.AlignTop)
 
         # create buttons
         self.chg_file_button = QPushButton('open CHGCAR')
         self.chg_file_button.clicked.connect(self.select_chg_file)
-        self.layout.addWidget(self.chg_file_button)
+        self.chgcar_frame_layout.addWidget(self.chg_file_button)
 
         self.spin_buttons = {
             "total": QPushButton('Total'),
@@ -96,7 +111,7 @@ class ChgcarVis(QWidget):
                 btn.clicked.connect(self.add_contours)
             else:
                 btn.clicked.connect(self.clear_contours)
-        self.layout.addLayout(spin_layout)
+        self.chgcar_frame_layout.addLayout(spin_layout)
 
          # layout for isosurface value slider
         self.eps_layout = QHBoxLayout()
@@ -148,11 +163,86 @@ class ChgcarVis(QWidget):
         self.manipulate_charge_layout.addWidget(self.make_supercell_button)
         self.manipulate_charge_layout.addWidget(save_chgcar_button)
 
-        self.layout.addLayout(self.eps_layout)
-        self.layout.addLayout(self.manipulate_charge_layout)
+        self.chgcar_frame_layout.addLayout(self.eps_layout)
+        self.chgcar_frame_layout.addLayout(self.manipulate_charge_layout)
+        self.layout.addWidget(self.chgcar_frame)
 
-        self.setLayout(self.layout)
+    def init_bader_UI(self):
+        self.bader_file = None
+        self.bader_frame = QGroupBox(self)
+        self.bader_frame.setTitle("Bader charge manipulation")
+        self.bader_frame.setMaximumHeight(150)
+        self.bader_frame_layout = QVBoxLayout(self.bader_frame)
+        self.bader_frame_layout.setAlignment(QtCore.Qt.AlignTop)
 
+        open_file_button = QPushButton("Open ACF.dat-corrected file")
+        open_file_button.clicked.connect(self.open_bader_file)
+        self.bader_frame_layout.addWidget(open_file_button)
+
+        print_button = QPushButton("Print selected atoms charge")
+        print_button.clicked.connect(self.print_bader_charge)
+        self.bader_frame_layout.addWidget(print_button)
+
+        self.layout.addWidget(self.bader_frame)
+
+    def open_bader_file(self):
+        """
+        functon to create window with bader charge file choose.
+        """
+        if self.bader_file is None:
+            #file_dialog = QFileDialog()
+            #file_dialog.setDirectory(self.chg_file_path)
+            #file_path, _ = file_dialog.getOpenFileName(self, "choose bader charge file")
+            file_path = r'D:\syncme\modelowanie DFT\co3o4_new_new\2.ROS\1.large_slab\1.old_random_mag\8.NEB\HSE\02\DOS_new\ACF.dat-corrected'
+            if file_path != "":
+                self.bader_file = file_path
+                self.process_bader_file(self.bader_file)
+
+    def process_bader_file(self, file_path):
+        """
+        Process Bader charge file
+        """
+        bader = BaderParser()
+        bader.parse(file_path)
+
+        # sanity check
+        symb = [item[-1] for item in bader.atoms]
+        num = [item[0] for item in bader.atoms]
+        symb_and_num = [a+b for a, b, in zip(symb, num)]
+
+        if self.structure_variable_control.structure_control_widget.structure_plot_widget.data.atoms_symb_and_num != symb_and_num:
+            print('oopsie, bader elements doesnt match this structure. Choose other bader file')
+
+        coords = self.structure_variable_control.structure_control_widget.structure_plot_widget.data.outcar_data.find_coordinates()[-1]
+        x = [item[1] for item in bader.atoms]
+        y = [item[2] for item in bader.atoms]
+        z = [item[3] for item in bader.atoms]
+        coords_bader = [[float(x_), float(y_), float(z_)] for x_, y_, z_, in zip(x, y, z)]
+
+        matches = []
+        for i, (sub1, sub2) in enumerate(zip(coords, coords_bader)):
+            for j, (a, b) in enumerate(zip(sub1, sub2)):
+                match = round(a, 2) == round(b, 2)
+                matches.append(match)
+                if not match:
+                    atom = symb_and_num[i]
+                    print(f"Element {atom} at coordinate {["x","y","z"][j]}: {round(a, 2)} vs {round(b, 2)} does not match!")
+
+        if not all(matches):
+            reply = QMessageBox.question(self, 'Proceed',
+                                         "It seems like some of Your atoms doesn't match this structure when comparing bader vs CONTCAR coordinates. \n \
+                                         Check atoms positions. Are you sure you want to proceed?",
+                                         QMessageBox.Yes | QMessageBox.No,
+                                         QMessageBox.No)
+
+        if all(matches) or reply == QMessageBox.Yes:
+            self.bader_data = bader.atoms
+
+    def print_bader_charge(self):
+        indexes = self.structure_variable_control.get_selected_rows()
+        charges = np.array([float(self.bader_data[index][4]) for index in indexes])
+        sum_charges = np.sum(charges)
+        print(sum_charges)
 
     def update_data(self, data):
         if self.current_contour_actor is not None:
