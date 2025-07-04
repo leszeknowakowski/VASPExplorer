@@ -20,7 +20,7 @@ import os
 from bader import BaderParser
 toc = time.perf_counter()
 print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
-sys.path.append(os.path.join(os.path.dirname(__file__), 'third_party'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 
 class DialogWIndow(QDialog):
     """
@@ -46,6 +46,9 @@ class DialogWIndow(QDialog):
 
     def update_progress(self, value):
         self.progressBar.setValue(value)
+
+    def change_label(self, text):
+        self.label1.setText(text)
 
 class ChgcarVis(QWidget):
     """ this class provides functionality for reading, displaying and
@@ -283,6 +286,7 @@ class ChgcarVis(QWidget):
             #try:
             self.charge_data = CHGCARParser(self.chg_file_path, chopping_factor)
             self.charge_data.progress.connect(self.progress_window.update_progress)
+            self.charge_data.change_label.connect(self.progress_window.change_label)
             self.charge_data.start()
             self.charge_data.finished.connect(self.add_contours)
             self.charge_data.finished.connect(self.close_progress_window)
