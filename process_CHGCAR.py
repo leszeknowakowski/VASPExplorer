@@ -330,6 +330,7 @@ class VaspChargeDensity(QObject):
                 ng = (int(ngr[0]), int(ngr[1]), int(ngr[2]))
                 self._grid = ng
                 self.voxel_size = atoms.cell.cellpar()[:3] / self._grid
+                self.change_label.emit("Initializing matrices...")
                 chg = np.empty(ng)
                 self.change_label.emit("reading total density...")
                 tic = time.time()
@@ -353,6 +354,7 @@ class VaspChargeDensity(QObject):
                         if line2.split() == ngr:
                             self.aug = ''.join(augs)
                             augs = []
+                            self.change_label.emit("Initializing matrices...")
                             chgdiff = np.empty(ng)
                             self.change_label.emit("reading spin density...")
                             self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=DEBUG)
@@ -368,6 +370,7 @@ class VaspChargeDensity(QObject):
                         self.augdiff = ''.join(augs)
                         augs = []
                 elif line1.split() == ngr:
+                    self.change_label.emit("Initializing matrices...")
                     chgdiff = np.empty(ng)
                     self.change_label.emit("reading spin density...")
                     self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=DEBUG)
