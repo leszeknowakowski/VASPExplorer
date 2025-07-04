@@ -20,8 +20,8 @@ from scipy.spatial.distance import pdist, squareform
 
 
 class QtInteractor(QtInteractor):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def contextMenuEvent(self, event):
         menu = QMenu(self)
@@ -99,7 +99,7 @@ class StructureViewer(QWidget):
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
-        self.plotter = QtInteractor()
+        self.plotter = QtInteractor(auto_update=0)
 
         #self.plotter.set_background(color="#1e1f22")
         self.plotter.add_camera_orientation_widget()

@@ -299,6 +299,7 @@ class VaspChargeDensity(QObject):
         be written again to a CHGCAR format file.
 
         """
+        DEBUG = True
         import ase.io.vasp as aiv
         with open(filename) as fd:
             self.atoms = []
@@ -324,7 +325,10 @@ class VaspChargeDensity(QObject):
                 self._grid = ng
                 self.voxel_size = atoms.cell.cellpar()[:3] / self._grid
                 chg = np.empty(ng)
-                self._read_chg(fd, chg, atoms.get_volume(), spin=False, debug=True)
+                tic = time.time()
+                self._read_chg(fd, chg, atoms.get_volume(), spin=False, debug=DEBUG)
+                toc = time.time()
+                print(f'reading total denisity: {toc - tic} s')
                 self.chg.append(chg)
                 self.atoms.append(atoms)
                 # Check if the file has a spin-polarized charge density part,
@@ -343,7 +347,7 @@ class VaspChargeDensity(QObject):
                             self.aug = ''.join(augs)
                             augs = []
                             chgdiff = np.empty(ng)
-                            self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=True)
+                            self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=DEBUG)
                             self.chgdiff.append(chgdiff)
                         elif line2 == '':
                             break
@@ -357,7 +361,7 @@ class VaspChargeDensity(QObject):
                         augs = []
                 elif line1.split() == ngr:
                     chgdiff = np.empty(ng)
-                    self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=True)
+                    self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=DEBUG)
                     self.chgdiff.append(chgdiff)
                 else:
                     fd.seek(fl)
