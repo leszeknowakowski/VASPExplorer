@@ -1,14 +1,9 @@
-#import pyqtgraph as pg
-#import pyqtgraph.opengl as gl
 import time
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout, QFrame, QMenu, QAction
-from PyQt5.QtGui import QCloseEvent
-import platform
-from pyvistaqt import QtInteractor
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QMenu, QAction
+from QtInteractor import QtInteractor
 
 tic = time.perf_counter()
-from vtk import vtkPolyDataMapper, vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
-    vtkPoints, vtkUnstructuredGrid, vtkHexahedron, vtkDataSetMapper
+from vtk import  vtkActor, vtkPoints, vtkUnstructuredGrid, vtkHexahedron, vtkDataSetMapper
 import vtk
 toc = time.perf_counter()
 print(f'importing vtk, time: {toc - tic} seconds')
@@ -16,7 +11,6 @@ print(f'importing vtk, time: {toc - tic} seconds')
 import numpy as np
 import os
 import json
-from scipy.spatial.distance import pdist, squareform
 
 
 class QtInteractor(QtInteractor):
@@ -99,7 +93,7 @@ class StructureViewer(QWidget):
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
-        self.plotter = QtInteractor(auto_update=0)
+        self.plotter = QtInteractor(auto_update=5)
 
         #self.plotter.set_background(color="#1e1f22")
         self.plotter.add_camera_orientation_widget()

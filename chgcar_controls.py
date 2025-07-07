@@ -284,12 +284,14 @@ class ChgcarVis(QWidget):
         chopping_factor = 1
         if os.path.exists(self.chg_file_path):
             #try:
+            self.chg_plotter.setup_render_thread(0)
             self.charge_data = CHGCARParser(self.chg_file_path, chopping_factor)
             self.charge_data.progress.connect(self.progress_window.update_progress)
             self.charge_data.change_label.connect(self.progress_window.change_label)
             self.charge_data.start()
             self.charge_data.finished.connect(self.add_contours)
             self.charge_data.finished.connect(self.close_progress_window)
+            self.chg_plotter.setup_render_thread(5)
 
             #except Exception as e:
             #    print("ooopsie! cannot read data")
