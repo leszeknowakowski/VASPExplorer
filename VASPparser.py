@@ -10,6 +10,7 @@ class OutcarParser:
         self.data = []
         self.energies = []
         self.positions = []
+        self.forces = []
         self.magnetizations = []
         self.scf_energies = []
         self.section_scf_energies = []
@@ -70,26 +71,33 @@ class OutcarParser:
             if line.startswith(position) and line.endswith(ml):
                 mlff = True
                 self.section_position = []
+                self.section_forces = []
                 i += 2
                 current_i = i
                 for i in range(current_i, current_i + self.atom_count):
                     line = lines[i]
                     position_data = line.split()
                     atom_data = [float(x) for x in position_data[:3]]
+                    force_data = [float(x) for x in position_data[3:]]
                     self.section_position.append(atom_data)
+                    self.section_forces.append(force_data)
                 self.positions.append(self.section_position)
+                self.forces.append(self.section_forces)
 
             elif line.startswith(position) and mlff == False:
                 self.section_position = []
+                self.section_forces = []
                 i += 2
                 current_i = i
                 for i in range(current_i, current_i + self.atom_count):
                     line = lines[i]
                     position_data = line.split()
                     atom_data = [float(x) for x in position_data[:3]]
+                    force_data = [float(x) for x in position_data[3:]]
                     self.section_position.append(atom_data)
+                    self.section_forces.append(force_data)
                 self.positions.append(self.section_position)
-
+                self.forces.append(self.section_forces)
             elif line.startswith(ml_free_energy):
                 mlff = True
                 ml_counter += 1

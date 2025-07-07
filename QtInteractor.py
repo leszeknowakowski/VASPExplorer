@@ -290,6 +290,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
             twait = int((auto_update**-1) * 1000.0)
             self.render_timer.timeout.connect(self.render)
             self.render_timer.start(twait)
+
     def _setup_interactor(self, off_screen: bool) -> None:
         if off_screen:
             self.iren: Any = None
