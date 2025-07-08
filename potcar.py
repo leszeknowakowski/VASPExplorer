@@ -29,7 +29,8 @@ class Potcar_tab(QWidget):
         self.setLayout(self.layout)
 
     def generate_potcar(self):
-        self.symbols_as_in_poscar, self.counts = self.data.poscar.atom_lines_as_in_poscar(self.data.symbols)
+        atoms_list =  [a + b for a, b in zip(self.data.symbols, self.data.suffixes)]
+        self.symbols_as_in_poscar, self.counts = self.data.poscar.atom_lines_as_in_poscar(atoms_list)
         self.mendelev_symbols_as_in_poscar = self.data.poscar.mendelev_symbols(self.symbols_as_in_poscar)
         potcar_dir = QFileDialog.getExistingDirectory(self, "Select POTCAR Base Directory")
         if not potcar_dir:
@@ -59,7 +60,8 @@ class Potcar_tab(QWidget):
             if not potcar_path.is_file():
                 raise FileNotFoundError(f"Expected POTCAR not found at: {potcar_path}")
             potcar_contents.append(potcar_path.read_text())
-        return "".join(potcar_contents)
+        potcar_string = "".join(potcar_contents)
+        return potcar_string
 
 class PotcarSelectorDialog(QDialog):
     def __init__(self, symbols, potcar_dir, parent=None):

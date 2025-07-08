@@ -441,7 +441,7 @@ class StructureVariableControls(QWidget):
         coordinates = data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()]
         constrains = data.all_constrains
 
-        atoms, numbers = data.poscar.atom_lines_as_in_poscar(self.data.symbols)
+        atoms, numbers = data.poscar.atom_lines_as_in_poscar(atoms_list)
 
         # Write POSCAR content
         stream.write("created by Leszek Nowakowski with VASPy-vis \n")
