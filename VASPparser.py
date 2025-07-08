@@ -305,6 +305,43 @@ class PoscarParser:
         #return [extract_letters(s) for s in atom_symbols]
         return  atom_symbols
 
+    def mendelev_symbols(self, list):
+        """
+        returns a list of atomic symbols, one for each atom, without any numbers or suffixes
+        """
+        import re
+        mendelev_symbols = [re.sub(r'[\d_].*', '', s) for s in list]
+        return mendelev_symbols
+
+    def atom_lines_as_in_poscar(self, list):
+        """
+        counts consecutive atomic symbols in data and returns symbols and counts
+        as in POSCAR file, in line with symbols and atom counts
+        list:
+            a list of atomic symbols, one for each atom
+        """
+        atoms = list
+        names = []
+        counts = []
+
+        current = atoms[0]
+        count = 1
+
+        for atom in atoms[1:]:
+            if atom == current:
+                count += 1
+            else:
+                names.append(current)
+                counts.append(count)
+                current = atom
+                count = 1
+
+        # Append the last group
+        names.append(current)
+        counts.append(count)
+
+        return names, counts
+
     def list_atomic_symbols(self):
         symbol_list = [s for s, c in zip(self.atomic_symbols(), self.atom_counts()) for _ in range(c)]
         return symbol_list
@@ -501,6 +538,7 @@ class DOSCARparser:
 class BaderParser:
     def __init__(self, file):
         pass
+
 
 
 if __name__ == "__main__":
