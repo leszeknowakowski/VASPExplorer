@@ -66,6 +66,7 @@ class StructureViewer(QWidget):
         self.bond_actors = []  # list of bond actors
         self.sphere_actors = []  # list of sphere actors
         self.geometry_actors = []  # list of geometries, each with actors list
+        self.symbol_to_color_mapper = SymbolToColorMapper(self.color_data)
         self.reset_variables()
 
         self.initUI()
@@ -136,26 +137,10 @@ class StructureViewer(QWidget):
         splitted_symbols = [symbol.split("_")[0] for symbol in self.data.symbols]
         stripped_symbols = [''.join([char for char in input_string if char.isalpha()]) for input_string in splitted_symbols]
         self.data.stripped_symbols = stripped_symbols
-        missing_symbols = set(stripped_symbols) - set(self.color_data.keys())
-
-        # Create a mapping of missing symbols to known elements
-        #if self.symbol_mapping is None:
-        self.symbol_mapping = {}
-
-        for missing_symbol in missing_symbols:
-            print(f"The symbol '{missing_symbol}' is not in self.color_data.")
-            while True:
-                user_input = input(
-                    f"Please provide a known element name for '{missing_symbol}' (e.g., 'O', 'C', etc.): ").strip()
-                if user_input in self.color_data:
-                    self.symbol_mapping[missing_symbol] = user_input
-                    break
-                else:
-                    print(f"'{user_input}' is not in self.color_data. Please try again.")
 
         # Assign colors to atoms based on the mapping or directly from self.color_data
         self.atom_colors = [
-            self.color_data[self.symbol_mapping[symbol]] if symbol in self.symbol_mapping else self.color_data[symbol]
+            self.color_data[self.symbol_to_color_mapper.get_mapped_symbol(symbol)]
             for symbol in stripped_symbols
         ]
 
@@ -245,3 +230,24 @@ class StructureViewer(QWidget):
         super().closeEvent(QCloseEvent)
         self.plotter.Finalize()
 
+class SymbolToColorMapper:
+    def __init__(self, color_data):
+        self.color_data = color_data
+        self.mapping = {}
+
+    def get_mapped_symbol(self, symbol):
+        if symbol in self.color_data:
+            return symbol
+        if symbol in self.mapping:
+            return self.mapping[symbol]
+
+        # Ask user for mapping
+        print(f"The symbol '{symbol}' is not in color_data.")
+        while True:
+            user_input = input(
+                f"Please provide a known element name for '{symbol}' (e.g., 'O', 'C', etc.): ").strip()
+            if user_input in self.color_data:
+                self.mapping[symbol] = user_input
+                return user_input
+            else:
+                print(f"'{user_input}' is not in color_data. Please try again.")
