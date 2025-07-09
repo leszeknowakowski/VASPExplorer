@@ -29,27 +29,38 @@ class Potcar_tab(QWidget):
         self.setLayout(self.layout)
 
     def generate_potcar(self):
+        # atoms names + suffixes
         atoms_list =  [a + b for a, b in zip(self.data.symbols, self.data.suffixes)]
+
+        # counts names in a row, preperaling a list as in POSCAR
         self.symbols_as_in_poscar, self.counts = self.data.poscar.atom_lines_as_in_poscar(atoms_list)
-        self.mendelev_symbols_as_in_poscar = self.data.poscar.mendelev_symbols(self.symbols_as_in_poscar)
-        potcar_dir = QFileDialog.getExistingDirectory(self, "Select POTCAR Base Directory")
-        if not potcar_dir:
-            return
-        dialog = PotcarSelectorDialog(self.mendelev_symbols_as_in_poscar, potcar_dir, self)
-        if dialog.exec_() != QDialog.Accepted:
-            return
 
-        selection = dialog.get_selection()
-        try:
-            contents = self.create_potcar(self.mendelev_symbols_as_in_poscar, selection, potcar_dir)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+        # check for duplicates - if exists, POTCAR can be written, but VASP will not run so it's useless
+        if len(self.symbols_as_in_poscar) != len(set(self.symbols_as_in_poscar)):
+            QMessageBox.critical(self, "Error",
+                                 f"There are duplicates in elements name. VASP can not accept that. \
+                                 Sort elements first (by clicking \"sort\" on structure tab)")
             return
+        else:
+            self.mendelev_symbols_as_in_poscar = self.data.poscar.mendelev_symbols(self.symbols_as_in_poscar)
+            potcar_dir = QFileDialog.getExistingDirectory(self, "Select POTCAR Base Directory")
+            if not potcar_dir:
+                return
+            dialog = PotcarSelectorDialog(self.mendelev_symbols_as_in_poscar, potcar_dir, self)
+            if dialog.exec_() != QDialog.Accepted:
+                return
 
-        save_path, _ = QFileDialog.getSaveFileName(self, "Save POTCAR", "POTCAR", "All Files (*)")
-        if save_path:
-            Path(save_path).write_text(contents)
-            QMessageBox.information(self, "Success", f"POTCAR written to:\n{save_path}")
+            selection = dialog.get_selection()
+            try:
+                contents = self.create_potcar(self.mendelev_symbols_as_in_poscar, selection, potcar_dir)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+                return
+
+            save_path, _ = QFileDialog.getSaveFileName(self, "Save POTCAR", "POTCAR", "All Files (*)")
+            if save_path:
+                Path(save_path).write_text(contents)
+                QMessageBox.information(self, "Success", f"POTCAR written to:\n{save_path}")
 
     def create_potcar(self, symbols, selection, potcar_dir):
         potcar_dir = Path(potcar_dir)
