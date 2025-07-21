@@ -1,7 +1,5 @@
 import time
 
-from adodbapi.ado_consts import directions
-
 tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
