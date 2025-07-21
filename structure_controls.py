@@ -446,6 +446,7 @@ class StructureControlsWidget(QWidget):
         if self.sphere_selected_cb.isChecked():
             for actor in self.structure_plot_widget.sphere_actors:
                 actor.SetVisibility(0)
+
             indices, coordinates = self.find_indices_between_planes()
             #for i in range(len(indices)):
             #    self.structure_plot_widget.sphere_actors[i].SetVisibility(flag)
