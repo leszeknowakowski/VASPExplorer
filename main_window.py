@@ -183,6 +183,7 @@ class MainWindow(QMainWindow):
         from structure_controls import StructureControlsWidget
         from structure_variable_controls import StructureVariableControls
         from kpoints_create import  Kpoints_tab
+        from potcar import Potcar_tab
         from chgcar_controls import ChgcarVis
         from deatachedtabs import DetachableTabWidget
 
@@ -240,6 +241,9 @@ class MainWindow(QMainWindow):
 
         kpoint_tab = Kpoints_tab(self.structure_plot_interactor_widget)
         input_tab.addTab(kpoint_tab, "Kpoints")
+
+        potcar_tab = Potcar_tab(self.structure_variable_control_tab)
+        input_tab.addTab(potcar_tab, "Potcar")
 
         right_tab_widget.setCurrentIndex(1)
 
@@ -324,7 +328,7 @@ class MainWindow(QMainWindow):
                 #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\0.Co3O4_2x2\2.ceria_mlff'
+                dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR'
 
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"

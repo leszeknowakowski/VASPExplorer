@@ -60,6 +60,7 @@ class CHGCARParser(QThread):
         how many times CHGCAR grid should be shrinked (helps to save memory)
     """
     progress = pyqtSignal(int)
+    change_label = pyqtSignal(str)
 
     def __init__(self, filename, chop_number):
         super().__init__()
@@ -76,6 +77,7 @@ class CHGCARParser(QThread):
         reads the CHGCAR file content"""
         self.chgcar = VaspChargeDensity(self.filename, initialize=False)
         self.chgcar.progress.connect(self.update_progress)
+        self.chgcar.change_label.connect(self.update_label)
         self.chgcar.run()
         common_divisors = self.common_divisors(*self.chgcar._grid)
         self.all_numbers = [self.chop(self.chgcar.chg[0], self.chop_number), self.chop(self.chgcar.chgdiff[0], self.chop_number)]
@@ -86,6 +88,9 @@ class CHGCARParser(QThread):
 
     def update_progress(self, progress):
         self.progress.emit(progress)
+
+    def update_label(self, text):
+        self.change_label.emit(text)
 
     def calc_alfa_beta(self):
         """calculate alfa and beta density
@@ -224,8 +229,11 @@ class VaspChargeDensity(QObject):
     # Can the filename be CHGCAR?  There's a povray tutorial
     # in doc/tutorials where it's CHGCAR as of January 2021.  --askhl
     progress = pyqtSignal(int)
+    change_label = pyqtSignal(str)
+
     def __init__(self, filename, initialize=True):
         super().__init__()
+        self.change_label.emit("initializing...")
         # Instance variables
         self.filename = filename
         self.atoms = []  # List of Atoms objects
@@ -239,10 +247,13 @@ class VaspChargeDensity(QObject):
         # image.
         if initialize:
             self.run()
+
     def run(self):
         if self.filename is not None:
+            tic = time.time()
             self.read(self.filename)
-
+            toc = time.time()
+            print(f'read CHGCAR file took {toc - tic} seconds')
     def is_spin_polarized(self):
         if len(self.chgdiff) > 0:
             return True
@@ -269,18 +280,12 @@ class VaspChargeDensity(QObject):
             if i % sig_interval == 0:
                 # Calculate percentage for this half (0 to 50 or 50 to 100)
                 progress_half = int((i / max_z) * 50)
-                if debug:
-                    print(f"reading z-plane {i} out of {max_z}")
                 if not spin:
                     self.progress.emit(progress_half + 1)  # from 1 to 50
                 else:
                     self.progress.emit(progress_half + 51)  # from 51 to 100
-
             for j, yy in enumerate(range(chg.shape[1])):
-                if debug:
-                    print(f"reading y-plane {j} out of {chg.shape[1]}")
                 chg[:, yy, zz] = np.fromfile(fobj, count=chg.shape[0], sep=' ')
-
         chg /= volume
 
     def read(self, filename, debug=False):
@@ -299,6 +304,7 @@ class VaspChargeDensity(QObject):
         be written again to a CHGCAR format file.
 
         """
+        DEBUG = False
         import ase.io.vasp as aiv
         with open(filename) as fd:
             self.atoms = []
@@ -308,6 +314,7 @@ class VaspChargeDensity(QObject):
             self.augdiff = ''
             while True:
                 try:
+                    self.change_label.emit("reading positions...")
                     atoms = aiv.read_vasp_configuration(fd)
                 except (KeyError, RuntimeError, ValueError):
                     # Probably an empty line, or we tried to read the
@@ -323,8 +330,13 @@ class VaspChargeDensity(QObject):
                 ng = (int(ngr[0]), int(ngr[1]), int(ngr[2]))
                 self._grid = ng
                 self.voxel_size = atoms.cell.cellpar()[:3] / self._grid
+                self.change_label.emit("Initializing matrices...")
                 chg = np.empty(ng)
-                self._read_chg(fd, chg, atoms.get_volume(), spin=False, debug=True)
+                self.change_label.emit("reading total density...")
+                tic = time.time()
+                self._read_chg(fd, chg, atoms.get_volume(), spin=False, debug=DEBUG)
+                toc = time.time()
+                print(f'reading total denisity: {toc - tic} s')
                 self.chg.append(chg)
                 self.atoms.append(atoms)
                 # Check if the file has a spin-polarized charge density part,
@@ -342,8 +354,10 @@ class VaspChargeDensity(QObject):
                         if line2.split() == ngr:
                             self.aug = ''.join(augs)
                             augs = []
+                            self.change_label.emit("Initializing matrices...")
                             chgdiff = np.empty(ng)
-                            self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=True)
+                            self.change_label.emit("reading spin density...")
+                            self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=DEBUG)
                             self.chgdiff.append(chgdiff)
                         elif line2 == '':
                             break
@@ -356,11 +370,14 @@ class VaspChargeDensity(QObject):
                         self.augdiff = ''.join(augs)
                         augs = []
                 elif line1.split() == ngr:
+                    self.change_label.emit("Initializing matrices...")
                     chgdiff = np.empty(ng)
-                    self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=True)
+                    self.change_label.emit("reading spin density...")
+                    self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=DEBUG)
                     self.chgdiff.append(chgdiff)
                 else:
                     fd.seek(fl)
+
 
     def _write_chg(self, fobj, chg, volume, format='chg'):
         """Write charge density
@@ -460,5 +477,5 @@ class VaspChargeDensity(QObject):
 
 
 if __name__ == '__main__':
-    chgcar = CHGCARParser(r"D:\syncme\modelowanie DFT\CeO2\1.CeO2(100)\CeO2_100_half_Ce\2.large slab\1.1x1x1\1.HSE\CHGCAR", 1)
+    chgcar = CHGCARParser("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/1.precursors_and_clusters/5.larger_513/CHGCAR", 1)
     chgcar.run()

@@ -2,7 +2,6 @@ import numpy as np
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
     QFileDialog, QPushButton, QHBoxLayout, QSlider, QMainWindow, QComboBox
 from PyQt5 import QtCore
-#import chopPARCHG_test_chgcar_comp as chp
 import sys
 import os
 import re

@@ -3,13 +3,12 @@ tic = time.perf_counter()
 from PyQt5.QtGui import QCloseEvent, QDropEvent, QIcon
 from structure_plot import StructureViewer
 from structure_controls import StructureControlsWidget
+from exceptions import EmptyFile
 import sys, platform, os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
     QDialog, QDialogButtonBox, QSlider, QGroupBox, QMessageBox
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
-from collections import OrderedDict
-import numpy as np
 from periodic_table import PeriodicTable
 from itertools import groupby, combinations
 import numpy as np
@@ -416,23 +415,6 @@ class StructureVariableControls(QWidget):
 
     def save_poscar(self, target="default"):
         import io
-        # Decide if we're writing to a file or a stream
-        if target == "default":
-            options = QFileDialog.Options()
-            file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "", "All Files (*)", options=options)
-            if not file_name:
-                QMessageBox.warning(self, "No File", "No file selected.")
-                return
-            stream = open(file_name, 'w')
-            close_after = True
-        elif isinstance(target, str):
-            stream = open(target, 'w')
-            close_after = True
-        elif isinstance(target, io.StringIO):
-            stream = target
-            close_after = False
-        else:
-            raise ValueError("Target must be 'default', a file path string, or an io.StringIO object.")
 
         # Prepare data
         data = self.structure_control_widget.structure_plot_widget.data
@@ -441,32 +423,53 @@ class StructureVariableControls(QWidget):
         coordinates = data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()]
         constrains = data.all_constrains
 
-        # Count atoms
-        count_dict = OrderedDict()
-        for element in atoms_list:
-            count_dict[element] = count_dict.get(element, 0) + 1
-        atoms = list(count_dict.keys())
-        numbers = list(count_dict.values())
+        atoms, numbers = data.poscar.atom_lines_as_in_poscar(atoms_list)
 
-        # Write POSCAR content
-        stream.write("created by Leszek Nowakowski with VASPy-vis \n")
-        stream.write("1.0000000000000\n")
-        stream.write(f" {x:.6f}\t0.000000 0.000000\n")
-        stream.write(f" 0.0000000 {y:.6f} 0.000000\n")
-        stream.write(f" 0.0000000 0.0000000 {z:.6f}\n")
-        stream.write(' '.join(atoms) + "\n")
-        stream.write(' '.join(map(str, numbers)) + "\n")
-        stream.write("Selective dynamics\n")
-        stream.write("Cartesian\n")
-        for coord, const in zip(coordinates, constrains):
-            coord_str = ' '.join(f"{c:.6f}" for c in coord)
-            const_str = ' '.join(const)
-            stream.write(f" {coord_str}\t{const_str}\n")
+        # check for duplicates - if exists, POSCAR can be saved, but VASP will not run, so it is useless
+        if len(atoms) != len(set(atoms)):
+            QMessageBox.critical(self, "Error",
+                                 f"There are duplicates in elements name. VASP can not accept that. Sort elements first (by clicking \"sort\" on structure tab)")
+            return
+        else:
+            # Decide if we're writing to a file or a stream
+            if target == "default":
+                options = QFileDialog.Options()
+                file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "", "All Files (*)", options=options)
+                if not file_name:
+                    QMessageBox.warning(self, "No File", "No file selected.")
+                    return
+                stream = open(file_name, 'w')
+                close_after = True
+            elif isinstance(target, str):
+                stream = open(target, 'w')
+                close_after = True
+            elif isinstance(target, io.StringIO):
+                stream = target
+                close_after = False
+            else:
+                raise ValueError("Target must be 'default', a file path string, or an io.StringIO object.")
 
-        # Finalize
-        if close_after:
-            stream.close()
-            QMessageBox.information(self, "Success", "File saved successfully.")
+
+
+            # Write POSCAR content
+            stream.write("created by Leszek Nowakowski with VASPy-vis \n")
+            stream.write("1.0000000000000\n")
+            stream.write(f" {x:.6f}\t0.000000 0.000000\n")
+            stream.write(f" 0.0000000 {y:.6f} 0.000000\n")
+            stream.write(f" 0.0000000 0.0000000 {z:.6f}\n")
+            stream.write(' '.join(atoms) + "\n")
+            stream.write(' '.join(map(str, numbers)) + "\n")
+            stream.write("Selective dynamics\n")
+            stream.write("Cartesian\n")
+            for coord, const in zip(coordinates, constrains):
+                coord_str = ' '.join(f"{c:.6f}" for c in coord)
+                const_str = ' '.join(const)
+                stream.write(f" {coord_str}\t{const_str}\n")
+
+            # Finalize
+            if close_after:
+                stream.close()
+                QMessageBox.information(self, "Success", "File saved successfully.")
 
     def delete_atoms(self):
         selected_rows = sorted(set(item.row() for item in self.tableWidget.selectedItems()), reverse=True)

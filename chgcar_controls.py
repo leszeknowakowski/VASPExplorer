@@ -20,20 +20,27 @@ import os
 from bader import BaderParser
 toc = time.perf_counter()
 print(f'importing in chgcar, time: {toc - tic:0.4f} seconds')
-sys.path.append(os.path.join(os.path.dirname(__file__), 'third_party'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 
 class DialogWIndow(QDialog):
     """
     This class provides a window which is shown when heavy I/O operations
     are done, e.g. reading CHGCAR file
     """
-    def __init__(self):
+    def __init__(self, file_path):
         """ Initialize """
         super().__init__()
         self.setModal(True)
         layout = QVBoxLayout()
         #self.setMinimumSize(300,300)
+        self.header = QLabel("processing CHGCAR file...")
+        self.file_size = os.path.getsize(file_path) / 1024 / 1024
+        self.size_label = QLabel(f"The size of a file is {self.file_size: .2f}  MB")
+        self.timing_label = QLabel(f"Reading will take approx. {self.estimate_timing(self.file_size):.1f} seconds")
         self.label1 = QLabel('processing CHGCAR file...')
+        layout.addWidget(self.header)
+        layout.addWidget(self.size_label)
+        layout.addWidget(self.timing_label)
         layout.addWidget(self.label1)
 
         self.progressBar = QProgressBar()
@@ -44,8 +51,14 @@ class DialogWIndow(QDialog):
         layout.addWidget(self.progressBar)
         self.setLayout(layout)
 
+    def estimate_timing(self, size):
+        time = 1.1451 + 0.0222803*size
+        return time
     def update_progress(self, value):
         self.progressBar.setValue(value)
+
+    def change_label(self, text):
+        self.label1.setText(text)
 
 class ChgcarVis(QWidget):
     """ this class provides functionality for reading, displaying and
@@ -281,11 +294,14 @@ class ChgcarVis(QWidget):
         chopping_factor = 1
         if os.path.exists(self.chg_file_path):
             #try:
+            self.chg_plotter.setup_render_thread(0)
             self.charge_data = CHGCARParser(self.chg_file_path, chopping_factor)
             self.charge_data.progress.connect(self.progress_window.update_progress)
+            self.charge_data.change_label.connect(self.progress_window.change_label)
             self.charge_data.start()
             self.charge_data.finished.connect(self.add_contours)
             self.charge_data.finished.connect(self.close_progress_window)
+            self.charge_data.finished.connect(self._after_reading)
 
             #except Exception as e:
             #    print("ooopsie! cannot read data")
@@ -487,7 +503,7 @@ class ChgcarVis(QWidget):
         function to process CHGCAR file
         """
 
-        self.progress_window = DialogWIndow()
+        self.progress_window = DialogWIndow(file_path)
         self.progress_window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         self.progress_window.show()
         self.chg_file_path = file_path
@@ -495,6 +511,10 @@ class ChgcarVis(QWidget):
 
     def close_progress_window(self):
         self.progress_window.close()
+
+    def _after_reading(self):
+        self.chg_plotter.setup_render_thread(5)
+
 
     def add_flip_box_widget(self):
         if self.box_widget is None:
