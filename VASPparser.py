@@ -192,6 +192,10 @@ class OutcarParser:
         """returns converged energy in eV"""
         return self.energies
 
+    def find_forces(self):
+        """returns forces of each converged calculation geometric step"""
+        return self.forces
+
     def find_magnetization(self):
         search_string = 'magnetization'
         with open(self.filename, 'r') as file:

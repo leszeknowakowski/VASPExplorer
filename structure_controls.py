@@ -1,5 +1,7 @@
 import time
 
+from adodbapi.ado_consts import directions
+
 tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
@@ -12,7 +14,13 @@ from scipy.spatial.distance import pdist, squareform
 
 from RangeSlider import QRangeSlider
 from vtk import vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
-    vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper
+    vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper, vtkArrowSource, \
+vtkTransformPolyDataFilter, vtkTransform
+from vtkmodules.vtkCommonCore import (
+    vtkMath,
+    vtkMinimalStandardRandomSequence
+)
+from vtkmodules.vtkCommonMath import vtkMatrix4x4
 import os
 toc = time.perf_counter()
 print(f'importing in structure controls, time: {toc - tic:0.4f} seconds')
@@ -80,6 +88,7 @@ class StructureControlsWidget(QWidget):
         self.planes_layout()
         self.energy_plot_layout()
         self.bond_length_actors = []
+        self.forces_actors = []
         self.bond_label_actors = [] #TODO: maybe create another class for handlling bond actors?
 
 
@@ -207,6 +216,13 @@ class StructureControlsWidget(QWidget):
         unit_cell_cb.stateChanged.connect(self.toggle_unit_cell)
         self.render_frame_layout.addWidget(unit_cell_cb)
 
+        # ############### forces ########################
+        self.forces_cb = QtWidgets.QCheckBox()
+        self.forces_cb.setChecked(False)
+        self.forces_cb.setText('forces')
+        self.forces_cb.stateChanged.connect(self.toggle_forces)
+        self.render_frame_layout.addWidget(self.forces_cb)
+
     def text_control_widget(self):
         """ widgets connected to rendering text on 3d structure, such as numbers of atom, constrains """
         self.numbers_cb = QtWidgets.QCheckBox()
@@ -266,6 +282,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.valueChanged.connect(self.toggle_all_constrains)
         self.geometry_slider.valueChanged.connect(self.toggle_symbols_between_planes)
         self.geometry_slider.valueChanged.connect(self.update_scatter)
+        self.geometry_slider.valueChanged.connect(self.create_forces_arrows)
 
         self.geometry_value_label = QtWidgets.QLabel()
         self.geometry_value_label.setText(f"Geometry number: {self.geometry_slider.value()}")
@@ -654,7 +671,8 @@ class StructureControlsWidget(QWidget):
             self.structure_plot_widget.constrain_actor = self.plotter.add_point_labels(coords, constr, font_size=30,
                                                                                        show_points=False,
                                                                                        always_visible=True, shape=None)
-        self.structure_plot_widget.constrain_actor.SetVisibility(flag)
+        if self.structure_plot_widget.constrain_actor is not None:
+            self.structure_plot_widget.constrain_actor.SetVisibility(flag)
 
     def toggle_constrain_above_plane(self, flag):
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.constrain_actor)
@@ -956,6 +974,93 @@ class StructureControlsWidget(QWidget):
         value = self.geometry_slider.value()
         value += 1
         self.geometry_slider.setValue(value)
+
+    def create_forces_arrows(self):
+        if self.forces_actors != []:
+            for actor in self.forces_actors:
+                self.plotter.renderer.RemoveActor(actor)
+        current_iter = self.geometry_slider.value()
+        forces = self.structure_plot_widget.data.outcar_data.forces[current_iter]
+        coordinates = self.structure_plot_widget.data.outcar_data.find_coordinates()[current_iter]
+        self.forces_actors = []
+        if self.forces_cb.isChecked():
+            for i, (center, force) in enumerate(zip(coordinates, forces)):
+                actor = self.create_arrow(center, force)
+                self.forces_actors.append(actor)
+                self.plotter.renderer.AddActor(actor)
+
+    def toggle_forces(self, flag):
+        if self.forces_actors == []:
+            self.create_forces_arrows()
+        else:
+            for actor in self.forces_actors:
+                actor.SetVisibility(flag)
+
+    def create_arrow(self, center, vector):
+        colors = vtkNamedColors()
+
+        # Set the background color.
+        colors.SetColor('BkgColor', [26, 51, 77, 255])
+
+        # Create an arrow.
+        arrowSource = vtkArrowSource()
+        arrowSource.SetTipResolution(100)
+        arrowSource.SetShaftResolution(100)
+
+        # Generate a random start and end point
+        startPoint = np.array(center)
+        endPoint = center + np.array(vector)
+        rng = vtkMinimalStandardRandomSequence()
+
+        # Compute a basis
+        normalizedX = [0] * 3
+        normalizedY = [0] * 3
+        normalizedZ = [0] * 3
+
+        # The X axis is a vector from start to end
+        vtkMath.Subtract(endPoint, startPoint, normalizedX)
+        length = vtkMath.Norm(normalizedX)
+        vtkMath.Normalize(normalizedX)
+
+        # The Z axis is an arbitrary vector cross X
+        arbitrary = [0] * 3
+        for i in range(0, 3):
+            rng.Next()
+            arbitrary[i] = rng.GetRangeValue(-10, 10)
+        vtkMath.Cross(normalizedX, arbitrary, normalizedZ)
+        vtkMath.Normalize(normalizedZ)
+
+        # The Y axis is Z cross X
+        vtkMath.Cross(normalizedZ, normalizedX, normalizedY)
+        matrix = vtkMatrix4x4()
+
+        # Create the direction cosine matrix
+        matrix.Identity()
+        for i in range(0, 3):
+            matrix.SetElement(i, 0, normalizedX[i])
+            matrix.SetElement(i, 1, normalizedY[i])
+            matrix.SetElement(i, 2, normalizedZ[i])
+
+        # Apply the transforms
+        transform = vtkTransform()
+        transform.Translate(startPoint)
+        transform.Concatenate(matrix)
+        transform.Scale(length, length, length)
+
+        # Transform the polydata
+        transformPD = vtkTransformPolyDataFilter()
+        transformPD.SetTransform(transform)
+        transformPD.SetInputConnection(arrowSource.GetOutputPort())
+
+        # Create a mapper and actor for the arrow
+        mapper = vtkPolyDataMapper()
+        actor = vtkActor()
+
+        mapper.SetInputConnection(transformPD.GetOutputPort())
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(colors.GetColor3d('Cyan'))
+
+        return actor
 
     def closeEvent(self, QCloseEvent):
         super().closeEvent(QCloseEvent)
