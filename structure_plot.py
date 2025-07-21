@@ -61,7 +61,6 @@ class StructureViewer(QWidget):
         self.scatter_item = None
         self.charge_data = None
         self.contour_type = 'total'
-        self.sphere_actors = []
         self.coord_pairs = []  # pairs of points connected by a bond
         self.bond_actors = []  # list of bond actors
         self.sphere_actors = []  # list of sphere actors

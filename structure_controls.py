@@ -1,19 +1,17 @@
 import time
 
-from vtkmodules.vtkFiltersSources import vtkPointSource
-
 tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
-    QHBoxLayout,QApplication
-from PyQt5.QtGui import QCloseEvent, QIcon, QCursor
+    QHBoxLayout,QApplication, QSizePolicy
+from PyQt5.QtGui import QIcon, QCursor
 
 from scipy.spatial.distance import pdist, squareform
 
 from RangeSlider import QRangeSlider
-from vtk import vtkPolyDataMapper, vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
+from vtk import vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
     vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper
 import os
 toc = time.perf_counter()
@@ -143,9 +141,13 @@ class StructureControlsWidget(QWidget):
         # ############# spheres part ###########################
         self.sphere_cb = QtWidgets.QCheckBox()
         self.sphere_cb.setChecked(True)
-        self.sphere_cb.setText("Sphere")
-
+        self.sphere_cb.setText("Show/hide all spheres")
         self.sphere_cb.stateChanged.connect(self.toggle_spheres)
+
+        self.sphere_selected_cb = QtWidgets.QCheckBox()
+        self.sphere_selected_cb.setText("Show/hide spheres between planes")
+        self.sphere_selected_cb.stateChanged.connect(self.toggle_spheres_between_planes)
+        self.sphere_selected_cb.setChecked(False)
 
         self.sphere_radius_slider = QtWidgets.QSlider()
         self.sphere_radius_slider.setOrientation(QtCore.Qt.Horizontal)
@@ -153,6 +155,7 @@ class StructureControlsWidget(QWidget):
         self.sphere_radius_slider.setMaximum(10)
         self.sphere_radius_slider.setValue(5)
         self.sphere_radius_slider.setFixedWidth(200)
+
 
         self.sphere_radius_label = QLabel()
         self.sphere_radius_label.setText(f"Sphere Radius: {self.sphere_radius_slider.value()/10}")
@@ -164,8 +167,9 @@ class StructureControlsWidget(QWidget):
         sphere_layout = QHBoxLayout()
         sphere_layout.setSpacing(10)
         sphere_layout.addWidget(self.sphere_cb)
+        sphere_layout.addWidget(self.sphere_selected_cb)
         sphere_layout.addWidget(self.sphere_radius_label)
-        sphere_layout.addWidget(self.sphere_radius_slider)
+        sphere_layout.addWidget(self.sphere_radius_slider, stretch=4)
         sphere_layout.setAlignment(QtCore.Qt.AlignLeft)
         self.render_frame_layout.addLayout(sphere_layout)
 
@@ -438,6 +442,22 @@ class StructureControlsWidget(QWidget):
             elif actor in self.selected_actors:
                 actor.SetVisibility(flag)
 
+    def toggle_spheres_between_planes(self, flag):
+        if self.sphere_selected_cb.isChecked():
+            for actor in self.structure_plot_widget.sphere_actors:
+                actor.SetVisibility(0)
+            indices, coordinates = self.find_indices_between_planes()
+            #for i in range(len(indices)):
+            #    self.structure_plot_widget.sphere_actors[i].SetVisibility(flag)
+            for i, actor in enumerate(self.structure_plot_widget.sphere_actors):
+                center = actor.GetCenter()
+                for coord in coordinates:
+                    if (np.round(np.array(center), 2) == np.round(np.array(coord), 2)).all():
+                        actor.SetVisibility(flag)
+        else:
+            for actor in self.structure_plot_widget.sphere_actors:
+                actor.SetVisibility(1)
+
     def toggle_bonds_between_planes(self, flag):
         for actor in self.structure_plot_widget.bond_actors:
             actor.SetVisibility(flag)
@@ -553,11 +573,9 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.cube_actor.SetVisibility(flag)
 
     def add_plane(self, value):
-
         self.planeSource = vtkPlaneSource()
         self.structure_plot_widget.plane_actor = vtkActor()
         self._add_plane(self.planeSource, self.structure_plot_widget.plane_actor, value)
-
 
     def add_plane_higher(self, value):
         """renders a plane perpendicular to XY plane at value height"""
@@ -635,24 +653,14 @@ class StructureControlsWidget(QWidget):
             self.structure_plot_widget.constrain_actor = self.plotter.add_point_labels(coords, constr, font_size=30,
                                                                                        show_points=False,
                                                                                        always_visible=True, shape=None)
-            self.structure_plot_widget.constrain_actor.SetVisibility(flag)
+        self.structure_plot_widget.constrain_actor.SetVisibility(flag)
 
     def toggle_constrain_above_plane(self, flag):
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.constrain_actor)
         if self.constrains_between_planes_cb.isChecked():
-            coordinates = []
-            slidervalue = self.plane_height_range_slider.getRange()
-            height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
-            end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
-            #coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
-            for actor in self.selected_actors:
-                center = actor.GetCenter()
-                coordinates.append(list(center))
-            coordinates = np.array(coordinates)
+            indices, coordinates = self.find_indices_between_planes()
             coords = []
             constr = []
-            indice = np.where((coordinates[:, 2] > height) & (coordinates[:, 2] < end))[0]
-            indices = indice.tolist()
             for i in range(len(indices)):
                 coords.append(list(coordinates[indices[i]]))
                 constr.append(self.structure_plot_widget.data.all_constrains[indices[i]][0])
@@ -664,15 +672,10 @@ class StructureControlsWidget(QWidget):
         self.plotter.renderer.RemoveActor(self.mag_actor)
         if self.mag_cb.isChecked():
             #self.end_geometry()
-            slidervalue = self.plane_height_range_slider.getRange()
-            height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
-            end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
-
-            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
+            indices, coordinates = self.find_indices_between_planes()
             coords = []
             magnet = []
             mag = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
-            indices = list(np.where((coordinates[:, 2] > height) & (coordinates[:, 2] < end))[0])
             for i in range(len(indices)):
                 coords.append(list(coordinates[indices[i]]))
                 magnet.append(mag[indices[i]])
@@ -691,17 +694,34 @@ class StructureControlsWidget(QWidget):
                                                                                   shape=None)
             self.structure_plot_widget.symb_actor.SetVisibility(flag)
 
+    def find_indices_between_planes(self):
+        slidervalue = self.plane_height_range_slider.getRange()
+        height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
+        end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
+        indices = []
+        global_coordinates = coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
+        if self.selected_actors != []:
+            coordinates = []
+            for actor in self.selected_actors:
+                center = actor.GetCenter()
+                coordinates.append(list(center))
+            coordinates = np.array(coordinates)
+            for center in coordinates:
+                for index, coord in enumerate(np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])):
+                    if (np.round(center, 2) == coord).all():
+                        indices.append(index)
+        else:
+
+            indice = np.where((global_coordinates[:, 2] > height) & (global_coordinates[:, 2] < end))[0]
+            indices = indice.tolist()
+        return indices, global_coordinates
+
     def toggle_symbols_between_planes(self, flag):
         self.structure_plot_widget.plotter.renderer.RemoveActor(self.structure_plot_widget.symb_actor)
         if self.numbers_between_planes_cb.isChecked():
-            slidervalue = self.plane_height_range_slider.getRange()
-            height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
-            end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
-            coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
             coords = []
             symb = []
-            indice = np.where((coordinates[:, 2] > height) & (coordinates[:, 2] < end))[0]
-            indices = indice.tolist()
+            indices, coordinates = self.find_indices_between_planes()
             for i in range(len(indices)):
                 coords.append(list(coordinates[indices[i]]))
                 symb.append(self.structure_plot_widget.data.atoms_symb_and_num[indices[i]])
