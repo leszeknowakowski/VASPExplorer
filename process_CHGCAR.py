@@ -250,8 +250,10 @@ class VaspChargeDensity(QObject):
 
     def run(self):
         if self.filename is not None:
+            tic = time.time()
             self.read(self.filename)
-
+            toc = time.time()
+            print(f'read CHGCAR file took {toc - tic} seconds')
     def is_spin_polarized(self):
         if len(self.chgdiff) > 0:
             return True
@@ -282,10 +284,8 @@ class VaspChargeDensity(QObject):
                     self.progress.emit(progress_half + 1)  # from 1 to 50
                 else:
                     self.progress.emit(progress_half + 51)  # from 51 to 100
-
             for j, yy in enumerate(range(chg.shape[1])):
                 chg[:, yy, zz] = np.fromfile(fobj, count=chg.shape[0], sep=' ')
-
         chg /= volume
 
     def read(self, filename, debug=False):
@@ -377,6 +377,7 @@ class VaspChargeDensity(QObject):
                     self.chgdiff.append(chgdiff)
                 else:
                     fd.seek(fl)
+
 
     def _write_chg(self, fobj, chg, volume, format='chg'):
         """Write charge density
@@ -476,5 +477,5 @@ class VaspChargeDensity(QObject):
 
 
 if __name__ == '__main__':
-    chgcar = CHGCARParser(r"D:\syncme\modelowanie DFT\CeO2\1.CeO2(100)\CeO2_100_half_Ce\2.large slab\1.1x1x1\1.HSE\CHGCAR", 1)
+    chgcar = CHGCARParser("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/1.precursors_and_clusters/5.larger_513/CHGCAR", 1)
     chgcar.run()
