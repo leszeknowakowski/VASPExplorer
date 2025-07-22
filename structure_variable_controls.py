@@ -417,6 +417,7 @@ class StructureVariableControls(QWidget):
 
     def save_poscar(self, target="default"):
         import io
+        import tempfile
 
         # Prepare data
         data = self.structure_control_widget.structure_plot_widget.data
@@ -436,7 +437,7 @@ class StructureVariableControls(QWidget):
             # Decide if we're writing to a file or a stream
             if target == "default":
                 options = QFileDialog.Options()
-                file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "", "All Files (*)", options=options)
+                file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "POSCAR", "All Files (*)", options=options)
                 if not file_name:
                     QMessageBox.warning(self, "No File", "No file selected.")
                     return
@@ -448,8 +449,11 @@ class StructureVariableControls(QWidget):
             elif isinstance(target, io.StringIO):
                 stream = target
                 close_after = False
+            elif isinstance(target, tempfile._TemporaryFileWrapper):
+                stream = target
+                close_after = False
             else:
-                raise ValueError("Target must be 'default', a file path string, or an io.StringIO object.")
+                raise ValueError("Target must be 'default', a file path string, an io.StringIO object or a tempfile._TemporaryFileWrapper object")
 
 
 
@@ -779,8 +783,8 @@ class StructureVariableControls(QWidget):
         pass
 
     def modify_constraints(self):
-        self.atom_choose_window = ConstraintsWindow(self)
-        self.atom_choose_window.show()
+        self.modify_constraints_window = ConstraintsWindow(self)
+        self.modify_constraints_window.show()
 
     def set_movement_sensibility(self, value):
         self.movement_slider_value = value
@@ -903,17 +907,19 @@ class AtomChooseWindow(QWidget):
 
 # noinspection PyUnresolvedReferences
 class ConstraintsWindow(QWidget):
+    '''
+    This class opens a constraint modifier window. It writes a POSCAR-like tempfile with current coordinates and
+    and constraints, read it as ASE atoms object and allow to further modify constraints
+    '''
     sig = pyqtSignal()
     def __init__(self, parent):
         super().__init__()
         self.parent_class = parent
-        self.dir = self.set_working_dir()
-        self.poscar =  self.set_structure_file(self.dir)
         self.constraints_list = []
         self.process_structure_file()
+        self.dir = AppConfig.dir
 
         self.initUI()
-
 
     def initUI(self):
         self.layout = QVBoxLayout()
@@ -943,44 +949,14 @@ class ConstraintsWindow(QWidget):
 
         self.setLayout(self.layout)
 
-    def set_working_dir(self):
-        """ gets the current working dir. Useful for building"""
-        dir = AppConfig.dir
-        return dir
-
-    def set_structure_file(self, dir):
-        if not os.path.exists(os.path.join(dir, 'CONTCAR')) and not os.path.exists(os.path.join(dir, 'POSCAR')):
-            for file in os.listdir(dir):
-                # Check if the file has a .cell extension
-                if file.endswith(".cell"):
-                    # Read the .cell file
-                    structure = read(os.path.join(dir, file))
-                    file.write(os.path.join(dir, "POSCAR"), structure, format="vasp")
-                    poscar_file = os.path.join(dir, "POSCAR")
-
-        if not os.path.exists(os.path.join(dir, 'CONTCAR')):
-            if not os.path.exists(os.path.join(dir, 'POSCAR')):
-                p = input("eneter file name: ")
-                if not os.path.exists(p):
-                    raise FileNotFoundError('No important files found! Missing POSCAR')
-                else:
-                    poscar_file = os.path.join(dir, p)
-
-            else:
-                poscar_file = os.path.join(dir, "POSCAR")
-        else:
-            if os.path.getsize(os.path.join(dir, 'CONTCAR')) > 0:
-                poscar_file = os.path.join(dir, "CONTCAR")
-            else:
-                if not os.path.exists(os.path.join(dir, 'POSCAR')):
-                    raise EmptyFile('CONTCAR is found but appears to be empty! POSCAR missing! Check your files')
-                else:
-                    poscar_file = os.path.join(dir, "POSCAR")
-        return poscar_file
-
     def process_structure_file(self):
+        """ saves a POSCAR tempfile and read it to ASE atoms object"""
+        import tempfile
+        tmp_poscar = tempfile.TemporaryFile(mode='w+t')
+        self.parent_class.save_poscar(tmp_poscar)
+        tmp_poscar.seek(0)
         try:
-            self.atoms = read(self.poscar)
+            self.atoms = read(tmp_poscar, format='vasp')
         except:
             print("atoms in POSCAR have different symbols then standard atomic symbols.")
             print(f'symbols in poscar: {self.parent_class.structure_control_widget.structure_plot_widget.data.atomic_symbols}')
@@ -1047,15 +1023,44 @@ class ConstraintsWindow(QWidget):
         return line
 
     def write_ICONST(self):
-        file_name = "ICONST"
-        dir = AppConfig.dir
-        path = os.path.join(dir, file_name)
+        file_dialog = QFileDialog()
+        file_dialog.setDirectory(self.dir)
+        file_name, _ = file_dialog.getSaveFileName(self, "Save ICONST", "ICONST", "All Files (*)")
+        if not file_name:
+            QMessageBox.information(self, "ICONST", "ICONST not saved")
+            return
+
+        path = os.path.join(self.dir, file_name)
         with open(path, 'w') as file:
             for const in self.constraints_list:
                 line = self.constraint_to_ICONST(const)
                 line = " ".join(map(str, line))
                 file.write(line)
                 file.write('\n')
+        self.close()
+        self.file_choose.close()
+        print("constrains modified")
+
+    def write_traj(self):
+        from ase.io import write
+        file_dialog = QFileDialog()
+        file_dialog.setDirectory(self.dir)
+        file_name, _ = file_dialog.getSaveFileName(self, "Save .traj", "POSCAR.traj", "All Files (*)")
+        if not file_name:
+            QMessageBox.warning(self, "No File", "No file selected.")
+            return
+        self.apply_constraints()
+        write(file_name[0], self.atoms, format="traj")
+        QMessageBox.information(self, "Success", "File saved successfully.")
+        self.close()
+        self.file_choose.close()
+        print("constrains modified")
+
+    def dont_write(self):
+        self.apply_constraints()
+        self.file_choose.close()
+        self.close()
+        print("constrains modified")
 
     def bonds_constraints_changed(self):
         self.get_selected_atoms()
@@ -1068,9 +1073,27 @@ class ConstraintsWindow(QWidget):
             self.constrain_triples(atom)
 
     def accept(self):
-        self.write_ICONST()
-        self.close()
-        print("constrains modified")
+        class FileChooseWindow(QWidget):
+            def __init__(self):
+                super().__init__()
+                self.layout = QVBoxLayout()
+                self.file_choose_layout = QHBoxLayout()
+
+                self.iconst_button = QPushButton("Save ICONST")
+                self.traj_button = QPushButton("Save TRAJ")
+                self.none_button = QPushButton("none, just apply constraints")
+
+                self.layout.addWidget(self.iconst_button)
+                self.layout.addWidget(self.traj_button)
+                self.layout.addWidget(self.none_button)
+
+                self.setLayout(self.layout)
+
+        self.file_choose = FileChooseWindow()
+        self.file_choose.show()
+        self.file_choose.iconst_button.clicked.connect(self.write_ICONST)
+        self.file_choose.traj_button.clicked.connect(self.write_traj)
+        self.file_choose.none_button.clicked.connect(self.dont_write)
 
     def reject(self):
         self.atoms.set_constraint()
