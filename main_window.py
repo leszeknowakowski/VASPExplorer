@@ -112,7 +112,7 @@ class MainWindow(QMainWindow):
         out_action.triggered.connect(lambda: self.structure_variable_control_tab.translate_object(direction="in"))
         delete_action.triggered.connect(self.structure_variable_control_tab.delete_atoms)
         add_action.triggered.connect(self.structure_variable_control_tab.add_atom)
-        render_bond_distance_action.triggered.connect(self.structure_plot_control_tab.add_bond_length)
+        render_bond_distance_action.triggered.connect(self.structure_variable_control_tab.add_bond_length)
 
         # Add action to toolbar
         actions = [right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action, render_bond_distance_action]
@@ -148,7 +148,7 @@ class MainWindow(QMainWindow):
         copy_action.triggered.connect(self.structure_variable_control_tab.tableWidget.copy_table)
         modify_constraints_action.triggered.connect(self.structure_variable_control_tab.modify_constraints)
         move_atoms_window.triggered.connect(self.structure_variable_control_tab.move_atoms_widget)
-        clear_bonds_menu_action.triggered.connect(self.structure_plot_control_tab.clear_bond_labels)
+        clear_bonds_menu_action.triggered.connect(self.structure_variable_control_tab.remove_bond_lengths)
 
         # Create menu items
         file_menu = menubar.addMenu('File')
@@ -324,12 +324,12 @@ class MainWindow(QMainWindow):
                 dir = cwd
             else:
                 #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
-                dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
+                #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                #dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR'
+                #dir = r'D:\syncme\test_for_doswizard\3.small_perovskites'
 
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
@@ -372,7 +372,7 @@ class MainWindow(QMainWindow):
             self.structure_plot_control_tab.update_data()
             self.structure_variable_control_tab.update_data()
             self.chgcar_control_widget.update_data(self.data)
-            #self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
+            self.chgcar_control_widget.chg_file_path = os.path.join(selected_dir, "CHGCAR")
 
             self.dir = selected_dir
             self.set_window_title(self.dir)

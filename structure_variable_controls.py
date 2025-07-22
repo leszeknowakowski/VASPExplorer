@@ -1,22 +1,21 @@
 import time
 tic = time.perf_counter()
-from PyQt5.QtGui import QCloseEvent, QDropEvent, QIcon
-from structure_plot import StructureViewer
-from structure_controls import StructureControlsWidget
+from PyQt5.QtGui import  QDropEvent, QIcon
 from exceptions import EmptyFile
-import sys, platform, os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
-    QPushButton, QHBoxLayout, QFrame, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
-    QDialog, QDialogButtonBox, QSlider, QGroupBox, QMessageBox
+import  os
+from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
+    QPushButton, QHBoxLayout, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
+     QDialogButtonBox, QSlider, QGroupBox, QMessageBox
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from periodic_table import PeriodicTable
 from itertools import groupby, combinations
 import numpy as np
 from ase.io import read
 from ase.neighborlist import NeighborList, natural_cutoffs
-from ase.constraints import FixAtoms, FixBondLength, FixLinearTriatomic
-from vtk import vtkNamedColors
+from ase.constraints import FixBondLength, FixLinearTriatomic
 from config import AppConfig
+from vtk import vtkNamedColors,  vtkActor, vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper
+
 toc = time.perf_counter()
 print(f'importing in structure variable controls: {toc - tic:0.4f}')
 
@@ -144,11 +143,13 @@ class TableWidgetDragRows(QTableWidget):
             print("No selected rows!")
 
 
+# noinspection PyUnresolvedReferences
 class StructureVariableControls(QWidget):
     atom_deleted = pyqtSignal(int)
     all_atoms_deleted = pyqtSignal(str)
     def __init__(self, structure_control_widget):
         super().__init__(structure_control_widget)
+        self.bonds = []
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignTop)
 
@@ -250,6 +251,7 @@ class StructureVariableControls(QWidget):
         self.layout.addWidget(self.tableWidget)
 
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
+        self.structure_control_widget.geometry_slider.valueChanged.connect(self.update_bonds)
         self.movement_slider_value = 50
 
     def createTable(self):
@@ -609,11 +611,8 @@ class StructureVariableControls(QWidget):
         self.tableWidget.clearSelection()
         for row in selected_rows:
             self.tableWidget.selectRow(row)
-        #self.structure_control_widget.add_sphere()
         self.structure_control_widget.add_bonds()
-
-        # Update the plotter
-        #self.plotter.update()
+        self.update_bonds()
 
     def rotate_objects(self, lst):
         phi, theta, psi, center = lst
@@ -766,7 +765,6 @@ class StructureVariableControls(QWidget):
             else:
                 new_coords.append(np.array(coords[i]))
 
-        #new_coords = np.array(selected_coords + displacement).tolist()
         self.tableWidget.blockSignals(True)
         for column in range(3,6):
             for row in range(self.tableWidget.rowCount()):
@@ -795,7 +793,26 @@ class StructureVariableControls(QWidget):
 
         self.move_atoms_qwidget.atom_rotated.connect(self.rotate_objects)
 
+    def add_bond_length(self):
+        selected_atoms = self.get_selected_rows()
+        if len(selected_atoms) != 2:
+            print(f"selected {len(selected_atoms)} atoms. Please select exactly two atoms")
+        else:
+            idx1, idx2 = selected_atoms
+            bond = Bonds(idx1, idx2, self)
+            bond.add_bond_length()
+            self.bonds.append(bond)
 
+    def remove_bond_lengths(self):
+        for bond in self.bonds:
+            bond.clear_bond_labels()
+
+    def update_bonds(self):
+        for bond in self.bonds:
+            bond.clear_bond_labels()
+            bond.add_bond_length()
+
+# noinspection PyUnresolvedReferences
 class AtomChooseWindow(QWidget):
     sig = pyqtSignal()
 
@@ -884,7 +901,7 @@ class AtomChooseWindow(QWidget):
         self.close()
         self.periodic_table.close()
 
-
+# noinspection PyUnresolvedReferences
 class ConstraintsWindow(QWidget):
     sig = pyqtSignal()
     def __init__(self, parent):
@@ -896,6 +913,7 @@ class ConstraintsWindow(QWidget):
         self.process_structure_file()
 
         self.initUI()
+
 
     def initUI(self):
         self.layout = QVBoxLayout()
@@ -1212,3 +1230,91 @@ class MoveAtomsWindow(QWidget):
         psi = self.psi_line_edit.text()
         center = self.center_line_edit.text()
         self.atom_rotated.emit([phi, theta, psi, center])
+
+class Bonds:
+    def __init__(self, index1, index2, structure_variable_control_widget):
+        # indexes of atoms to create bond between
+        self.index1 = index1
+        self.index2 = index2
+        self.structure_variable_control_widget = structure_variable_control_widget
+        self.structure_control_widget = self.structure_variable_control_widget.structure_control_widget
+        self.structure_plot_widget = self.structure_control_widget.structure_plot_widget
+
+    def add_bond_length(self):
+        coords = self.structure_plot_widget.data.outcar_data.find_coordinates()
+        current_coords = coords[self.structure_control_widget.geometry_slider.value()]
+        pt1 = current_coords[self.index1]
+        pt2 = current_coords[self.index2]
+        self._add_bond_line(pt1, pt2)
+        self._add_bond_label(pt1, pt2)
+
+
+    def _add_bond_line(self, pt1, pt2):
+        pt1 = np.array(pt1)
+        pt2 = np.array(pt2)
+        direction = pt2 - pt1
+        length = np.linalg.norm(direction)
+        direction /= length  # normalize
+
+        segment_length = 0.2
+        num_segments = int(length / segment_length)
+
+        # VTK data structures
+        points = vtkPoints()
+        lines = vtkCellArray()
+
+        point_id = 0
+
+        for i in range(num_segments):
+            start = pt1 + i * segment_length * direction
+            end = pt1 + (i + 1) * segment_length * direction
+
+            # Draw only for odd segments (i = 1, 3, 5, ...)
+            if i % 2 == 1:
+                points.InsertNextPoint(start)
+                points.InsertNextPoint(end)
+
+                line = vtkLine()
+                line.GetPointIds().SetId(0, point_id)
+                line.GetPointIds().SetId(1, point_id + 1)
+                lines.InsertNextCell(line)
+                point_id += 2
+
+        # Create the polyline
+        poly_data = vtkPolyData()
+        poly_data.SetPoints(points)
+        poly_data.SetLines(lines)
+
+        # Mapper and actor
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputData(poly_data)
+
+        actor = vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(0, 0.8, 0)
+        actor.GetProperty().SetLineWidth(3)
+
+        self.structure_plot_widget.plotter.add_actor(actor)
+        self.bond_actor = actor
+
+    def _add_bond_label(self, pt1, pt2):
+        """
+        Adds a bond label showing the distance between two points in green color.
+        """
+        # Calculate midpoint
+        midpoint = [(pt1[i] + pt2[i]) / 2 for i in range(3)]
+
+        # Calculate distance
+        distance = np.linalg.norm(np.array(pt1) - np.array(pt2))
+        distance_text = f"{distance:.3f}"
+
+        # Create label actor
+        bond_label_actor = self.structure_plot_widget.plotter.add_point_labels(
+            [midpoint], [distance_text], font_size=24,
+            show_points=False, always_visible=True, text_color=(0,220,0), shape=None
+        )
+        self.bond_label_actor = bond_label_actor
+
+    def clear_bond_labels(self):
+        for actor in [self.bond_label_actor, self.bond_actor]:
+            self.structure_plot_widget.plotter.renderer.RemoveActor(actor)

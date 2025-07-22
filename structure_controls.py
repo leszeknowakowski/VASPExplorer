@@ -87,8 +87,6 @@ class StructureControlsWidget(QWidget):
         self.energy_plot_layout()
         self.bond_length_actors = []
         self.forces_actors = []
-        self.bond_label_actors = [] #TODO: maybe create another class for handlling bond actors?
-
 
         self.add_bonds()
         self.add_sphere()
@@ -105,7 +103,6 @@ class StructureControlsWidget(QWidget):
         self.add_line_plot()
         self.add_scatter_plot()
         self.update_scatter()
-        self.clear_bond_labels()
 
     def initUI(self):
         self.vlayout = QVBoxLayout(self)
@@ -499,7 +496,6 @@ class StructureControlsWidget(QWidget):
             self.structure_plot_widget.sphere_actors.append(actor)
         for actor in self.structure_plot_widget.sphere_actors:
             actor.SetVisibility(True)
-        #self.plotter.update()
 
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
@@ -872,89 +868,6 @@ class StructureControlsWidget(QWidget):
         else:
             self.shift_pressed = True
             self.plotter.renderer.GetRenderWindow().SetCurrentCursor(10)
-
-    def add_bond_length(self):
-        if len(self.selected_actors) == 2:
-            ac1 = self.selected_actors[0]
-            ac2 = self.selected_actors[1]
-            pt1 = ac1.GetCenter()
-            pt2 = ac2.GetCenter()
-            self._add_bond_line(pt1, pt2)
-            self._add_bond_label(pt1, pt2)
-        else:
-            print(f"selected {len(self.selected_actors)} atoms. Please select exactly two atoms")
-
-    def _add_bond_line(self, pt1, pt2):
-        pt1 = np.array(pt1)
-        pt2 = np.array(pt2)
-        direction = pt2 - pt1
-        length = np.linalg.norm(direction)
-        direction /= length  # normalize
-
-        segment_length = 0.2
-        num_segments = int(length / segment_length)
-
-        # VTK data structures
-        points = vtkPoints()
-        lines = vtkCellArray()
-
-        point_id = 0
-
-        for i in range(num_segments):
-            start = pt1 + i * segment_length * direction
-            end = pt1 + (i + 1) * segment_length * direction
-
-            # Draw only for odd segments (i = 1, 3, 5, ...)
-            if i % 2 == 1:
-                points.InsertNextPoint(start)
-                points.InsertNextPoint(end)
-
-                line = vtkLine()
-                line.GetPointIds().SetId(0, point_id)
-                line.GetPointIds().SetId(1, point_id + 1)
-                lines.InsertNextCell(line)
-                point_id += 2
-
-        # Create the polyline
-        poly_data = vtkPolyData()
-        poly_data.SetPoints(points)
-        poly_data.SetLines(lines)
-
-        # Mapper and actor
-        mapper = vtkPolyDataMapper()
-        mapper.SetInputData(poly_data)
-
-        actor = vtkActor()
-        actor.SetMapper(mapper)
-        actor.GetProperty().SetColor(0, 0.8, 0)
-        actor.GetProperty().SetLineWidth(3)
-
-        self.structure_plot_widget.plotter.add_actor(actor)
-        self.bond_length_actors.append(actor)
-
-    def _add_bond_label(self, pt1, pt2):
-        """
-        Adds a bond label showing the distance between two points in green color.
-        """
-        # Calculate midpoint
-        midpoint = [(pt1[i] + pt2[i]) / 2 for i in range(3)]
-
-        # Calculate distance
-        distance = np.linalg.norm(np.array(pt1) - np.array(pt2))
-        distance_text = f"{distance:.3f}"
-
-        # Create label actor
-        bond_label_actor = self.plotter.add_point_labels(
-            [midpoint], [distance_text], font_size=24,
-            show_points=False, always_visible=True, text_color=(0,220,0), shape=None
-        )
-        self.bond_label_actors.append(bond_label_actor)
-
-    def clear_bond_labels(self):
-        for actor in self.bond_label_actors:
-            self.plotter.renderer.RemoveActor(actor)
-        for actor in self.bond_length_actors:
-            self.plotter.renderer.RemoveActor(actor)
 
     def end_geometry(self):
         last = len(self.structure_plot_widget.data.outcar_coordinates)
