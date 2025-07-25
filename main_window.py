@@ -4,6 +4,8 @@ import sys
 import platform
 import os
 
+from console_widget import PythonConsole
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 
 from config import AppConfig
@@ -67,10 +69,6 @@ class MainWindow(QMainWindow):
         pg.setConfigOptions(antialias=True)
         print(f'import pyqtgraph in main: {toc - tic:0.4f}')
 
-        tic = time.perf_counter()
-        toc = time.perf_counter()
-        print(f'import local modules in main: {toc - tic:0.4f}')
-
         self.splash.showMessage("Initializing UI", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
         self.setWindowTitle('DOSWave v.0.0.0')
         self.resize(1400, 800)
@@ -79,13 +77,17 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        self.create_main_layout(main_layout, central_widget)
-        self.create_toolbar(main_layout, central_widget)
-        self.create_menubar(main_layout, central_widget)
+        self.horizontal_splitter = QSplitter(Qt.Vertical)
+        main_layout.addWidget(self.horizontal_splitter)
 
+        self.create_main_layout(self.horizontal_splitter)
+        self.create_toolbar()
+        self.create_menubar()
+
+        self.create_python_console(self.horizontal_splitter)
         self.create_status_bar()
 
-    def create_toolbar(self, main_layout, central_widget):
+    def create_toolbar(self):
         # Toolbar
         toolbar = QToolBar()
         toolbar.setMovable(False)
@@ -118,7 +120,7 @@ class MainWindow(QMainWindow):
         actions = [right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action, render_bond_distance_action]
         toolbar.addActions(actions)
 
-    def create_menubar(self, main_layout, central_widget):
+    def create_menubar(self):
         # menu bar
         menubar = self.menuBar()
         icon_path = os.path.join(self.exec_dir, 'icons')
@@ -175,11 +177,17 @@ class MainWindow(QMainWindow):
 
         actors_menu.addAction(clear_bonds_menu_action)
 
-    def create_main_layout(self, main_layout, central_widget):
+    def create_python_console(self, main_layout):
+        self.console = PythonConsole(local_vars={'main_window': self})
+        self.horizontal_splitter = QSplitter(Qt.Vertical)
+        self.horizontal_splitter.addWidget(self.console)
+        main_layout.addWidget(self.horizontal_splitter)
+
+    def create_main_layout(self, main_layout):
         from dos_plot_widget import DosPlotWidget
         from dos_control_widget import DosControlWidget
         from structure_plot import StructureViewer
-        #from console_widget import ConsoleWidget
+        from console_widget import PythonConsole
         from structure_controls import StructureControlsWidget
         from structure_variable_controls import StructureVariableControls
         from kpoints_create import  Kpoints_tab

@@ -31,10 +31,10 @@ def timer_decorator(func):
 
 
 class TableWidgetDragRows(QTableWidget):
-    def __init__(self, structureControlWidget):
-        super().__init__(structureControlWidget)
+    def __init__(self, structure_control_widget):
+        super().__init__(structure_control_widget)
 
-        self.structure_control_widget = structureControlWidget
+        self.structure_control_widget = structure_control_widget
         self.control = self.structure_control_widget.structure_control_widget
         self.plot = self.control.structure_plot_widget
 
@@ -150,6 +150,7 @@ class StructureVariableControls(QWidget):
     def __init__(self, structure_control_widget):
         super().__init__(structure_control_widget)
         self.bonds = []
+        self.tableWidget = None
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignTop)
 
@@ -157,7 +158,7 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget = structure_control_widget
 
         # Initialize table and populate
-        self.createTable()
+        self.create_table()
         # add first row buttons layout
         self.btns_layout = QHBoxLayout()
 
@@ -254,7 +255,7 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.geometry_slider.valueChanged.connect(self.update_bonds)
         self.movement_slider_value = 50
 
-    def createTable(self):
+    def create_table(self):
         self.tableWidget = TableWidgetDragRows(self)
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
         self.tableWidget.setSelectionMode(QAbstractItemView.MultiSelection)
@@ -365,7 +366,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget.blockSignals(False)
 
         # Rebuild the table with the updated data
-        self.createTable()
+        self.create_table()
 
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
@@ -399,7 +400,7 @@ class StructureVariableControls(QWidget):
         return True
 
     def rectangle_rows_selection(self):
-        if self.structure_control_widget.selected_actors == []:
+        if not self.structure_control_widget.selected_actors:
             self.tableWidget.clearSelection()
         rows = self.get_selected_rows()
         for row in rows:
@@ -410,7 +411,7 @@ class StructureVariableControls(QWidget):
         for actor in self.structure_control_widget.selected_actors:
             if actor in self.structure_control_widget.structure_plot_widget.sphere_actors:
                 rows.append(self.structure_control_widget.structure_plot_widget.sphere_actors.index(actor))
-        if rows == []:
+        if not rows:
             for item in self.tableWidget.selectedItems():
                 rows.append(item.row())
         return rows
@@ -524,7 +525,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget.blockSignals(False)
 
         # Rebuild the table with the updated data
-        self.createTable()
+        self.create_table()
 
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
@@ -596,18 +597,19 @@ class StructureVariableControls(QWidget):
             coordinates[row][0] = actor.GetCenter()[0]
             coordinates[row][1] = actor.GetCenter()[1]
             coordinates[row][2] = actor.GetCenter()[2]
-            """
-            coordinates[row][0] += translation_vector[0]
-            coordinates[row][1] += translation_vector[1]
-            coordinates[row][2] += translation_vector[2]
-            """
+
+        self.block_and_update_table()
+        self.structure_control_widget.add_bonds()
+        self.update_bonds()
+
+    def block_and_update_table(self):
         self.tableWidget.blockSignals(True)
         self.tableWidget.clearContents()
         self.layout.removeWidget(self.tableWidget)
         self.tableWidget.blockSignals(False)
 
         # Rebuild the table with the updated data
-        self.createTable()
+        self.create_table()
 
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
@@ -615,9 +617,6 @@ class StructureVariableControls(QWidget):
         self.tableWidget.clearSelection()
         for row in selected_rows:
             self.tableWidget.selectRow(row)
-        self.structure_control_widget.add_bonds()
-        self.update_bonds()
-
     def rotate_objects(self, lst):
         phi, theta, psi, center = lst
 
@@ -645,28 +644,11 @@ class StructureVariableControls(QWidget):
                 coordinates[row][1] = pos[1]
                 coordinates[row][2] = pos[2]
 
-            self.tableWidget.blockSignals(True)
-            self.tableWidget.clearContents()
-            self.layout.removeWidget(self.tableWidget)
-            self.tableWidget.blockSignals(False)
-
-            # Rebuild the table with the updated data
-            self.createTable()
-
-            # Add the new table to the layout
-            self.layout.addWidget(self.tableWidget)
-
-            self.tableWidget.clearSelection()
-            for row in selected_rows:
-                self.tableWidget.selectRow(row)
+            self.block_and_update_table()
             self.structure_control_widget.add_sphere()
             self.structure_control_widget.add_bonds()
         except IndexError:
             print("no atoms selected")
-
-        # Update the plotter
-        # self.plotter.update()
-
 
     def print_selected_atoms(self):
         selected_rows = self.get_selected_rows()
@@ -706,11 +688,11 @@ class StructureVariableControls(QWidget):
     def set_magmoms(self):
         def check_type(s):
             try:
-                int_val = int(s)
+                int(s)
                 return 'int'
             except ValueError:
                 try:
-                    float_val = float(s)
+                    float(s)
                     return 'float'
                 except ValueError:
                     return 'neither'
@@ -726,15 +708,12 @@ class StructureVariableControls(QWidget):
             QMessageBox.warning(self, "Not a number", "A provided text is not a number")
 
     def set_tags(self):
-        tic = time.perf_counter()
         indexes = self.tableWidget.selectionModel().selectedRows()
         self.tableWidget.blockSignals(True)
         for index in sorted(indexes):
             self.tableWidget.setItem(index.row(), 2, QTableWidgetItem(self.set_tags_input_field.text()))
         self.tableWidget.update_all_data()
         self.tableWidget.blockSignals(False)
-        toc = time.perf_counter()
-        print(f"setting tags: {toc-tic:0.4f} seconds")
 
     def sort_by_tags(self):
         self.tableWidget.blockSignals(True)
@@ -810,6 +789,7 @@ class StructureVariableControls(QWidget):
     def remove_bond_lengths(self):
         for bond in self.bonds:
             bond.clear_bond_labels()
+        self.bonds = []
 
     def update_bonds(self):
         for bond in self.bonds:
@@ -907,10 +887,10 @@ class AtomChooseWindow(QWidget):
 
 # noinspection PyUnresolvedReferences
 class ConstraintsWindow(QWidget):
-    '''
+    """
     This class opens a constraint modifier window. It writes a POSCAR-like tempfile with current coordinates and
     and constraints, read it as ASE atoms object and allow to further modify constraints
-    '''
+    """
     sig = pyqtSignal()
     def __init__(self, parent):
         super().__init__()
