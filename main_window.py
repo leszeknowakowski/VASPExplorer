@@ -13,7 +13,7 @@ tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
     QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel
 from PyQt5.QtGui import QIcon, QPixmap, QFont
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QEvent
 
 toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
         self.blink_timer = QTimer()
         self.blink_timer.timeout.connect(self.toggle_blink)
         self.blink_counter = 0
+        self.shift_pressed = False
         self.initUI()
 
     def initUI(self):
@@ -207,6 +208,7 @@ class MainWindow(QMainWindow):
 
         # widget for renderer interactor for plotting the structure
         self.structure_plot_interactor_widget = StructureViewer(self.data)
+        self.structure_plot_interactor_widget.plotter.installEventFilter(self)
 
         left_tab_widget.addTab(self.dos_plot_widget, "DOS")
         left_tab_widget.addTab(self.structure_plot_interactor_widget, "Structure")  # Placeholder for future widget
@@ -226,11 +228,11 @@ class MainWindow(QMainWindow):
         structure_tabs = QTabWidget()
 
         #tab for controlling the rendering structure plot
-        self.structure_plot_control_tab = StructureControlsWidget(self.structure_plot_interactor_widget)
+        self.structure_plot_control_tab = StructureControlsWidget(self.structure_plot_interactor_widget, self)
         structure_tabs.addTab(self.structure_plot_control_tab, "Structure plot control")
 
         # tab for controlling the crystal structure - position and properties of atoms
-        self.structure_variable_control_tab = StructureVariableControls(self.structure_plot_control_tab)
+        self.structure_variable_control_tab = StructureVariableControls(self.structure_plot_control_tab, self)
         structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
         # tab for controlling the charge density plots
@@ -388,6 +390,16 @@ class MainWindow(QMainWindow):
         #except Exception as e:
         #QMessageBox.critical(self, "Error Loading Data", str(e))
         #print(e)
+
+    def eventFilter(self, source, event):
+        if event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_Shift:
+                self.shift_pressed = True
+        elif event.type() == QEvent.KeyRelease:
+            if event.key() == Qt.Key_Shift:
+                self.shift_pressed = False
+        return super().eventFilter(source, event)
+
 
 if __name__ == '__main__':
     tic = time.perf_counter()

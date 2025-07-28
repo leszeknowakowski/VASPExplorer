@@ -41,9 +41,10 @@ class QtInteractor(QtInteractor):
         print("Screenshot saved!")
 
 class StructureViewer(QWidget):
-    def __init__(self, data):
+    def __init__(self, data, parent=None):
         super().__init__()
         self.data = data
+        self.parent = parent
 
         script_dir = os.path.dirname(__file__)
         colors_file = os.path.join(script_dir, 'elementColorSchemes.json')

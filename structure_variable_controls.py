@@ -6,7 +6,8 @@ import  os
 from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
      QDialogButtonBox, QSlider, QGroupBox, QMessageBox
-from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
+from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal, QItemSelectionModel, QItemSelection
+import traceback
 from periodic_table import PeriodicTable
 from itertools import groupby, combinations
 import numpy as np
@@ -28,6 +29,17 @@ def timer_decorator(func):
         print(f"Function '{func.__name__}' executed in {execution_time:.4f} seconds.")
         return result  # Return the original function's result
     return wrapper
+
+class DebugSelectionModel(QItemSelectionModel):
+    def select(self, selection, flags):
+        print("\n=== QItemSelectionModel.select() called ===")
+        print("printing traceback")
+        try:
+            traceback.print_stack(limit=50)
+        except:
+            print("traceback not printed")
+        print(f"Selection: {selection}, Flags: {flags}")
+        super().select(selection, flags)
 
 
 class TableWidgetDragRows(QTableWidget):
@@ -147,8 +159,9 @@ class TableWidgetDragRows(QTableWidget):
 class StructureVariableControls(QWidget):
     atom_deleted = pyqtSignal(int)
     all_atoms_deleted = pyqtSignal(str)
-    def __init__(self, structure_control_widget):
+    def __init__(self, structure_control_widget, parent=None):
         super().__init__(structure_control_widget)
+
         self.bonds = []
         self.tableWidget = None
         self.layout = QVBoxLayout(self)
@@ -156,6 +169,7 @@ class StructureVariableControls(QWidget):
 
         # Store the data manager
         self.structure_control_widget = structure_control_widget
+        self.parent = parent
 
         # Initialize table and populate
         self.create_table()
@@ -259,6 +273,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget = TableWidgetDragRows(self)
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
         self.tableWidget.setSelectionMode(QAbstractItemView.MultiSelection)
+
 
         self.tableWidget.setSortingEnabled(True)
         self.tableWidget.horizontalHeader().sortIndicatorChanged.connect(self.sort_by_column)
@@ -380,14 +395,14 @@ class StructureVariableControls(QWidget):
             vtk_color = np.array(color)/255
             actor.GetProperty().SetColor(vtk_color)
 
-        selected_items = self.tableWidget.selectedItems()
-        if not selected_items:
+        selected_rows = self.tableWidget.selectionModel().selectedRows()
+        if not selected_rows:
             return
 
-        selected_rows = set()
-        for item in selected_items:
-            selected_rows.add(item.row())
-        for row in selected_rows:
+        selected_rows_indexes = set()
+        for item in selected_rows:
+            selected_rows_indexes.add(item.row())
+        for row in selected_rows_indexes:
             if 0 <= row < len(actors):
                 actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
                 self.structure_control_widget.selected_actors.append(actors[row])
@@ -400,17 +415,31 @@ class StructureVariableControls(QWidget):
         return True
 
     def rectangle_rows_selection(self):
+        shift_pressed = False
         if not self.structure_control_widget.selected_actors:
             self.tableWidget.clearSelection()
         rows = self.get_selected_rows()
-        for row in rows:
-            self.tableWidget.selectRow(row)
+        self.tableWidget.blockSignals(True)
+
+        # if shift button is pressed, remove prevoiusly selected rows to avoid unselection
+        if self.parent.shift_pressed:
+            previous_rows = [x.row() for x in self.tableWidget.selectionModel().selectedRows()]
+            new_selected_rows = [x for x in rows if x not in previous_rows]
+            for row in new_selected_rows:
+                self.tableWidget.selectRow(row)
+        else:
+            for row in rows:
+                self.tableWidget.selectRow(row)
+        self.tableWidget.blockSignals(False)
+        self.on_selection_changed()
 
     def get_selected_rows(self):
         rows = []
+        # this returns all previously and currently selected actors
         for actor in self.structure_control_widget.selected_actors:
             if actor in self.structure_control_widget.structure_plot_widget.sphere_actors:
                 rows.append(self.structure_control_widget.structure_plot_widget.sphere_actors.index(actor))
+        # if no actors were selected, get selection from table
         if not rows:
             for item in self.tableWidget.selectedItems():
                 rows.append(item.row())

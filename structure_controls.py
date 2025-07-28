@@ -41,8 +41,9 @@ class StructureControlsWidget(QWidget):
     """
     selected_actors_changed = QtCore.pyqtSignal(list)
 
-    def __init__(self, structure_plot_widget):
+    def __init__(self, structure_plot_widget, parent=None):
         super().__init__()
+        self.parent = parent
         self.structure_plot_widget = structure_plot_widget
         self.plotter = self.structure_plot_widget.plotter
         self.constrain_actor = self.structure_plot_widget.constrain_actor
@@ -712,7 +713,7 @@ class StructureControlsWidget(QWidget):
         height = slidervalue[0] / 100 * self.structure_plot_widget.data.z
         end = slidervalue[1] / 100 * self.structure_plot_widget.data.z
         indices = []
-        global_coordinates = coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
+        global_coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
         if self.selected_actors != []:
             coordinates = []
             for actor in self.selected_actors:
@@ -721,7 +722,7 @@ class StructureControlsWidget(QWidget):
             coordinates = np.array(coordinates)
             for center in coordinates:
                 for index, coord in enumerate(np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])):
-                    if (np.round(center, 2) == coord).all():
+                    if (np.round(center, 2) == np.round(coord, 2)).all():
                         indices.append(index)
         else:
 
@@ -845,19 +846,23 @@ class StructureControlsWidget(QWidget):
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors.pop(row)
 
-    @timer_decorator
+    #@timer_decorator
     def on_selection(self, RectangleSelection):
-        self.selected_actors = []
+        if not self.parent.shift_pressed:
+            self.selected_actors = []
+            for index, actor in enumerate(self.structure_plot_widget.sphere_actors):
+                actor.GetProperty().SetColor(self.structure_plot_widget.atom_colors[index])
+
         actors = self.structure_plot_widget.sphere_actors
         colors = vtkNamedColors()
         for index, actor in enumerate(actors):
             if actor.GetVisibility():
                 is_inside = RectangleSelection.frustum.EvaluateFunction(actor.GetCenter()) < 0
                 if is_inside:
-                    actor.GetProperty().SetColor(colors.GetColor3d('Yellow'))
-                    self.selected_actors.append(actor)
-                else:
-                    actor.GetProperty().SetColor(self.structure_plot_widget.atom_colors[index])
+                    if actor not in self.selected_actors:
+                        actor.GetProperty().SetColor(colors.GetColor3d('Yellow'))
+                        self.selected_actors.append(actor)
+
 
         self.selected_actors_changed.emit(self.selected_actors)
 
