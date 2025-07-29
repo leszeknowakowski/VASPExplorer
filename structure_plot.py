@@ -65,6 +65,7 @@ class StructureViewer(QWidget):
         self.coord_pairs = []  # pairs of points connected by a bond
         self.bond_actors = []  # list of bond actors
         self.sphere_actors = []  # list of sphere actors
+        self.sphere_sources = []
         self.geometry_actors = []  # list of geometries, each with actors list
         self.symbol_to_color_mapper = SymbolToColorMapper(self.color_data)
         self.reset_variables()

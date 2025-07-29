@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
 
         self.splash.showMessage("Initializing UI", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
         self.setWindowTitle('DOSWave v.0.0.0')
-        self.resize(1400, 800)
+        self.resize(1400, 1200)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -334,12 +334,12 @@ class MainWindow(QMainWindow):
                 dir = cwd
             else:
                 #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                #dir = r'D:\syncme\test_for_doswizard\3.small_perovskites'
+                dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
 
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
@@ -375,7 +375,7 @@ class MainWindow(QMainWindow):
             # Load new data
             self.data = VaspData(selected_dir)
 
-            # Update plot widgets
+            # Update widgets
             self.dos_plot_widget.update_data(self.data)
             self.dos_control_widget.update_data(self.data)
             self.structure_plot_interactor_widget.update_data(self.data)

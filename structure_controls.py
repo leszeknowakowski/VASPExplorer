@@ -486,17 +486,20 @@ class StructureControlsWidget(QWidget):
         """adds atoms from single geometry step as spheres to renderer.
          Using VTK code because it is 100x faster than pyvista
          """
-        for actor in self.structure_plot_widget.sphere_actors:
-            self.plotter.renderer.RemoveActor(actor)
-        self.structure_plot_widget.sphere_actors = []
-        coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
 
-        for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
-            actor =  self._create_vtk_sphere(coord, col)
-            self.plotter.renderer.AddActor(actor)
-            self.structure_plot_widget.sphere_actors.append(actor)
-        for actor in self.structure_plot_widget.sphere_actors:
-            actor.SetVisibility(True)
+        coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
+        if self.structure_plot_widget.sphere_actors:
+            for coord, source in zip(coordinates, self.structure_plot_widget.sphere_sources):
+                center = coord
+                source.SetCenter(*center)
+        else:
+            for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
+                actor, source =  self._create_vtk_sphere(coord, col)
+                self.plotter.renderer.AddActor(actor)
+                self.structure_plot_widget.sphere_actors.append(actor)
+                self.structure_plot_widget.sphere_sources.append(source)
+            for actor in self.structure_plot_widget.sphere_actors:
+                actor.SetVisibility(True)
 
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
@@ -529,7 +532,7 @@ class StructureControlsWidget(QWidget):
 
         # Optional: disable rendering until ready
         actor.VisibilityOff()  # Equivalent to render=False in PyVista
-        return actor
+        return actor, sphere_source
 
     def add_bonds(self):
         """
