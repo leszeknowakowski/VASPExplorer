@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
 
         self.splash.showMessage("Initializing UI", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
         self.setWindowTitle('DOSWave v.0.0.0')
-        self.resize(1400, 1200)
+        self.resize(1400, 1000)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
