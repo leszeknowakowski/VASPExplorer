@@ -6,7 +6,7 @@ from PyQt5.QtCore import QFileInfo
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
     QFileDialog, QPushButton, QHBoxLayout, QSlider, QMainWindow, QProgressBar, QDialog, QMessageBox, \
-    QGroupBox, QSpacerItem, QSizePolicy
+    QGroupBox, QSpacerItem, QSizePolicy, QGridLayout
 from PyQt5 import QtCore
 import numpy as np
 #import chopPARCHG_test_chgcar_comp as chp
@@ -119,6 +119,7 @@ class ChgcarVis(QWidget):
         }
         spin_layout = QHBoxLayout()
         for spin_type, btn in self.spin_buttons.items():
+            btn.setMinimumWidth(5)
             spin_layout.addWidget(btn)
             btn.clicked.connect(lambda _, t=spin_type: self.set_spin_type(t))
             if spin_type != "clear":
@@ -151,7 +152,7 @@ class ChgcarVis(QWidget):
         self.eps_layout.addWidget(self.chg_eps_value_label)
         self.eps_layout.addWidget(self.chg_eps_slider)
 
-        self.manipulate_charge_layout = QHBoxLayout()
+        self.manipulate_charge_layout = QGridLayout()
         self.add_box_button = QPushButton('Add box')
         self.add_box_button.clicked.connect(self.add_flip_box_widget)
 
@@ -170,12 +171,16 @@ class ChgcarVis(QWidget):
         save_chgcar_button = QPushButton('Save CHGCAR')
         save_chgcar_button.clicked.connect(self.write_chgcar)
 
-        self.manipulate_charge_layout.addWidget(self.add_box_button)
-        self.manipulate_charge_layout.addWidget(self.remove_box_button)
-        self.manipulate_charge_layout.addWidget(self.flip_spin_button)
-        self.manipulate_charge_layout.addWidget(self.remove_density_button)
-        self.manipulate_charge_layout.addWidget(self.make_supercell_button)
-        self.manipulate_charge_layout.addWidget(save_chgcar_button)
+        chg_btns = [self.add_box_button, self.remove_box_button, self.flip_spin_button,self.remove_density_button, self.make_supercell_button]
+        for btn in chg_btns:
+            btn.setMinimumWidth(5)
+
+        self.manipulate_charge_layout.addWidget(self.add_box_button,0,0)
+        self.manipulate_charge_layout.addWidget(self.remove_box_button,0,1)
+        self.manipulate_charge_layout.addWidget(self.flip_spin_button,1,0)
+        self.manipulate_charge_layout.addWidget(self.remove_density_button,1,1)
+        self.manipulate_charge_layout.addWidget(self.make_supercell_button,2,0)
+        self.manipulate_charge_layout.addWidget(save_chgcar_button,2,1)
 
         self.chgcar_frame_layout.addLayout(self.eps_layout)
         self.chgcar_frame_layout.addLayout(self.manipulate_charge_layout)

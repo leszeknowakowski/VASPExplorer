@@ -79,13 +79,14 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
 
         self.horizontal_splitter = QSplitter(Qt.Vertical)
+        self.horizontal_splitter.setStretchFactor(0, 2)
+        self.horizontal_splitter.setStretchFactor(1, 1)
         main_layout.addWidget(self.horizontal_splitter)
 
         self.create_main_layout(self.horizontal_splitter)
         self.create_toolbar()
         self.create_menubar()
-
-        self.create_python_console(self.horizontal_splitter)
+        self.create_python_console()
         self.create_status_bar()
 
     def create_toolbar(self):
@@ -178,11 +179,9 @@ class MainWindow(QMainWindow):
 
         actors_menu.addAction(clear_bonds_menu_action)
 
-    def create_python_console(self, main_layout):
+    def create_python_console(self):
         self.console = PythonConsole(local_vars={'main_window': self})
-        self.horizontal_splitter = QSplitter(Qt.Vertical)
         self.horizontal_splitter.addWidget(self.console)
-        main_layout.addWidget(self.horizontal_splitter)
 
     def create_main_layout(self, main_layout):
         from dos_plot_widget import DosPlotWidget
@@ -198,6 +197,8 @@ class MainWindow(QMainWindow):
 
         # main layout
         splitter = QFloatingSplitter()
+        splitter.setStretchFactor(0,2)
+        splitter.setStretchFactor(1,1)
         main_layout.addWidget(splitter)
 
         # Left tabs for plots
@@ -239,7 +240,6 @@ class MainWindow(QMainWindow):
         self.chgcar_control_widget = ChgcarVis(self.structure_variable_control_tab)
         self.chgcar_control_widget.chg_file_path = os.path.join(self.dir, "CHGCAR")
         self.chgcar_control_widget.load_data.connect(self.load_data)
-        #self.chgcar_control_widget.chg_file_path = "D:\\syncme-from-c120\\modelowanie DFT\\CeO2\\Vacancy\\CeO2_100_CeO4-t\\CeO2_100_CeO4-t_asymmetric\\2VOa"
         structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
 
         right_tab_widget.addTab(structure_tabs, "Crystal structure")
@@ -258,8 +258,8 @@ class MainWindow(QMainWindow):
         right_tab_widget.setCurrentIndex(1)
 
         splitter.addWidget(right_tab_widget)
-        splitter.setStretchFactor(0,5)
-        splitter.setStretchFactor(1,10)
+        splitter.setStretchFactor(0,1)
+        splitter.setStretchFactor(1,1)
 
     def create_status_bar(self):
         self.status_bar = self.statusBar()
@@ -335,11 +335,11 @@ class MainWindow(QMainWindow):
             else:
                 #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
+                dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
+                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
 
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"

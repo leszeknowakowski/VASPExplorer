@@ -107,7 +107,6 @@ class StructureControlsWidget(QWidget):
 
     def initUI(self):
         self.vlayout = QVBoxLayout(self)
-        # self.setLayout(self.vlayout)
         self.vlayout.setAlignment(QtCore.Qt.AlignTop)
 
         self.renderFrame = QFrame(self)
@@ -144,13 +143,14 @@ class StructureControlsWidget(QWidget):
     def render_structure_control_widget(self):
         """ structure  visibility checkbox widget. Control wheater to plot or not the spheres, bonds, unit cell"""
         # ############# spheres part ###########################
+        self.sphere_label = QLabel('spheres')
         self.sphere_cb = QtWidgets.QCheckBox()
         self.sphere_cb.setChecked(True)
-        self.sphere_cb.setText("Show/hide all spheres")
+        self.sphere_cb.setText("all")
         self.sphere_cb.stateChanged.connect(self.toggle_spheres)
 
         self.sphere_selected_cb = QtWidgets.QCheckBox()
-        self.sphere_selected_cb.setText("Show/hide spheres between planes")
+        self.sphere_selected_cb.setText("between planes")
         self.sphere_selected_cb.stateChanged.connect(self.toggle_spheres_between_planes)
         self.sphere_selected_cb.setChecked(False)
 
@@ -159,11 +159,9 @@ class StructureControlsWidget(QWidget):
         self.sphere_radius_slider.setMinimum(0)
         self.sphere_radius_slider.setMaximum(10)
         self.sphere_radius_slider.setValue(5)
-        self.sphere_radius_slider.setFixedWidth(200)
-
 
         self.sphere_radius_label = QLabel()
-        self.sphere_radius_label.setText(f"Sphere Radius: {self.sphere_radius_slider.value()/10}")
+        self.sphere_radius_label.setText(f"Radius: {self.sphere_radius_slider.value()/10}")
 
         self.sphere_radius_slider.valueChanged.connect(self.change_sphere_radius)
         self.sphere_radius_slider.valueChanged.connect(self.change_sphere_radius_label)
@@ -171,6 +169,7 @@ class StructureControlsWidget(QWidget):
 
         sphere_layout = QHBoxLayout()
         sphere_layout.setSpacing(10)
+        sphere_layout.addWidget(self.sphere_label)
         sphere_layout.addWidget(self.sphere_cb)
         sphere_layout.addWidget(self.sphere_selected_cb)
         sphere_layout.addWidget(self.sphere_radius_label)
@@ -190,7 +189,6 @@ class StructureControlsWidget(QWidget):
         self.bond_threshold_slider.setMaximum(400)
         self.bond_threshold_slider.setValue(300)
         self.bond_threshold_slider.setTickInterval(100)
-        self.bond_threshold_slider.setFixedWidth(200)
 
         self.bond_threshold_label = QtWidgets.QLabel()
         self.update_bond_threshold_label()
@@ -267,7 +265,6 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.setValue(0)
         self.geometry_slider.setTickInterval(1)
         self.geometry_slider.setSingleStep(1)
-        self.geometry_slider.setFixedWidth(200)
 
         self.geometry_slider.valueChanged.connect(self.add_sphere)
         self.geometry_slider.valueChanged.connect(self.update_geometry_value_label)
@@ -281,8 +278,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.valueChanged.connect(self.create_forces_arrows)
 
         self.geometry_value_label = QtWidgets.QLabel()
-        self.geometry_value_label.setText(f"Geometry number: {self.geometry_slider.value()}")
-        self.geometry_value_label.setFixedWidth(150)
+        self.geometry_value_label.setText(f"Geometry: {self.geometry_slider.value()}")
 
         self.end_geometry_button = QtWidgets.QPushButton()
         self.end_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "end.png")))

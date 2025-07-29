@@ -5,7 +5,7 @@ from exceptions import EmptyFile
 import  os
 from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
-     QDialogButtonBox, QSlider, QGroupBox, QMessageBox
+     QDialogButtonBox, QSlider, QGroupBox, QMessageBox, QAbstractScrollArea, QSizePolicy
 from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal, QItemSelectionModel, QItemSelection
 import traceback
 from periodic_table import PeriodicTable
@@ -167,12 +167,14 @@ class StructureVariableControls(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignTop)
 
+
         # Store the data manager
         self.structure_control_widget = structure_control_widget
         self.parent = parent
 
         # Initialize table and populate
         self.create_table()
+
         # add first row buttons layout
         self.btns_layout = QHBoxLayout()
 
@@ -198,6 +200,8 @@ class StructureVariableControls(QWidget):
 
         # add buttons to layout
         btns = [self.x_t_btn, self.x_f_btn, self.y_t_btn, self.y_f_btn, self.z_t_btn, self.z_f_btn]
+        for btn in btns:
+            btn.setMinimumWidth(5)
         self.btns_layout.addWidget(self.save_poscar_btn)
         self.btns_layout.addWidget(self.delete_atoms_btn)
         self.btns_layout.addWidget(QLabel("X"))
@@ -262,8 +266,8 @@ class StructureVariableControls(QWidget):
         self.tags_btn_layout.addWidget(self.set_tags_btn)
         self.layout.addLayout(self.tags_btn_layout)
 
-
         self.layout.addWidget(self.tableWidget)
+        self.tableWidget.setMinimumWidth(0)
 
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
         self.structure_control_widget.geometry_slider.valueChanged.connect(self.update_bonds)
@@ -289,13 +293,11 @@ class StructureVariableControls(QWidget):
         # Set table headers
         headers = ["Atom", "Number", "Tag", "X", "Y", "Z", "Move X", "Move Y", "Move Z", "MagMom"]
         self.tableWidget.setHorizontalHeaderLabels(headers)
-        #header = self.tableWidget.horizontalHeader()
-        #header.setSectionResizeMode(QHeaderView.ResizeToContents)
-        #header.setSectionResizeMode(0, QHeaderView.Stretch)
 
         for i in range(self.tableWidget.columnCount()):
-            self.tableWidget.horizontalHeader().setSectionResizeMode(i,QHeaderView.Stretch)
-        #resizeSection(logicalIndex, size)
+            self.tableWidget.horizontalHeader().setSectionResizeMode(i,QHeaderView.ResizeToContents)
+
+
         # Add data to the table
         for row in range(num_atoms):
             atom = atom_num_and_symb[row]
@@ -318,8 +320,14 @@ class StructureVariableControls(QWidget):
         # Connect the cellChanged signal to the updateData method
         self.tableWidget.cellChanged.connect(self.updateData)
         self.tableWidget.itemSelectionChanged.connect(self.on_selection_changed)
-        self.tableWidget.horizontalHeader().setResizeContentsPrecision(-1)
+        #self.tableWidget.horizontalHeader().setResizeContentsPrecision(-1)
         self.structure_control_widget.structure_plot_widget.plotter.add_key_event('Delete', self.delete_atoms)
+
+        tableview = self.tableWidget
+        # size policy
+        tableview.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        # tableview.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum) # ---
+        tableview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)  # +++
 
     def find_headers(self, row, column):
         header = self.tableWidget.horizontalHeaderItem(column).text()  # Get the header of the changed column
