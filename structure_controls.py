@@ -96,9 +96,12 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.setMaximum(len(self.structure_plot_widget.data.outcar_coordinates) - 1)
         self.geometry_slider.setValue(0)
         self.geometry_value_label.setText(f"Geometry number: {self.geometry_slider.value()}")
-
+        for actor in self.structure_plot_widget.sphere_actors:
+            self.structure_plot_widget.plotter.remove_actor(actor)
+        self.structure_plot_widget.sphere_actors = []
         self.add_bonds()
-        self.add_sphere()
+
+        #self.add_sphere()
 
         self.clear_energy_plot()
         self.add_line_plot()

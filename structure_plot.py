@@ -97,7 +97,6 @@ class StructureViewer(QWidget):
         self.layout = QVBoxLayout(self)
         self.plotter = QtInteractor(auto_update=5)
 
-        #self.plotter.set_background(color="#1e1f22")
         self.plotter.add_camera_orientation_widget()
 
         self.plotter.view_yz()

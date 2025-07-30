@@ -320,14 +320,7 @@ class StructureVariableControls(QWidget):
         # Connect the cellChanged signal to the updateData method
         self.tableWidget.cellChanged.connect(self.updateData)
         self.tableWidget.itemSelectionChanged.connect(self.on_selection_changed)
-        #self.tableWidget.horizontalHeader().setResizeContentsPrecision(-1)
         self.structure_control_widget.structure_plot_widget.plotter.add_key_event('Delete', self.delete_atoms)
-
-        tableview = self.tableWidget
-        # size policy
-        tableview.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
-        # tableview.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum) # ---
-        tableview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)  # +++
 
     def find_headers(self, row, column):
         header = self.tableWidget.horizontalHeaderItem(column).text()  # Get the header of the changed column
@@ -652,38 +645,49 @@ class StructureVariableControls(QWidget):
         self.layout.addWidget(self.tableWidget)
 
         self.tableWidget.clearSelection()
+        selected_rows = self.get_selected_rows()
         for row in selected_rows:
             self.tableWidget.selectRow(row)
-    def rotate_objects(self, lst):
-        phi, theta, psi, center = lst
 
+    def rotate_objects(self, lst):
         import ast
-        center = ast.literal_eval(center)
+        import io
+        import tempfile
         from ase.io import read
-        self.save_poscar(target="tmp")
-        atoms = read("tmp", format="vasp")
-        os.remove("tmp")
+
+        phi, theta, psi, center = lst
+        center = ast.literal_eval(center)
+
+        tmp_file =  tempfile.NamedTemporaryFile(mode='w', delete=False)
+        with tmp_file as tmp:
+            self.save_poscar(target=tmp)
+
+        with open(tmp_file.name) as tmp:
+            atoms = read(tmp, format="vasp")
 
         selected_rows = self.get_selected_rows()
         try:
             rot_atoms = atoms[selected_rows].copy()
-            rot_atoms.euler_rotate(phi=float(phi),
-                                   theta=float(theta),
-                                   psi=float(psi),
-                                   center=center)
+            if len(rot_atoms) == 0:
+                print("no atoms selected")
+            else:
+                rot_atoms.euler_rotate(phi=float(phi),
+                                       theta=float(theta),
+                                       psi=float(psi),
+                                       center=center)
 
-            rot_positions = rot_atoms.positions
-            coordinates = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[
-                self.structure_control_widget.geometry_slider.value()]
+                rot_positions = rot_atoms.positions
+                coordinates = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[
+                    self.structure_control_widget.geometry_slider.value()]
 
-            for pos, row in zip(rot_positions, selected_rows):
-                coordinates[row][0] = pos[0]
-                coordinates[row][1] = pos[1]
-                coordinates[row][2] = pos[2]
+                for pos, row in zip(rot_positions, selected_rows):
+                    coordinates[row][0] = pos[0]
+                    coordinates[row][1] = pos[1]
+                    coordinates[row][2] = pos[2]
 
-            self.block_and_update_table()
-            self.structure_control_widget.add_sphere()
-            self.structure_control_widget.add_bonds()
+                self.block_and_update_table()
+                self.structure_control_widget.add_sphere()
+                self.structure_control_widget.add_bonds()
         except IndexError:
             print("no atoms selected")
 
@@ -806,7 +810,7 @@ class StructureVariableControls(QWidget):
         self.movement_slider_value = value
 
     def move_atoms_widget(self):
-        self.move_atoms_qwidget = MoveAtomsWindow()
+        self.move_atoms_qwidget = MoveAtomsWindow(self)
         self.move_atoms_qwidget.show()
         self.move_atoms_qwidget.atom_moved.connect(self.translate_object)
         self.move_atoms_qwidget.slider_value_changed.connect(self.set_movement_sensibility)
@@ -1123,8 +1127,9 @@ class MoveAtomsWindow(QWidget):
     atom_rotated = pyqtSignal(list)
     slider_value_changed = pyqtSignal(int)  # Emits slider value
 
-    def __init__(self):
+    def __init__(self, parent=None):
         super().__init__()
+        self.parent = parent
         self.setWindowTitle("Moving atoms")
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
         self.initUI()
@@ -1238,7 +1243,8 @@ class MoveAtomsWindow(QWidget):
 
         center_layout = QHBoxLayout()
         center_label = QLabel("Center (x,y,x): ")
-        self.center_line_edit = QLineEdit("(0,0,0)")
+        x, y, z = self.get_atoms_center()
+        self.center_line_edit = QLineEdit(f"({x:.2f}, {y:.2f}, {z:.2f})")
         center_layout.addWidget(center_label)
         center_layout.addWidget(self.center_line_edit)
 
@@ -1256,6 +1262,21 @@ class MoveAtomsWindow(QWidget):
         self.rotation_layout.addWidget(rotation_group)
 
         self.main_layout.addLayout(self.rotation_layout)
+
+    def get_atoms_center(self):
+        centers = []
+        if self.parent.structure_control_widget.selected_actors:
+
+            for actor in self.parent.structure_control_widget.selected_actors:
+                center = actor.GetCenter()
+                centers.append(center)
+            centers = np.array(centers)
+            mean_x, mean_y, mean_z = np.mean(centers, axis=0)
+
+        else:
+            centers = np.array(self.parent.parent.data.coordinates)
+            mean_x, mean_y, mean_z = np.mean(centers, axis=0)
+        return mean_x, mean_y, mean_z
 
     def handle_button_click(self, direction):
         print(f"Button clicked: {direction}")

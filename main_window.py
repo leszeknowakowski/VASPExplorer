@@ -157,17 +157,19 @@ class MainWindow(QMainWindow):
         # Create menu items
         file_menu = menubar.addMenu('File')
 
-        file_menu.addAction(new_action)
         file_menu.addAction(open_action)
-        file_menu.addAction(save_action)
-        file_menu.addAction(quit_action)
+        # install later
+        #file_menu.addAction(new_action)
+        #file_menu.addAction(save_action)
+        #file_menu.addAction(quit_action)
 
         # Edit menu
         edit_menu = menubar.addMenu('Edit')
 
         edit_menu.addAction(copy_action)
-        edit_menu.addAction(cut_action)
-        edit_menu.addAction(paste_action)
+        # install later
+        #edit_menu.addAction(cut_action)
+        #edit_menu.addAction(paste_action)
 
         modify_menu = menubar.addMenu('Modify')
         modify_menu.addAction(modify_constraints_action)
@@ -333,9 +335,9 @@ class MainWindow(QMainWindow):
             if any(os.path.isfile(os.path.join(cwd, fname)) for fname in files_to_check):
                 dir = cwd
             else:
-                #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
+                #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
@@ -359,7 +361,6 @@ class MainWindow(QMainWindow):
         """Open a directory and reload all VASP data from it, updating the GUI."""
 
         default_dir = self.dir
-        #default_dir = r'D:\syncme\modelowanie DFT\co3o4_new_new\0.bulk\scale_0.9900'
         selected_file = QFileDialog.getOpenFileName(self,
                                                         "Select file in directory with VASP Files",
                                                         default_dir)
