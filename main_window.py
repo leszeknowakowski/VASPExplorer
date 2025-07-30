@@ -12,8 +12,8 @@ from config import AppConfig
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
     QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel
-from PyQt5.QtGui import QIcon, QPixmap, QFont
-from PyQt5.QtCore import Qt, QTimer, QEvent
+from PyQt5.QtGui import QIcon, QPixmap, QFont, QPainter, QColor
+from PyQt5.QtCore import Qt, QTimer, QEvent, QObject, QRect
 
 toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
@@ -79,8 +79,8 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
 
         self.horizontal_splitter = QSplitter(Qt.Vertical)
-        self.horizontal_splitter.setStretchFactor(0, 2)
-        self.horizontal_splitter.setStretchFactor(1, 1)
+        self.horizontal_splitter.setStretchFactor(0, 10)
+        self.horizontal_splitter.setStretchFactor(1, 7)
         main_layout.addWidget(self.horizontal_splitter)
 
         self.create_main_layout(self.horizontal_splitter)
@@ -88,6 +88,19 @@ class MainWindow(QMainWindow):
         self.create_menubar()
         self.create_python_console()
         self.create_status_bar()
+
+
+        self.overlay = Overlay(self)
+        self.overlay.resize(self.size())
+        self.overlay.raise_()
+        self.hover = HoverHighlighter(self.overlay)
+        self.install_hover_filter(self)
+
+
+    def install_hover_filter(self, widget):
+        widget.installEventFilter(self.hover)
+        for child in widget.findChildren(QWidget):
+            child.installEventFilter(self.hover)
 
     def create_toolbar(self):
         # Toolbar
@@ -258,8 +271,6 @@ class MainWindow(QMainWindow):
         right_tab_widget.setCurrentIndex(1)
 
         splitter.addWidget(right_tab_widget)
-        splitter.setStretchFactor(0,1)
-        splitter.setStretchFactor(1,1)
 
     def create_status_bar(self):
         self.status_bar = self.statusBar()
@@ -399,6 +410,63 @@ class MainWindow(QMainWindow):
             if event.key() == Qt.Key_Shift:
                 self.shift_pressed = False
         return super().eventFilter(source, event)
+
+
+class Overlay(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WA_NoSystemBackground)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowTransparentForInput)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.active_rect = None
+        self.show()
+
+    def highlight(self, widget):
+        # Safe mapping via global coordinates
+        global_pos = widget.mapToGlobal(widget.rect().topLeft())
+        top_left = self.mapFromGlobal(global_pos)
+        self.active_rect = QRect(top_left, widget.rect().size())
+        self.update()
+
+    def clear(self):
+        self.active_rect = None
+        self.update()
+
+    def paintEvent(self, event):
+        if self.active_rect is None:
+            return
+        self.resize(self.parent.size())
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Fill everything with translucent grey
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 128))
+
+        # Clear the highlighted area
+        painter.setCompositionMode(QPainter.CompositionMode_Clear)
+        painter.fillRect(self.active_rect.adjusted(-2, -2, 2, 2), Qt.transparent)
+
+        # Draw yellow border
+        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+        painter.setPen(QColor(255, 255, 0))
+        painter.drawRect(self.active_rect.adjusted(-2, -2, 2, 2))
+
+
+class HoverHighlighter(QObject):
+    def __init__(self, overlay):
+        super().__init__()
+        self.overlay = overlay
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Enter:
+            print(f"Hover: {watched.objectName() or watched.__class__.__name__}")
+            self.overlay.highlight(watched)
+        elif event.type() == QEvent.Leave:
+            self.overlay.clear()
+        return super().eventFilter(watched, event)
 
 
 if __name__ == '__main__':

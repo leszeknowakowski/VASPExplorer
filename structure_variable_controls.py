@@ -30,17 +30,6 @@ def timer_decorator(func):
         return result  # Return the original function's result
     return wrapper
 
-class DebugSelectionModel(QItemSelectionModel):
-    def select(self, selection, flags):
-        print("\n=== QItemSelectionModel.select() called ===")
-        print("printing traceback")
-        try:
-            traceback.print_stack(limit=50)
-        except:
-            print("traceback not printed")
-        print(f"Selection: {selection}, Flags: {flags}")
-        super().select(selection, flags)
-
 
 class TableWidgetDragRows(QTableWidget):
     def __init__(self, structure_control_widget):
@@ -167,7 +156,6 @@ class StructureVariableControls(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignTop)
 
-
         # Store the data manager
         self.structure_control_widget = structure_control_widget
         self.parent = parent
@@ -278,7 +266,6 @@ class StructureVariableControls(QWidget):
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
         self.tableWidget.setSelectionMode(QAbstractItemView.MultiSelection)
 
-
         self.tableWidget.setSortingEnabled(True)
         self.tableWidget.horizontalHeader().sortIndicatorChanged.connect(self.sort_by_column)
 
@@ -296,7 +283,6 @@ class StructureVariableControls(QWidget):
 
         for i in range(self.tableWidget.columnCount()):
             self.tableWidget.horizontalHeader().setSectionResizeMode(i,QHeaderView.ResizeToContents)
-
 
         # Add data to the table
         for row in range(num_atoms):
@@ -320,18 +306,9 @@ class StructureVariableControls(QWidget):
         # Connect the cellChanged signal to the updateData method
         self.tableWidget.cellChanged.connect(self.updateData)
         self.tableWidget.itemSelectionChanged.connect(self.on_selection_changed)
-        #self.tableWidget.horizontalHeader().setResizeContentsPrecision(-1)
         self.structure_control_widget.structure_plot_widget.plotter.add_key_event('Delete', self.delete_atoms)
 
-        tableview = self.tableWidget
-        # size policy
-        tableview.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
-        # tableview.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum) # ---
-        tableview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)  # +++
-
-    def find_headers(self, row, column):
-        header = self.tableWidget.horizontalHeaderItem(column).text()  # Get the header of the changed column
-        new_value = self.tableWidget.item(row, column).text()  # Get the new value from the cell
+    def find_headers(self):
         labels = []
         for num in range(self.tableWidget.columnCount()):
             item = self.tableWidget.horizontalHeaderItem(num).text()
@@ -423,13 +400,12 @@ class StructureVariableControls(QWidget):
         return True
 
     def rectangle_rows_selection(self):
-        shift_pressed = False
         if not self.structure_control_widget.selected_actors:
             self.tableWidget.clearSelection()
         rows = self.get_selected_rows()
         self.tableWidget.blockSignals(True)
 
-        # if shift button is pressed, remove prevoiusly selected rows to avoid unselection
+        # if shift button is pressed, remove previously selected rows to avoid unselection
         if self.parent.shift_pressed:
             previous_rows = [x.row() for x in self.tableWidget.selectionModel().selectedRows()]
             new_selected_rows = [x for x in rows if x not in previous_rows]
@@ -598,10 +574,8 @@ class StructureVariableControls(QWidget):
         right_direction = np.cross(view_direction, view_up)
         right_direction /= np.linalg.norm(right_direction)  # Normalize the vector
 
-        # Calculate the distance to move (1% of the interactor width)
-        interactor_size = self.structure_control_widget.plotter.interactor.GetSize()
-        #move_distance = 0.01 * self.movement_slider_value
-        move_distance = 0.1 * view_angle
+        # Calculate the distance to move
+        move_distance = 0.001 * view_angle * self.movement_slider_value
 
         # Determine translation vector based on the direction
         if direction == 'right':
@@ -652,8 +626,10 @@ class StructureVariableControls(QWidget):
         self.layout.addWidget(self.tableWidget)
 
         self.tableWidget.clearSelection()
+        selected_rows = self.get_selected_rows()
         for row in selected_rows:
             self.tableWidget.selectRow(row)
+
     def rotate_objects(self, lst):
         phi, theta, psi, center = lst
 
@@ -1139,7 +1115,6 @@ class MoveAtomsWindow(QWidget):
         self.init_rotation_layout()
 
     def init_movement_layout(self):
-
         # Layout for movement buttons
         self.movement_buttons_layout = QVBoxLayout()
         movement_group = QGroupBox("movement")
