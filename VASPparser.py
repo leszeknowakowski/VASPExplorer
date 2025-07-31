@@ -12,10 +12,13 @@ class OutcarParser:
         self.positions = []
         self.forces = []
         self.magnetizations = []
+        self.total_magnetizations = []
         self.scf_energies = []
         self.section_scf_energies = []
         current_geom_step = None
         current_energy_list = []
+        current_total_mags_list = []
+
         if os.path.exists(os.path.join(dir, 'POSCAR')):
             poscar = 'POSCAR'
         else:
@@ -41,6 +44,7 @@ class OutcarParser:
             free_energy = 'FREE ENERGIE'
             ml_free_energy = 'ML FREE ENERGIE'
             magnetization = 'magnetization (x)'
+            total_magnetization = 'number of electron  '
             voluntary = 'Voluntary context switches:'
             position_of_ions = 'position of ions in cartesian'
             magmom = 'MAGMOM'
@@ -52,6 +56,7 @@ class OutcarParser:
             free_energy = b'FREE ENERGIE'
             ml_free_energy = b'ML FREE ENERGIE'
             magnetization = b'magnetization (x)'
+            total_magnetization = b'number of electron  '
             voluntary = b'Voluntary context switches:'
             position_of_ions = b'position of ions in cartesian'
             magmom = b'magmom'
@@ -60,12 +65,10 @@ class OutcarParser:
             electronic_energy = b'free energy    TOTEN'
         lenght = len(lines)
         for i in range(lenght):
-            if lenght < 1000000:
-                if i % 10000 == 0:
-                    print('reading OUTCAR file; line: ', i, f' out of {lenght}', end='\r')
-            else:
-                if i % 100000 == 0:
-                    print('reading OUTCAR file; line: ', i, f' out of {lenght}', end='\r')
+            progress_interval = max(1, lenght // 1000)
+
+            if i % int(progress_interval) == 0 or i == lenght:
+                print('\r', f"Reading OUTCAR, Progress: {i / lenght * 100:.1f}%", end='')
             line = lines[i].strip()
 
             if line.startswith(position) and line.endswith(ml):
@@ -98,12 +101,14 @@ class OutcarParser:
                     self.section_forces.append(force_data)
                 self.positions.append(self.section_position)
                 self.forces.append(self.section_forces)
+
             elif line.startswith(ml_free_energy):
                 mlff = True
                 ml_counter += 1
                 i += 2
                 energy_data = float(lines[i].strip().split()[5])
                 self.energies.append(float(energy_data))
+
             elif line.startswith(free_energy):
                 if mlff == True:
                     pass
@@ -111,6 +116,7 @@ class OutcarParser:
                     i += 2
                     energy_data = lines[i].strip().split()[4]
                     self.energies.append(float(energy_data))
+
             elif line.startswith(magnetization):
                 section_magnetization = []
                 i += 4
@@ -121,6 +127,11 @@ class OutcarParser:
                     atom_mag = float(magnetization_data[-1])
                     section_magnetization.append(atom_mag)
                 self.magnetizations.append(section_magnetization)
+
+            elif line.startswith(total_magnetization):
+                mag = line.split()[-1]
+                current_total_mags_list.append(mag)
+
             elif line.startswith(magmom):
                 magmom_splitted = line.split("=")[1].split()
                 magmom_section = []
@@ -132,6 +143,7 @@ class OutcarParser:
                         magmom_section.append(float(chunk))
 
                 self.magmoms = magmom_section
+
             elif iteration in line:
                 geom_step = int(line.strip().split()[2][:-1])
                 electronic_step = int(line.strip().split()[3][:-1])
@@ -141,7 +153,9 @@ class OutcarParser:
                 if geom_step != current_geom_step:
                     # Save the completed geometry step's energies
                     self.scf_energies.append(current_energy_list)
+                    self.total_magnetizations.append(current_total_mags_list[-1])
                     current_energy_list = []
+                    current_total_mags_list = []
                     current_geom_step = geom_step
 
             elif electronic_energy in line:
@@ -156,6 +170,7 @@ class OutcarParser:
             if line.startswith(voluntary):
                 if len(self.magnetizations) > 0:
                     self.magnetizations.pop()
+
         if self.section_position == []:
             for i in range(lenght):
                 line = lines[i].strip()
