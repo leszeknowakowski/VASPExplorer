@@ -87,6 +87,13 @@ class StructureViewer(QWidget):
     def update_data(self, data):
         self.data = data
         self.reset_variables()
+        for actor in self.sphere_actors:
+            self.plotter.renderer.RemoveActor(actor)
+        self.sphere_actors = []
+        for actor in self.bond_actors:
+            self.plotter.renderer.RemoveActor(actor)
+        self.sphere_sources = []
+        self.bond_actors = []
         self.reset_unit_cell()
         self.plotter.view_yz()
         self.plotter.camera_position = [(5, -60, 13), (4.8, 1.7, 12.3), (0, 0, 1)]

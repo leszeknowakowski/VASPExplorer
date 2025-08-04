@@ -252,13 +252,11 @@ class StructureVariableControls(QWidget):
         self.sort_by_tags_btn = QPushButton("sort")
         self.set_tags_btn = QPushButton("set tags")
         self.rattle_btn = QPushButton("rattle")
-        self.rotate_btn = QPushButton("rotate")
         self.set_tags_input_field = QLineEdit()
 
         self.set_tags_btn.clicked.connect(self.set_tags)
         self.sort_by_tags_btn.clicked.connect(self.sort_by_tags)
         self.rattle_btn.clicked.connect(self.rattle)
-        self.rotate_btn.clicked.connect(self.rotate)
 
         self.tags_btn_layout.addWidget(self.sort_by_tags_btn)
         self.tags_btn_layout.addWidget(self.rattle_btn)
@@ -337,6 +335,7 @@ class StructureVariableControls(QWidget):
 
     def update_data(self):
         self.change_table_when_atom_added()
+        self.remove_bond_lengths()
 
     @pyqtSlot(int, int)
     def updateData(self, row, column):
@@ -592,9 +591,7 @@ class StructureVariableControls(QWidget):
         right_direction /= np.linalg.norm(right_direction)  # Normalize the vector
 
         # Calculate the distance to move (1% of the interactor width)
-        interactor_size = self.structure_control_widget.plotter.interactor.GetSize()
-        #move_distance = 0.01 * self.movement_slider_value
-        move_distance = 0.1 * view_angle
+        move_distance = 0.001 * view_angle * self.movement_slider_value
 
         # Determine translation vector based on the direction
         if direction == 'right':
@@ -798,9 +795,6 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
         self.structure_control_widget.add_sphere()
-
-    def rotate(self):
-        pass
 
     def modify_constraints(self):
         self.modify_constraints_window = ConstraintsWindow(self)

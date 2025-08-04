@@ -151,7 +151,7 @@ class OutcarParser:
                 if current_geom_step is None:
                     current_geom_step = geom_step
                 if geom_step != current_geom_step:
-                    # Save the completed geometry step's energies
+                    # Save the completed geometry step's energies and total magnetization
                     self.scf_energies.append(current_energy_list)
                     self.total_magnetizations.append(current_total_mags_list[-1])
                     current_energy_list = []
