@@ -78,6 +78,7 @@ class DosControlWidget(QWidget):
 
         # checkboxes
         self.checkboxes_widget = QWidget()
+        self.checkboxes_widget.setStyleSheet("background:rgb(82,82,82);")
         self.scroll_left_layout = QVBoxLayout(self.checkboxes_widget)
         self.scroll_left_layout.setAlignment(QtCore.Qt.AlignTop)
 
@@ -117,6 +118,7 @@ class DosControlWidget(QWidget):
         Initialize scroll area for orbitals
         """
         self.scroll_right_widget = QWidget()
+        self.scroll_right_widget.setStyleSheet("background:rgb(82,82,82);")
         self.scroll_right_layout = QVBoxLayout(self.scroll_right_widget)
         self.scroll_right_layout.setAlignment(QtCore.Qt.AlignTop)
         self.scroll_area_right = QScrollArea()

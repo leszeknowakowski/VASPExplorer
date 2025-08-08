@@ -21,7 +21,7 @@ class DosPlotWidget(QWidget):
         legend:
             A list to hold legend items for the plot.
     """
-
+    PLOT_LINEWIDTH=2.5
     def __init__(self, data):
         """
         Initializes the DosPlotWidget with the provided DOS data.
@@ -45,9 +45,10 @@ class DosPlotWidget(QWidget):
         plot_splitter = QSplitter(QtCore.Qt.Horizontal)
         self.full_range_plot = pg.PlotWidget()
         self.full_range_plot.setBackground("#f0f0f0")
+        self.full_range_plot.setBackground("#626262")
         self.bounded_plot = pg.PlotWidget()
         self.bounded_plot.setBackground("#f0f0f0")
-
+        self.bounded_plot.setBackground("#626262")
         plot_splitter.addWidget(self.full_range_plot)
         plot_splitter.addWidget(self.bounded_plot)
         plot_splitter.setStretchFactor(0, 2)
@@ -56,7 +57,8 @@ class DosPlotWidget(QWidget):
         self.layout.addWidget(plot_splitter)
 
         # Add LinearRegionItem to the full range plot
-        self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#dce0a4'))
+        #self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#dce0a4'))
+        self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#323232'), pen=pg.mkPen('w'))
         self.full_range_plot.addItem(self.region)
         self.region.sigRegionChanged.connect(self.update_bounded_plot_y_range)
 
@@ -126,7 +128,18 @@ class DosPlotWidget(QWidget):
         """
         self.clear_plot_data(self.full_range_plot)
         self.clear_plot_data(self.bounded_plot)
-        colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k']
+        colors = [
+            "#FF6B6B",  # Soft red
+            "#FFD93D",  # Vivid yellow
+            "#6BCB77",  # Light green
+            "#4D96FF",  # Bright blue
+            "#F38BA0",  # Pink
+            "#6A4C93",  # Purple
+            "#FFA41B",  # Orange
+            "#00CFC1",  # Cyan
+            "#E4572E",  # Coral
+            "#9D4EDD",  # Electric violet
+        ]
         color_gen_up = cycle(colors)
         color_gen_down = cycle(colors)
         dataset_up = data.data_up
@@ -141,14 +154,17 @@ class DosPlotWidget(QWidget):
                 orbital_name = self.data.orbitals[orbital_index]
                 plot_color = next(color_gen_up)  # Cycle through colors
                 plot_data = dataset_up[atom_index][orbital_index]
+                pen = pg.mkPen(plot_color, width=self.PLOT_LINEWIDTH)
+                pen.setCapStyle(QtCore.Qt.PenCapStyle.RoundCap)
+                pen.setJoinStyle(QtCore.Qt.PenJoinStyle.RoundJoin)
                 self.full_range_plot.plot(plot_data,
                                           nrg,
-                                          pen=pg.mkPen(plot_color),
+                                          pen=pen,
                                           name=f'{atom_name}_{orbital_name}'
                                           )
                 self.bounded_plot.plot(plot_data,
                                        nrg,
-                                       pen=pg.mkPen(plot_color),
+                                       pen=pen,
                                        name=f'{atom_name}_{orbital_name}'
                                        )
 
@@ -159,11 +175,11 @@ class DosPlotWidget(QWidget):
                 plot_data = dataset_down[atom_index][orbital_index]
                 self.full_range_plot.plot([-x for x in plot_data],
                                           nrg,
-                                          pen=pg.mkPen(plot_color),
+                                          pen=pen,
                                           )
                 self.bounded_plot.plot([-x for x in plot_data],
                                        nrg,
-                                       pen=pg.mkPen(plot_color),
+                                       pen=pen,
                                        )
 
         self.update_bounded_plot_y_range()

@@ -22,7 +22,7 @@ class PythonConsole(QPlainTextEdit):
         self.history = []
         self.history_index = -1
         self.in_multiline = False
-        self.setStyleSheet("background-color: white; color: black; font-family: monospace;")
+        self.setStyleSheet("background-color: #626262; color: white; font-family: monospace;")
         self.highlighter = PythonHighlighter(self.document())
         self.setWordWrapMode(False)
 

@@ -5,7 +5,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
-    QHBoxLayout,QApplication, QSizePolicy
+    QHBoxLayout,QApplication, QSizePolicy, QGroupBox
 from PyQt5.QtGui import QIcon, QCursor
 
 from scipy.spatial.distance import pdist, squareform
@@ -106,35 +106,20 @@ class StructureControlsWidget(QWidget):
         self.vlayout = QVBoxLayout(self)
         self.vlayout.setAlignment(QtCore.Qt.AlignTop)
 
-        self.renderFrame = QFrame(self)
-        self.renderFrame.setFrameShape(QFrame.Panel)
-        self.renderFrame.setFrameShadow(QFrame.Raised)
-        #self.renderFrame.setStyleSheet("background-color: #1e1f22; color: #cbcdd2;")
-        self.renderFrame.setLineWidth(10)
-
+        self.renderFrame = QGroupBox(self)
+        self.renderFrame.setTitle("Render controls")
         self.render_frame_layout = QVBoxLayout(self.renderFrame)
 
-        self.geometry_frame = QFrame(self)
-        self.geometry_frame.setFrameShape(QFrame.Panel)
-        self.geometry_frame.setFrameShadow(QFrame.Raised)
-        #self.geometry_frame.setStyleSheet("background-color: #1e1f22;color: #cbcdd2;")
-        self.geometry_frame.setLineWidth(10)
-
+        self.geometry_frame = QGroupBox(self)
+        self.geometry_frame.setTitle("Geometry")
         self.geometry_frame_layout = QVBoxLayout(self.geometry_frame)
 
-        self.planes_frame = QFrame(self)
-        self.planes_frame.setFrameShape(QFrame.Panel)
-        self.planes_frame.setFrameShadow(QFrame.Raised)
-        #self.planes_frame.setStyleSheet("background-color: #1e1f22;color: #cbcdd2;")
-        self.planes_frame.setLineWidth(10)
-
+        self.planes_frame = QGroupBox(self)
+        self.planes_frame.setTitle("Cut-off Planes")
         self.planes_frame_layout = QVBoxLayout(self.planes_frame)
 
-        self.energy_plot_frame = QFrame(self)
-        self.energy_plot_frame.setFrameShape(QFrame.Panel)
-        self.energy_plot_frame.setFrameShadow(QFrame.Raised)
-        #self.energy_plot_frame.setStyleSheet("background-color: #1e1f22; color: #cbcdd2;")
-        self.energy_plot_frame.setLineWidth(10)
+        self.energy_plot_frame = QGroupBox(self)
+        self.energy_plot_frame.setTitle("Energy plot")
         self.energy_plot_frame_layout = QVBoxLayout(self.energy_plot_frame)
 
     def render_structure_control_widget(self):
@@ -365,6 +350,8 @@ class StructureControlsWidget(QWidget):
 
     def energy_plot_layout(self):
         self.energy_plot_widget = pg.PlotWidget()
+        self.energy_plot_widget.setBackground("#323232")
+        self.energy_plot_widget.setTitle("")
         self.add_scatter_plot()
         self.update_scatter()
         

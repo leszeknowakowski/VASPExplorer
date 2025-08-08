@@ -819,7 +819,7 @@ if __name__ == "__main__":
     #neb = ReadNebData(dir)
     app = QApplication(sys.argv)
 
-    #app.setStyleSheet(STYLE_SHEET)
+    #app.setStyleSheet(STYLE_SHEET.py)
     window = NebWindow()
     window.show()
     #sys.exit(app.exec_())

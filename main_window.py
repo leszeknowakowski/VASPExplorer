@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 from config import AppConfig
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
-    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel
-from PyQt5.QtGui import QIcon, QPixmap, QFont
+    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory
+from PyQt5.QtGui import QIcon, QPixmap, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QEvent
 
 toc = time.perf_counter()
@@ -337,11 +337,11 @@ class MainWindow(QMainWindow):
             else:
                 dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
+                dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
                 #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
+                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
 
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
@@ -405,10 +405,30 @@ class MainWindow(QMainWindow):
 if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
+    app.setStyle(QStyleFactory.create("Fusion"))
+
+    # Modern light theme palette
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor("#f2f2f2"))  # Background
+    palette.setColor(QPalette.WindowText, QColor("#2e2e2e"))  # Text
+    palette.setColor(QPalette.Base, QColor("#ffffff"))  # Input background
+    palette.setColor(QPalette.AlternateBase, QColor("#e6e6e6"))
+    palette.setColor(QPalette.ToolTipBase, QColor("#ffffff"))
+    palette.setColor(QPalette.ToolTipText, QColor("#2e2e2e"))
+    palette.setColor(QPalette.Text, QColor("#ffffff"))
+    palette.setColor(QPalette.Button, QColor("#e6e6e6"))  # Button background
+    palette.setColor(QPalette.ButtonText, QColor("#2e2e2e"))
+    palette.setColor(QPalette.Highlight, QColor("#0078d7"))  # Selected item
+    palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
+
+    #app.setPalette(palette)
+    from STYLE_SHEET import *
+    app.setStyleSheet(darkorange)
 
     window = MainWindow()
     window.log_program_launch()
     window.set_window_title(window.dir)
+    window.console.locals['app'] = app
     toc = time.perf_counter()
     print(f'Execution time: {toc - tic:0.4f} seconds')
     window.splash.close()
