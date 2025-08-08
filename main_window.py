@@ -14,8 +14,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSp
     QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QEvent
-from STYLE_SHEET import styles, plotter_colors, console_font_colors, StyleChooserDialog
-
+from STYLE_SHEET import *
 
 toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
@@ -90,11 +89,15 @@ class MainWindow(QMainWindow):
         self.create_menubar()
         self.create_python_console()
         self.create_status_bar()
+        self.set_styles()
 
+    def set_styles(self):
         self.styles = styles
         self.console_font_colors = console_font_colors
         self.plotter_colors = plotter_colors
-        self.current_style = 0
+        self.brush_colors = brush_colors
+        self.pen_colors = pen_colors
+        self.current_style = 1
         self.apply_style(self.current_style)
 
     def create_toolbar(self):
@@ -431,7 +434,9 @@ class MainWindow(QMainWindow):
         self.dos_plot_widget.full_range_plot.setBackground(self.plotter_colors[index][1])
         self.dos_plot_widget.bounded_plot.setBackground(self.plotter_colors[index][1])
         self.dos_plot_widget.region.setBrush(self.brush_colors[index][1])
-        self.dos_plot_widget.region.setPen(self.pen_colors[index][1])
+        self.dos_plot_widget.region.setHoverBrush(self.brush_colors[index][1])
+        self.dos_control_widget.checkboxes_widget.setStyleSheet(f"background: {self.plotter_colors[index][1]}")
+        self.dos_control_widget.scroll_right_widget.setStyleSheet(f"background: {self.plotter_colors[index][1]}")
 
 if __name__ == '__main__':
     tic = time.perf_counter()

@@ -54,8 +54,7 @@ class DosPlotWidget(QWidget):
 
         # Add LinearRegionItem to the full range plot
         #self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#dce0a4'))
-        self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#323232'), pen=pg.mkPen('w'))
-        self.region.setBrush(pg.mkBrush('#323232'))
+        self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, pen=pg.mkPen('w'))
         self.full_range_plot.addItem(self.region)
         self.region.sigRegionChanged.connect(self.update_bounded_plot_y_range)
 

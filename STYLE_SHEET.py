@@ -47,6 +47,8 @@ QTableWidget::item {
 	font-family: 'Roboto', sans-serif;
 }
 
+
+
 QScrollArea{
 	background-color:#1e1f22;
 	color: #cbcdd2;
@@ -892,8 +894,8 @@ console_font_colors = [
 ]
 
 brush_colors = [
-    ("none", "#000000"),
-    ("bw", "#ffffff"),
+    ("none", '#dce0a4'),
+    ("bw", '#dce0a4'),
     ("modern black", "#b8b7b5"),
     ("dark orange", "#b8b7b5")
 
