@@ -54,15 +54,11 @@ QRangeSlider #Span:active {
 QRangeSlider #Tail {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6b6b6b, stop:1 #FFF);
 }
-QRangeSlider > QSplitter::handle {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6b6b6b, stop:1 #FFF);
-}
+
 QRangeSlider > QSplitter::handle:vertical {
-    height: 4px;
+    height: 0px;
 }
-QRangeSlider > QSplitter::handle:pressed {
-    background: #ca5;
-}
+
 """
 
 def scale(val, src, dst):
