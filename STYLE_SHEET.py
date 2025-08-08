@@ -879,11 +879,32 @@ styles = [
 
 plotter_colors = [
     ("none", "#ffffff"),
-    ("bw", "#ffffff"),
+    ("bw", "#000000"),
     ("modern black", "#626262"),
     ("dark orange", "#626262")
 ]
+console_font_colors = [
+    ("none", "#000000"),
+    ("bw", "#ffffff"),
+    ("modern black", "#b8b7b5"),
+    ("dark orange", "#b8b7b5")
 
+]
+
+brush_colors = [
+    ("none", "#000000"),
+    ("bw", "#ffffff"),
+    ("modern black", "#b8b7b5"),
+    ("dark orange", "#b8b7b5")
+
+]
+pen_colors = [
+    ("none", "#000000"),
+    ("bw", "#ffffff"),
+    ("modern black", "#b8b7b5"),
+    ("dark orange", "#b8b7b5")
+
+]
 class StyleChooserDialog(QDialog):
     def __init__(self, styles, apply_callback, parent=None):
         """

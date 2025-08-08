@@ -14,6 +14,8 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSp
     QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QEvent
+from STYLE_SHEET import styles, plotter_colors, console_font_colors, StyleChooserDialog
+
 
 toc = time.perf_counter()
 print(f'import PyQt5 in main: {toc - tic:0.4f}')
@@ -88,6 +90,12 @@ class MainWindow(QMainWindow):
         self.create_menubar()
         self.create_python_console()
         self.create_status_bar()
+
+        self.styles = styles
+        self.console_font_colors = console_font_colors
+        self.plotter_colors = plotter_colors
+        self.current_style = 0
+        self.apply_style(self.current_style)
 
     def create_toolbar(self):
         # Toolbar
@@ -407,11 +415,6 @@ class MainWindow(QMainWindow):
         return super().eventFilter(source, event)
 
     def open_style_dialog(self):
-        from STYLE_SHEET import styles, plotter_colors, StyleChooserDialog
-        self.styles = styles
-        self.plotter_colors = plotter_colors
-        self.current_style = 1
-        self.apply_style(self.current_style)
         dialog = StyleChooserDialog(self.styles, self.apply_style, self)
         if dialog.exec_() == QDialog.Accepted and dialog.selected_index is not None:
             self.current_style = dialog.selected_index
@@ -423,6 +426,12 @@ class MainWindow(QMainWindow):
         """Apply style by index."""
         self.setStyleSheet(self.styles[index][1])
         self.structure_plot_interactor_widget.plotter.set_background(self.plotter_colors[index][1])
+        self.console.setBackground(self.plotter_colors[index][1], self.console_font_colors[index][1])
+        self.structure_plot_control_tab.energy_plot_widget.setBackground(self.plotter_colors[index][1])
+        self.dos_plot_widget.full_range_plot.setBackground(self.plotter_colors[index][1])
+        self.dos_plot_widget.bounded_plot.setBackground(self.plotter_colors[index][1])
+        self.dos_plot_widget.region.setBrush(self.brush_colors[index][1])
+        self.dos_plot_widget.region.setPen(self.pen_colors[index][1])
 
 if __name__ == '__main__':
     tic = time.perf_counter()

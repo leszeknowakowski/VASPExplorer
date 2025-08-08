@@ -103,7 +103,6 @@ class StructureViewer(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.plotter = QtInteractor(auto_update=5)
-        self.plotter.set_background("#626262")
 
         self.plotter.add_camera_orientation_widget()
 

@@ -350,7 +350,6 @@ class StructureControlsWidget(QWidget):
 
     def energy_plot_layout(self):
         self.energy_plot_widget = pg.PlotWidget()
-        self.energy_plot_widget.setBackground("#323232")
         self.energy_plot_widget.setTitle("")
         self.add_scatter_plot()
         self.update_scatter()

@@ -44,11 +44,7 @@ class DosPlotWidget(QWidget):
         # splitter for two parts of plot (original and zoomed  (bounded))
         plot_splitter = QSplitter(QtCore.Qt.Horizontal)
         self.full_range_plot = pg.PlotWidget()
-        self.full_range_plot.setBackground("#f0f0f0")
-        self.full_range_plot.setBackground("#626262")
         self.bounded_plot = pg.PlotWidget()
-        self.bounded_plot.setBackground("#f0f0f0")
-        self.bounded_plot.setBackground("#626262")
         plot_splitter.addWidget(self.full_range_plot)
         plot_splitter.addWidget(self.bounded_plot)
         plot_splitter.setStretchFactor(0, 2)
@@ -59,6 +55,7 @@ class DosPlotWidget(QWidget):
         # Add LinearRegionItem to the full range plot
         #self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#dce0a4'))
         self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#323232'), pen=pg.mkPen('w'))
+        self.region.setBrush(pg.mkBrush('#323232'))
         self.full_range_plot.addItem(self.region)
         self.region.sigRegionChanged.connect(self.update_bounded_plot_y_range)
 

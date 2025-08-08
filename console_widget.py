@@ -22,9 +22,10 @@ class PythonConsole(QPlainTextEdit):
         self.history = []
         self.history_index = -1
         self.in_multiline = False
-        self.setStyleSheet("background-color: #626262; color: white; font-family: monospace;")
+        self.setStyleSheet("font-family: monospace;")
         self.highlighter = PythonHighlighter(self.document())
         self.setWordWrapMode(False)
+
 
         self.completion_popup = QListWidget(self)
         self.completion_popup.setWindowFlags(Qt.ToolTip)  # ✅ Fix for GUI blocking
@@ -34,6 +35,9 @@ class PythonConsole(QPlainTextEdit):
         self.completion_popup.hide()
 
         self.insertPrompt()
+
+    def setBackground(self, bcgcolor, fontcolor):
+        self.setStyleSheet(f"background-color: {bcgcolor}; color: {fontcolor}")
 
     def insertPrompt(self):
         prompt = self.continuation_prompt if self.in_multiline else self.prompt
