@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 from config import AppConfig
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
-    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory
+    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QEvent
 
@@ -181,6 +181,11 @@ class MainWindow(QMainWindow):
 
         actors_menu.addAction(clear_bonds_menu_action)
 
+        styles_menu = menubar.addMenu('Styles')
+        change_styles_action = QAction("Change styles", self)
+        styles_menu.addAction(change_styles_action)
+        change_styles_action.triggered.connect(self.open_style_dialog)
+
     def create_python_console(self):
         self.console = PythonConsole(local_vars={'main_window': self})
         self.horizontal_splitter.addWidget(self.console)
@@ -210,7 +215,7 @@ class MainWindow(QMainWindow):
         self.dos_plot_widget = DosPlotWidget(self.data)
 
         # widget for renderer interactor for plotting the structure
-        self.structure_plot_interactor_widget = StructureViewer(self.data)
+        self.structure_plot_interactor_widget = StructureViewer(self.data, self)
         self.structure_plot_interactor_widget.plotter.installEventFilter(self)
 
         left_tab_widget.addTab(self.dos_plot_widget, "DOS")
@@ -401,6 +406,23 @@ class MainWindow(QMainWindow):
                 self.shift_pressed = False
         return super().eventFilter(source, event)
 
+    def open_style_dialog(self):
+        from STYLE_SHEET import styles, plotter_colors, StyleChooserDialog
+        self.styles = styles
+        self.plotter_colors = plotter_colors
+        self.current_style = 1
+        self.apply_style(self.current_style)
+        dialog = StyleChooserDialog(self.styles, self.apply_style, self)
+        if dialog.exec_() == QDialog.Accepted and dialog.selected_index is not None:
+            self.current_style = dialog.selected_index
+        else:
+            # Revert to original style if cancelled
+            self.apply_style(self.current_style)
+
+    def apply_style(self, index):
+        """Apply style by index."""
+        self.setStyleSheet(self.styles[index][1])
+        self.structure_plot_interactor_widget.plotter.set_background(self.plotter_colors[index][1])
 
 if __name__ == '__main__':
     tic = time.perf_counter()
@@ -421,11 +443,8 @@ if __name__ == '__main__':
     palette.setColor(QPalette.Highlight, QColor("#0078d7"))  # Selected item
     palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
 
-    #app.setPalette(palette)
-    from STYLE_SHEET import *
-    app.setStyleSheet(darkorange)
-
     window = MainWindow()
+
     window.log_program_launch()
     window.set_window_title(window.dir)
     window.console.locals['app'] = app

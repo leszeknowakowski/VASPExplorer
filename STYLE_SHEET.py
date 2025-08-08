@@ -1,4 +1,11 @@
-custom = """
+import sys
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QPushButton,
+    QTabWidget, QLabel, QDialog, QDialogButtonBox,
+    QVBoxLayout as QVLayout, QListWidget
+)
+none = """"""
+bw = """
 QTableView {
     selection-background-color: #FFFFFF;
 	background-color:#1e1f22;
@@ -102,6 +109,7 @@ QTabBar::tab:selected {
 """
 
 #######################################################################################################################################
+
 modern_black = '''
 QMainWindow {
 	background-color:rgb(82, 82, 82);
@@ -859,5 +867,60 @@ QAbstractSpinBox {
     border-radius: 2px;
     min-width: 50px;
 }
+
+
 '''
-print("done")
+styles = [
+    ("none", none),
+    ("bw", bw),
+    ("modern black", modern_black),
+    ("dark orange", darkorange)
+]
+
+plotter_colors = [
+    ("none", "#ffffff"),
+    ("bw", "#ffffff"),
+    ("modern black", "#626262"),
+    ("dark orange", "#626262")
+]
+
+class StyleChooserDialog(QDialog):
+    def __init__(self, styles, apply_callback, parent=None):
+        """
+        styles         - list of QSS strings
+        apply_callback - function to call with style index when selected
+        """
+        super().__init__(parent)
+        self.setWindowTitle("Choose a Style")
+        self.styles = styles
+        self.apply_callback = apply_callback
+        self.selected_index = None
+
+        layout = QVLayout(self)
+
+        # List of style names
+        self.list_widget = QListWidget()
+        self.list_widget.addItems([name for name, _ in styles])
+        layout.addWidget(self.list_widget)
+
+        # Connect click event for live preview
+        self.list_widget.currentRowChanged.connect(self.preview_style)
+
+        # OK / Cancel buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def preview_style(self, index):
+        """Apply the style immediately for preview."""
+        if 0 <= index < len(self.styles):
+            self.apply_callback(index)
+            self.selected_index = index
+
+    def accept(self):
+        """Confirm selection."""
+        if self.selected_index is not None:
+            super().accept()
+        else:
+            super().reject()
