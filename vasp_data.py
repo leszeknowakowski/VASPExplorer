@@ -8,10 +8,13 @@ try:
 except:
     print("no ASE module")
 import os
+import sys
 from VASPparser import *
 import json
 from exceptions import EmptyFile
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
+from pymatgen.io.lobster import Doscar
 
 class VaspData():
     def __init__(self, dir, parse_doscar=True):
@@ -19,9 +22,9 @@ class VaspData():
         poscar = self.parse_poscar(dir)
         if parse_doscar:
             doscar = self.parse_doscar(dir)
-            self.process_doscar(doscar)
+            self.process_doscar()
         self.process_poscar(poscar)
-
+        self.parse_doscar_lobster(dir)
 
     def parse_outcar(self, dir):
         if not os.path.exists(os.path.join(dir, 'OUTCAR')):
@@ -85,7 +88,17 @@ class VaspData():
                         self.magmoms = self.poscar.number_of_atoms() * [0]
         
     def parse_doscar(self, dir):
-        self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
+        #self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
+        doscar_path = os.path.join(dir, 'DOSCAR')
+        if not os.path.exists(doscar_path):
+            print('no DOSCAR found!')
+            self.doscar = []
+        elif not os.path.getsize(doscar_path) != 0:
+            print('DOSCAR file is empty!')
+            self.doscar = []
+        else:
+            self.doscar = Doscar(os.path.join(dir, "DOSCAR"), False, os.path.join(dir, 'POSCAR'))
+            self.process_doscar()
 
     def parse_chgcar(self):
         pass
@@ -93,15 +106,25 @@ class VaspData():
     def parse_parchg(self):
         pass
 
-    def process_doscar(self, doscar):
-        self.data_up = self.doscar.dataset_up
-        self.data_down = self.doscar.dataset_down
-        self.orbitals = self.doscar.orbitals
-        self.orbital_types = self.doscar.orbital_types
-        self.e_fermi = self.doscar.efermi
-        self.total_alfa = self.doscar.total_dos_alfa
-        self.total_beta = self.doscar.total_dos_beta
-        self.nedos = self.doscar.nedos
+    def process_doscar(self):
+        from pymatgen.electronic_structure.core import Orbital, Spin
+        canonical_order = [
+            "s",
+            "px", "py", "pz",
+            "dz2", "dx2-y2", "dxy", "dxz", "dyz",
+            "fz3", "fxz2", "fyz2", "fzx2", "fx3", "fy3x", "fxyz"
+        ]
+        orbitals = set().union(*self.doscar.pdos)
+        self.orbitals = [orb for orb in canonical_order if orb in orbitals]
+
+        canonical_orb_types = ['s', 'p', 'd', 'f']
+        orb_types = {o[0] for o in self.orbitals}
+        self.orbital_types = [orb for orb in canonical_orb_types if orb in orb_types]
+
+        self.e_fermi = self.doscar._efermi
+        self.total_alfa = self.doscar._tdensities[Spin.up]
+        self.total_beta = self.doscar._tdensities[Spin.down]
+        self.nedos = int(self.doscar.nedos_str)
 
     def process_poscar(self, poscar):
         #self.poscar = PoscarParser(os.path.join(dir, "POSCAR"))
@@ -115,8 +138,6 @@ class VaspData():
 
         self.orb_types = [["s"], ["py", "pz", "px"], ["dxy", "dyz", "dz", "dxz", "dx2y2"],
                           ["fy(3x2-y2)", "fxyz", "fyz2", "fz3", "fxz2", "fz(x2-y2)", "fx(x2-3y2)"]]
-
-
 
         self.x = self.poscar.unit_cell_vectors()[0][0]
         self.y = self.poscar.unit_cell_vectors()[1][1]
@@ -143,3 +164,10 @@ class VaspData():
                 if splitted[0] == atom:
                     self.partitioned_lists[i].append(item)
                     break  # Once found, no need to continue checking other atoms
+
+    def parse_doscar_lobster(self, dir):
+        path = os.path.join(dir, 'DOSCAR.lobster')
+        if not os.path.exists(path):
+            self.lobster_dos = None
+        else:
+            self.lobster_dos = Doscar(path, False, os.path.join(dir, 'POSCAR'))

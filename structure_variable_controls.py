@@ -5,8 +5,8 @@ from exceptions import EmptyFile
 import  os
 from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
-     QDialogButtonBox, QSlider, QGroupBox, QMessageBox, QAbstractScrollArea, QSizePolicy
-from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal, QItemSelectionModel, QItemSelection
+     QDialogButtonBox, QSlider, QGroupBox, QMessageBox, QAbstractScrollArea, QSizePolicy, QMenu, QAction
+from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal, QItemSelectionModel, QItemSelection, QPoint
 import traceback
 from periodic_table import PeriodicTable
 from itertools import groupby, combinations
@@ -276,24 +276,24 @@ class StructureVariableControls(QWidget):
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
         self.tableWidget.setSelectionMode(QAbstractItemView.MultiSelection)
 
-
         self.tableWidget.setSortingEnabled(True)
         self.tableWidget.horizontalHeader().sortIndicatorChanged.connect(self.sort_by_column)
 
         # Get data from the data manager
-        atom_num_and_symb, coordinates, constraints, magmoms, suffixes = self.structure_control_widget.get_table_data()
+        atom_num_and_symb, coordinates, constraints, magmoms, suffixes, mags = self.structure_control_widget.get_table_data()
 
         # Set row count based on the data
         num_atoms = len(atom_num_and_symb)
         self.tableWidget.setRowCount(num_atoms)
-        self.tableWidget.setColumnCount(10)  # Extra columns for constraints and delete button
+        self.tableWidget.setColumnCount(11)  # Extra columns for constraints and delete button
 
         # Set table headers
-        headers = ["Atom", "Number", "Tag", "X", "Y", "Z", "Move X", "Move Y", "Move Z", "MagMom"]
+        headers = ["Atom", "Number", "Tag", "X", "Y", "Z", "Move X", "Move Y", "Move Z", "MagMom", "mags"]
         self.tableWidget.setHorizontalHeaderLabels(headers)
 
-        for i in range(self.tableWidget.columnCount()):
-            self.tableWidget.horizontalHeader().setSectionResizeMode(i,QHeaderView.ResizeToContents)
+        #for i in range(self.tableWidget.columnCount()):
+        #    self.tableWidget.horizontalHeader().setSectionResizeMode(i,QHeaderView.ResizeToContents)
+        self.tableWidget.resizeColumnsToContents()
 
 
         # Add data to the table
@@ -303,6 +303,7 @@ class StructureVariableControls(QWidget):
             move_x, move_y, move_z = constraints[row]
             magmom =magmoms[row]
             suffix = suffixes[row]
+            mag = mags[row]
 
             self.tableWidget.setItem(row, 0, QTableWidgetItem(atom))
             self.tableWidget.setItem(row, 1, QTableWidgetItem(str(row+1)))
@@ -314,11 +315,17 @@ class StructureVariableControls(QWidget):
             self.tableWidget.setItem(row, 7, QTableWidgetItem(move_y))
             self.tableWidget.setItem(row, 8, QTableWidgetItem(move_z))
             self.tableWidget.setItem(row, 9, QTableWidgetItem(str(magmom)))
+            self.tableWidget.setItem(row, 10, QTableWidgetItem(str(mag)))
 
         # Connect the cellChanged signal to the updateData method
         self.tableWidget.cellChanged.connect(self.updateData)
         self.tableWidget.itemSelectionChanged.connect(self.on_selection_changed)
         self.structure_control_widget.structure_plot_widget.plotter.add_key_event('Delete', self.delete_atoms)
+
+        # Enable custom context menu on header
+        header = self.tableWidget.horizontalHeader()
+        header.setContextMenuPolicy(Qt.CustomContextMenu)
+        header.customContextMenuRequested.connect(self.show_header_menu)
 
     def find_headers(self, row, column):
         header = self.tableWidget.horizontalHeaderItem(column).text()  # Get the header of the changed column
@@ -584,7 +591,6 @@ class StructureVariableControls(QWidget):
         # Get the view up direction
         view_up = np.array(camera.GetViewUp())
         view_angle = camera.GetParallelScale()
-        print(view_angle)
 
         # Calculate the right direction (left-to-right on the screen)
         right_direction = np.cross(view_direction, view_up)
@@ -645,6 +651,24 @@ class StructureVariableControls(QWidget):
         selected_rows = self.get_selected_rows()
         for row in selected_rows:
             self.tableWidget.selectRow(row)
+
+    def show_header_menu(self, pos: QPoint):
+        header = self.tableWidget.horizontalHeader()
+        menu = QMenu(self)
+
+        # Build menu with checkboxes for each column
+        for col in range(self.tableWidget.columnCount()):
+            column_name = self.tableWidget.horizontalHeaderItem(col).text()
+            action = QAction(column_name, self, checkable=True)
+
+            # Checked if column is currently visible
+            action.setChecked(not self.tableWidget.isColumnHidden(col))
+
+            # Connect toggling to show/hide column
+            action.toggled.connect(lambda checked, col=col: self.tableWidget.setColumnHidden(col, not checked))
+            menu.addAction(action)
+
+        menu.exec_(header.mapToGlobal(pos))
 
     def rotate_objects(self, lst):
         import ast

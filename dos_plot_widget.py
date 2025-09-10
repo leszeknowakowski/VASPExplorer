@@ -10,6 +10,7 @@ if True:
     import sys
     from itertools import cycle
 
+from pymatgen.electronic_structure.core import Spin
 
 class DosPlotWidget(QWidget):
     """
@@ -53,18 +54,32 @@ class DosPlotWidget(QWidget):
         self.layout.addWidget(plot_splitter)
 
         # Add LinearRegionItem to the full range plot
-        #self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, brush=pg.mkBrush('#dce0a4'))
         self.region = pg.LinearRegionItem(orientation=pg.LinearRegionItem.Horizontal, pen=pg.mkPen('w'))
         self.full_range_plot.addItem(self.region)
         self.region.sigRegionChanged.connect(self.update_bounded_plot_y_range)
-
         self.bounded_plot.sigRangeChanged.connect(self.update_region_from_bounded_plot)
-
         self.region.setRegion([-5, 5])
 
         # fermi enerfy lines
-        self.inf_line_full = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen(color='#6ab4dc', width=4), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': '#cbcdd2', 'fill': (0, 0, 255, 100), 'movable': True})
-        self.inf_line_bounded = pg.InfiniteLine(pos=float(self.data.e_fermi), angle=0, pen=pg.mkPen(color='#6ab4dc', width=4), movable=False, label='E_Fermi={value:0.2f}', labelOpts={'position': 0.1, 'color': '#cbcdd2', 'fill': (0, 0, 255, 100), 'movable': True})
+        self.inf_line_full = pg.InfiniteLine(pos=float(self.data.e_fermi),
+                                             angle=0,
+                                             pen=pg.mkPen(color='#6ab4dc', width=4),
+                                             movable=False, label='E_Fermi={value:0.2f}',
+                                             labelOpts={'position': 0.1,
+                                                        'color': '#cbcdd2',
+                                                        'fill': (0, 0, 255, 100),
+                                                        'movable': True}
+                                             )
+        self.inf_line_bounded = pg.InfiniteLine(pos=float(self.data.e_fermi),
+                                                angle=0,
+                                                pen=pg.mkPen(color='#6ab4dc', width=4),
+                                                movable=False,
+                                                label='E_Fermi={value:0.2f}',
+                                                labelOpts={'position': 0.1,
+                                                           'color': '#cbcdd2',
+                                                           'fill': (0, 0, 255, 100),
+                                                           'movable': True}
+                                                )
 
         self.full_range_plot.addItem(self.inf_line_full)
         self.bounded_plot.addItem(self.inf_line_bounded)
@@ -108,75 +123,49 @@ class DosPlotWidget(QWidget):
                 plot.removeItem(item)
         self.legend.clear()
 
-    def plot_separate(self, data, selected_atoms, selected_orbitals):
+    def plot_separate(self, nrg, data, selected_atoms, selected_orbitals):
         """
         Updates the DOS plots with data for specified atoms and orbitals.
-        First clear the whole plots, then update the selected atoms and orbitals.
-        method used only in DosControlWidget class
-
-        Args:
-              data:
-                The dataset containing DOS data (up and down).
-              selected_atoms:
-                A list of selected atom indices for plotting.
-              selected_orbitals:
-                A list of selected orbital indices for plotting.
+        Clears both plots first, then adds selected atoms and orbitals.
         """
-        self.clear_plot_data(self.full_range_plot)
-        self.clear_plot_data(self.bounded_plot)
+
         colors = [
-            "#FF6B6B",  # Soft red
-            "#FFD93D",  # Vivid yellow
-            "#6BCB77",  # Light green
-            "#4D96FF",  # Bright blue
-            "#F38BA0",  # Pink
-            "#6A4C93",  # Purple
-            "#FFA41B",  # Orange
-            "#00CFC1",  # Cyan
-            "#E4572E",  # Coral
-            "#9D4EDD",  # Electric violet
+            "#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF", "#F38BA0",
+            "#6A4C93", "#FFA41B", "#00CFC1", "#E4572E", "#9D4EDD"
         ]
-        color_gen_up = cycle(colors)
-        color_gen_down = cycle(colors)
-        dataset_up = data.data_up
-        dataset_down = data.data_down
-        nrg = data.doscar.total_dos_energy
-        counter = 0
+        spin_configs = [
+            (Spin.up, 1, True),  # normal, add label to legend
+            (Spin.down, -1, False)  # inverted, no label (avoid duplicates)
+        ]
+
         self.full_range_plot.addLegend()
+        color_gen = cycle(colors)
 
         for atom_index in selected_atoms:
-            for orbital_index in selected_orbitals:
-                atom_name = self.data.atoms_symb_and_num[atom_index]
-                orbital_name = self.data.orbitals[orbital_index]
-                plot_color = next(color_gen_up)  # Cycle through colors
-                plot_data = dataset_up[atom_index][orbital_index]
+            atom_name = self.data.atoms_symb_and_num[atom_index]
+            atom_data = data[atom_index]  # dict: orbital_name -> {Spin.up: arr, Spin.down: arr}
+
+            for orbital_name in selected_orbitals:
+                orbital_data = atom_data[orbital_name]
+
+                # Assign a single color per atom/orbital (shared for up/down)
+                plot_color = next(color_gen)
                 pen = pg.mkPen(plot_color, width=self.PLOT_LINEWIDTH)
                 pen.setCapStyle(QtCore.Qt.PenCapStyle.RoundCap)
                 pen.setJoinStyle(QtCore.Qt.PenJoinStyle.RoundJoin)
-                self.full_range_plot.plot(plot_data,
-                                          nrg,
-                                          pen=pen,
-                                          name=f'{atom_name}_{orbital_name}'
-                                          )
-                self.bounded_plot.plot(plot_data,
-                                       nrg,
-                                       pen=pen,
-                                       name=f'{atom_name}_{orbital_name}'
-                                       )
 
-        # plot dataset down
-        for atom_index in selected_atoms:
-            for orbital_index in selected_orbitals:
-                plot_color = next(color_gen_down)
-                plot_data = dataset_down[atom_index][orbital_index]
-                self.full_range_plot.plot([-x for x in plot_data],
-                                          nrg,
-                                          pen=pen,
-                                          )
-                self.bounded_plot.plot([-x for x in plot_data],
-                                       nrg,
-                                       pen=pen,
-                                       )
+                for spin, sign, add_label in spin_configs:
+                    if not orbital_data:
+                        pass
+                    else:
+                        spin_data = orbital_data[spin]
+                        if spin_data[0] == 'empty':
+                            pass
+                        else:
+                            spin_data = spin_data * sign
+                            label = f'{atom_name}_{orbital_name}' if add_label else None
+                            for plot in (self.full_range_plot, self.bounded_plot):
+                                plot.plot(spin_data, nrg, pen=pen, name=label)
 
         self.update_bounded_plot_y_range()
 

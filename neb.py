@@ -629,11 +629,11 @@ class NebWindow(QMainWindow):
         z = self.neb.data.z
         colors = vtkNamedColors()
         colors.SetColor('BkgColor', [26, 51, 77, 255])
-
+        val = 10000
         source.SetNormal(0.0, 0.0, 1.0)
-        source.SetOrigin(-500, -500, z / 100 * value)
-        source.SetPoint1(self.neb.data.x + 500, -500, z / 100 * value)
-        source.SetPoint2(-500, self.neb.data.y + 500, z / 100 * value)
+        source.SetOrigin(-val, -val, z / 100 * value)
+        source.SetPoint1(self.neb.data.x + val, -val, z / 100 * value)
+        source.SetPoint2(-val, self.neb.data.y + val, z / 100 * value)
         source.Update()
         plane = source.GetOutput()
 

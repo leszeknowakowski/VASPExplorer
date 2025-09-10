@@ -1,4 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel, QScrollArea, QFrame, QPushButton, QGridLayout, QPlainTextEdit
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLabel, \
+    QScrollArea, QFrame, QPushButton, QGridLayout, QPlainTextEdit, QTabWidget
 from PyQt5 import QtCore, Qt
 import pyqtgraph as pg
 import numpy as np
@@ -21,9 +22,10 @@ class DosControlWidget(QWidget):
 
     statusMessage = Qt.pyqtSignal(str)
 
-    def __init__(self, data, plot_widget):
+    def __init__(self, data, plot_widget, parent=None):
         """initialize"""
         super().__init__()
+        self.parent = parent
         self.plot_widget = plot_widget
         self.data = data
         self.reset_variables()
@@ -41,6 +43,7 @@ class DosControlWidget(QWidget):
         self.saved_colors = []
         self.atom_checkboxes = []
         self.orbital_checkboxes = []
+        self.lobster_orbital_checkboxes = []
 
     def update_data(self, data):
         """
@@ -50,8 +53,9 @@ class DosControlWidget(QWidget):
         self.reset_variables()
 
         self.create_checkboxes(self.data.atoms_symb_and_num, self.atom_checkboxes, self.scroll_left_layout)
-        self.create_checkboxes(self.data.orbitals, self.orbital_checkboxes, self.scroll_right_layout)
-
+        self.create_checkboxes(self.data.orbitals, self.orbital_checkboxes, self.scroll_right_layout_vasp)
+        self.create_checkboxes(self.parent.data.lobster_dos.unique_orbitals(), self.orbital_checkboxes,
+                               self.scroll_right_layout_lobster)
         self.add_orbital_buttons()
         self.add_atom_buttons()
 
@@ -62,13 +66,15 @@ class DosControlWidget(QWidget):
         layout
             QHBoxLayout from initUI
         """
-        self.atom_scroll_area(layout)
+        self.create_atom_scroll_area(layout)
         self.create_checkboxes(self.data.atoms_symb_and_num, self.atom_checkboxes, self.scroll_left_layout)
-        self.orbitals_scroll_area(layout)
-        self.create_checkboxes(self.data.orbitals, self.orbital_checkboxes, self.scroll_right_layout)
+        self.create_orbitals_scroll_area(layout)
+        self.create_checkboxes(self.data.orbitals, self.orbital_checkboxes, self.scroll_right_layout_vasp)
+        if self.parent.data.lobster_dos:
+            self.create_checkboxes(self.parent.data.lobster_dos.unique_orbitals(), self.orbital_checkboxes, self.scroll_right_layout_lobster)
         self.add_all_buttons()
 
-    def atom_scroll_area(self, layout):
+    def create_atom_scroll_area(self, layout):
         """
         Initialize scroll area widget for atoms
         """
@@ -103,7 +109,7 @@ class DosControlWidget(QWidget):
         layout
             layout to add checkboxes widget to
         """
-        checkboxes_list.clear()
+        #checkboxes_list.clear()
         self.clearLayout(layout)
         # add appropiate number of checkboxes
         for i in range(len(label_list)):
@@ -112,21 +118,28 @@ class DosControlWidget(QWidget):
             checkboxes_list.append(checkbox)
             layout.addWidget(checkbox)
 
-    def orbitals_scroll_area(self, layout):
-        """
-        Initialize scroll area for orbitals
-        """
-        self.scroll_right_widget = QWidget()
-        self.scroll_right_layout = QVBoxLayout(self.scroll_right_widget)
-        self.scroll_right_layout.setAlignment(QtCore.Qt.AlignTop)
+    def create_orbitals_scroll_area(self, layout):
+        """Initialize scroll area for orbitals with tabs"""
+        self.scroll_right_widget = QTabWidget()
+
+        # --- VASP tab ---
+        self.vasp_tab = QWidget()
+        self.scroll_right_layout_vasp = QVBoxLayout(self.vasp_tab)
+        self.scroll_right_layout_vasp.setAlignment(QtCore.Qt.AlignTop)
+        self.scroll_right_widget.addTab(self.vasp_tab, "vasp")
+
+        # --- LOBSTER tab ---
+        self.lobster_tab = QWidget()
+        self.scroll_right_layout_lobster = QVBoxLayout(self.lobster_tab)
+        self.scroll_right_layout_lobster.setAlignment(QtCore.Qt.AlignTop)
+        self.scroll_right_widget.addTab(self.lobster_tab, "lobster")
+
+        # Put the tab widget inside a scroll area
         self.scroll_area_right = QScrollArea()
         self.scroll_area_right.setWidgetResizable(True)
         self.scroll_area_right.setWidget(self.scroll_right_widget)
         self.scroll_area_right.setFrameShape(QFrame.NoFrame)
         self.scroll_area_layout.addWidget(self.scroll_area_right)
-
-        label = QLabel("orbitals:")
-        self.scroll_right_layout.addWidget(label)
 
         layout.addWidget(self.scroll_area_widget)
         
@@ -330,7 +343,7 @@ class DosControlWidget(QWidget):
     def update_indexes(self):
         """store the indexes of selected atoms and orbitals"""
         self.selected_atoms = [i for i, cb in enumerate(self.atom_checkboxes) if cb.isChecked()]
-        self.selected_orbitals = [i for i, cb in enumerate(self.orbital_checkboxes) if cb.isChecked()]
+        self.selected_orbitals = [cb.text() for cb in self.orbital_checkboxes if cb.isChecked()]
 
     def checkbox_changed(self):
         """function to update values when checkbox is checked/unchecked"""
@@ -348,11 +361,45 @@ class DosControlWidget(QWidget):
                 # Update plot with new data based on changed parameters
                 self.update_plot()
 
+    def unique_lobster_orbitrals(self):
+        kkk = []
+        for el in self.parent.data.lobster_dos.pdos:
+            kkk.append(list(el.keys()))
+        flat_kkk = [x for xs in kkk for x in xs]
+        orbs = set(flat_kkk)
+        return orbs
+
     def update_plot(self):
         """update the DOS plot"""
+        # Clear both plots
+
+        for plot in (self.plot_widget.full_range_plot, self.plot_widget.bounded_plot):
+            self.plot_widget.clear_plot_data(plot)
         counter = len(self.selected_atoms) * len(self.selected_orbitals)
+
+        lobster_orbitals = self.unique_lobster_orbitrals()
+        print(lobster_orbitals)
+        dos_orbitals = []
+        lobster_orbitals = []
+        for orb in self.selected_orbitals:
+            if orb in self.data.orbitals:
+                dos_orbitals.append(orb)
+            if self.parent.data.lobster_dos:
+                if orb in lobster_orbitals:
+                    lobster_orbitals.append(orb)
+
+        if self.parent.data.lobster_dos:
+            lobster_nrg = self.parent.data.lobster_dos.energies
+            lobster_data = self.parent.data.lobster_dos.pdos
+        else:
+            lobster_nrg = []
+            lobster_data = []
+
+        dos_nrg = self.data.doscar.energies
+        dos_data = self.data.doscar.pdos
         if counter < 10:
-            self.plot_widget.plot_separate(self.data, self.selected_atoms, self.selected_orbitals)
+            for nrg, data in zip([lobster_nrg, dos_nrg], [lobster_data, dos_data]):
+                self.plot_widget.plot_separate(nrg, data, self.selected_atoms, self.selected_orbitals)
         else:
             self.statusMessage.emit("Too many plots. Click \" Plot merged \" button to plot")
             self.plot_widget.full_range_plot.setTitle("Too many plots!!")
