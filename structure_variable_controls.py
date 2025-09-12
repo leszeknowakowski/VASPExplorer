@@ -6,7 +6,7 @@ import  os
 from PyQt5.QtWidgets import QApplication, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, \
     QPushButton, QHBoxLayout, QHeaderView, QFileDialog, QAbstractItemView, QLabel, QLineEdit, QCheckBox, \
      QDialogButtonBox, QSlider, QGroupBox, QMessageBox, QAbstractScrollArea, QSizePolicy
-from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal, QItemSelectionModel, QItemSelection
+from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal, QItemSelectionModel, QItemSelection, QVariant
 import traceback
 from periodic_table import PeriodicTable
 from itertools import groupby, combinations
@@ -29,6 +29,23 @@ def timer_decorator(func):
         print(f"Function '{func.__name__}' executed in {execution_time:.4f} seconds.")
         return result  # Return the original function's result
     return wrapper
+
+
+class MyTableWidgetItem(QTableWidgetItem):
+    def __init__(self, value):
+        super().__init__(f"{value:.2f}")  # always show 2 decimals
+        self.setData(Qt.UserRole, float(value))  # store numeric value separately
+
+    def __lt__(self, other):
+        if isinstance(other, QTableWidgetItem):
+            my_value = self.data(Qt.UserRole)
+            other_value = other.data(Qt.UserRole)
+            try:
+                return float(my_value) < float(other_value)
+            except (TypeError, ValueError):
+                pass
+        return super(MyTableWidgetItem, self).__lt__(other)
+
 
 class DebugSelectionModel(QItemSelectionModel):
     def select(self, selection, flags):
@@ -305,11 +322,13 @@ class StructureVariableControls(QWidget):
             suffix = suffixes[row]
 
             self.tableWidget.setItem(row, 0, QTableWidgetItem(atom))
-            self.tableWidget.setItem(row, 1, QTableWidgetItem(str(row+1)))
+            num = QTableWidgetItem()
+            num.setData(Qt.EditRole, row + 1)
+            self.tableWidget.setItem(row, 1, num)
             self.tableWidget.setItem(row, 2, QTableWidgetItem(suffix))
-            self.tableWidget.setItem(row, 3, QTableWidgetItem(str(f'{x:.2f}')))
-            self.tableWidget.setItem(row, 4, QTableWidgetItem(str(f'{y:.2f}')))
-            self.tableWidget.setItem(row, 5, QTableWidgetItem(str(f'{z:.2f}')))
+            self.tableWidget.setItem(row, 3, MyTableWidgetItem(x))
+            self.tableWidget.setItem(row, 4, MyTableWidgetItem(y))
+            self.tableWidget.setItem(row, 5, MyTableWidgetItem(z))
             self.tableWidget.setItem(row, 6, QTableWidgetItem(move_x))
             self.tableWidget.setItem(row, 7, QTableWidgetItem(move_y))
             self.tableWidget.setItem(row, 8, QTableWidgetItem(move_z))
@@ -764,12 +783,36 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.add_sphere()
 
     def sort_by_column(self):
+        mapping = self.sort_mapping()
+        self.sync_after_columns_sorting(self.structure_control_widget.structure_plot_widget.sphere_sources, mapping)
+        self.sync_after_columns_sorting(self.structure_control_widget.structure_plot_widget.sphere_actors, mapping)
         self.tableWidget.blockSignals(True)
         self.tableWidget.update_all_data()
         self.tableWidget.blockSignals(False)
-        self.structure_control_widget.structure_plot_widget.assign_missing_colors()
+        #self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
         self.structure_control_widget.add_sphere()
+
+    def sort_mapping(self):
+        """Update self.my_list based on the new sorted order of the table."""
+        lst = []
+        for row in range(self.tableWidget.rowCount()):
+            id_value = int(self.tableWidget.item(row, 1).text())
+            lst.append(int(id_value))
+
+        print(f"order: {lst}")
+
+        return lst
+
+    def sync_after_columns_sorting(self, primary_list, mapping_list):
+        lst = []
+        for i in range(len(mapping_list)):
+            idx = mapping_list[i]
+            lst.append(primary_list[idx-1])
+
+        print(f"wanted list order: {lst}")
+        primary_list = lst
+        return lst
 
     def rattle(self):
         coords = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()]
