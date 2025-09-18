@@ -169,7 +169,7 @@ class StructureControlsWidget(QWidget):
         self.bond_threshold_slider.setOrientation(QtCore.Qt.Horizontal)
         self.bond_threshold_slider.setMinimum(100)
         self.bond_threshold_slider.setMaximum(400)
-        self.bond_threshold_slider.setValue(300)
+        self.bond_threshold_slider.setValue(250)
         self.bond_threshold_slider.setTickInterval(100)
 
         self.bond_threshold_label = QtWidgets.QLabel()
