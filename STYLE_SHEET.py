@@ -885,6 +885,7 @@ plotter_colors = [
     ("modern black", "#626262"),
     ("dark orange", "#626262")
 ]
+
 console_font_colors = [
     ("none", "#000000"),
     ("bw", "#ffffff"),

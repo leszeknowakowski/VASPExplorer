@@ -91,20 +91,28 @@ class MainWindow(QMainWindow):
         self.create_status_bar()
         self.set_styles()
 
+        # add geometry buttons and slider to toolbar
+        self.toolbar.addWidget(self.structure_plot_control_tab.end_geometry_button)
+        self.toolbar.addWidget(self.structure_plot_control_tab.back_geometry_button)
+        self.toolbar.addWidget(self.structure_plot_control_tab.next_geometry_button)
+        self.toolbar.addWidget(self.structure_plot_control_tab.start_geometry_button)
+        self.toolbar.addWidget(self.structure_plot_control_tab.geometry_slider)
+
+
     def set_styles(self):
         self.styles = styles
         self.console_font_colors = console_font_colors
         self.plotter_colors = plotter_colors
         self.brush_colors = brush_colors
         self.pen_colors = pen_colors
-        self.current_style = 1
+        self.current_style = 0
         self.apply_style(self.current_style)
 
     def create_toolbar(self):
         # Toolbar
-        toolbar = QToolBar()
-        toolbar.setMovable(False)
-        self.addToolBar(toolbar)
+        self.toolbar = QToolBar()
+        self.toolbar.setMovable(False)
+        self.addToolBar(self.toolbar)
 
         # Toolbar Actions
         icon_path = os.path.join(self.exec_dir, 'icons')
@@ -131,7 +139,7 @@ class MainWindow(QMainWindow):
 
         # Add action to toolbar
         actions = [right_action, left_action, down_action, up_action, in_action, out_action, delete_action, add_action, render_bond_distance_action]
-        toolbar.addActions(actions)
+        self.toolbar.addActions(actions)
 
     def create_menubar(self):
         # menu bar
@@ -340,33 +348,6 @@ class MainWindow(QMainWindow):
         dir = self.set_working_dir()
         self.data = VaspData(dir)
 
-    def set_working_dir(self):
-        """ gets the current working dir. Useful for building"""
-        if platform.system() == 'Linux':
-            dir = './'
-        elif platform.system() == 'Windows':
-            cwd = os.getcwd()
-            files_to_check = ['CONTCAR', 'POSCAR', 'OUTCAR']
-
-            if any(os.path.isfile(os.path.join(cwd, fname)) for fname in files_to_check):
-                dir = cwd
-            else:
-                dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
-                #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
-                #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
-                #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
-                dir = r"D:\syncme\modelowanie DFT\lobster_tests\n2o\scf"
-
-
-                #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
-            #print("can't resolve operating system")
-            self.dir = dir
-        AppConfig.dir = dir
-        return dir
-
     def set_window_title(self, path):
         abs_path = os.path.abspath(path)
         parts = abs_path.strip(os.sep).split(os.sep)
@@ -439,24 +420,38 @@ class MainWindow(QMainWindow):
         self.dos_control_widget.checkboxes_widget.setStyleSheet(f"background: {self.plotter_colors[index][1]}")
         self.dos_control_widget.scroll_right_widget.setStyleSheet(f"background: {self.plotter_colors[index][1]}")
 
+    def set_working_dir(self):
+        """ gets the current working dir. Useful for building"""
+        if platform.system() == 'Linux':
+            dir = './'
+        elif platform.system() == 'Windows':
+            cwd = os.getcwd()
+            files_to_check = ['CONTCAR', 'POSCAR', 'OUTCAR']
+
+            if any(os.path.isfile(os.path.join(cwd, fname)) for fname in files_to_check):
+                dir = cwd
+            else:
+                dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
+                #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
+                #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
+                #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
+                #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
+                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
+                dir = r"D:\syncme\modelowanie DFT\lobster_tests\n2o\scf"
+
+
+                #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
+            #print("can't resolve operating system")
+            self.dir = dir
+        AppConfig.dir = dir
+        return dir
+
+
 if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
     app.setStyle(QStyleFactory.create("Fusion"))
-
-    # Modern light theme palette
-    palette = QPalette()
-    palette.setColor(QPalette.Window, QColor("#f2f2f2"))  # Background
-    palette.setColor(QPalette.WindowText, QColor("#2e2e2e"))  # Text
-    palette.setColor(QPalette.Base, QColor("#ffffff"))  # Input background
-    palette.setColor(QPalette.AlternateBase, QColor("#e6e6e6"))
-    palette.setColor(QPalette.ToolTipBase, QColor("#ffffff"))
-    palette.setColor(QPalette.ToolTipText, QColor("#2e2e2e"))
-    palette.setColor(QPalette.Text, QColor("#ffffff"))
-    palette.setColor(QPalette.Button, QColor("#e6e6e6"))  # Button background
-    palette.setColor(QPalette.ButtonText, QColor("#2e2e2e"))
-    palette.setColor(QPalette.Highlight, QColor("#0078d7"))  # Selected item
-    palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
 
     window = MainWindow()
 

@@ -286,13 +286,13 @@ class StructureVariableControls(QWidget):
 
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
         self.structure_control_widget.geometry_slider.valueChanged.connect(self.update_bonds)
+        self.structure_control_widget.geometry_slider.valueChanged.connect(self.change_table_when_atom_added)
         self.movement_slider_value = 50
 
     def create_table(self):
         self.tableWidget = TableWidgetDragRows(self)
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectRows)
         self.tableWidget.setSelectionMode(QAbstractItemView.MultiSelection)
-
 
         self.tableWidget.setSortingEnabled(True)
         self.tableWidget.horizontalHeader().sortIndicatorChanged.connect(self.sort_by_column)
@@ -311,7 +311,6 @@ class StructureVariableControls(QWidget):
 
         for i in range(self.tableWidget.columnCount()):
             self.tableWidget.horizontalHeader().setSectionResizeMode(i,QHeaderView.ResizeToContents)
-
 
         # Add data to the table
         for row in range(num_atoms):
@@ -386,7 +385,7 @@ class StructureVariableControls(QWidget):
                 self.after_update_data()
 
     def after_update_data(self):
-        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_sphere(initialize=False)
         self.structure_control_widget.add_bonds()
 
     def deleteRow(self, row):
@@ -531,7 +530,7 @@ class StructureVariableControls(QWidget):
         for index in selected_rows:
             self.deleteRow(index)
             self.atom_deleted.emit(index)
-        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_sphere(initialize=False)
         self.structure_control_widget.add_bonds()
         self.all_atoms_deleted.emit("done")
 
@@ -578,7 +577,7 @@ class StructureVariableControls(QWidget):
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
-        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_sphere(initialize=False)
         self.structure_control_widget.add_bonds()
 
     def change_constrain(self, column, constrain):
@@ -702,7 +701,7 @@ class StructureVariableControls(QWidget):
                     coordinates[row][2] = pos[2]
 
                 self.block_and_update_table()
-                self.structure_control_widget.add_sphere()
+                self.structure_control_widget.add_sphere(initialize=False)
                 self.structure_control_widget.add_bonds()
         except IndexError:
             print("no atoms selected")
@@ -780,18 +779,17 @@ class StructureVariableControls(QWidget):
         self.tableWidget.blockSignals(False)
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
-        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_sphere(initialize=False)
 
     def sort_by_column(self):
         mapping = self.sort_mapping()
-        self.sync_after_columns_sorting(self.structure_control_widget.structure_plot_widget.sphere_sources, mapping)
-        self.sync_after_columns_sorting(self.structure_control_widget.structure_plot_widget.sphere_actors, mapping)
+        #self.sync_after_columns_sorting(self.structure_control_widget.structure_plot_widget.sphere_actors, mapping)
         self.tableWidget.blockSignals(True)
         self.tableWidget.update_all_data()
         self.tableWidget.blockSignals(False)
         #self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
-        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_sphere(initialize=False)
 
     def sort_mapping(self):
         """Update self.my_list based on the new sorted order of the table."""
@@ -837,7 +835,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget.blockSignals(False)
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
-        self.structure_control_widget.add_sphere()
+        self.structure_control_widget.add_sphere(initialize=False)
 
     def modify_constraints(self):
         self.modify_constraints_window = ConstraintsWindow(self)
@@ -894,6 +892,8 @@ class AtomChooseWindow(QWidget):
         self.resize(640, 300)
 
         self.periodic_table = PeriodicTable()
+        self.periodic_table.setWindowTitle("Choose an element from periodic table")
+        self.periodic_table.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.periodic_table.element_selected.connect(self.update_label)
         self.periodic_table.show()
 
@@ -931,8 +931,6 @@ class AtomChooseWindow(QWidget):
 
         self.coords_table.horizontalHeader().hide()
         self.coords_table.verticalHeader().hide()
-
-
 
     def update_label(self, element):
         self.atom_name = QTableWidgetItem(element)

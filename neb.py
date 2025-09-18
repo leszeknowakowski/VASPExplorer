@@ -604,7 +604,7 @@ class NebWindow(QMainWindow):
 
     def update_slider_label(self):
         self.slider_count_label.setText(f"Steps: {self.geo_slider.value()}")
-
+    '''
     def add_sphere(self, coord, col, radius, plotter):
         sphereSource = vtkSphereSource()
         sphereSource.SetRadius(radius)
@@ -623,7 +623,7 @@ class NebWindow(QMainWindow):
         plotter.AddActor(actor)
 
         return actor
-
+    '''
     def _add_plane(self, source, actor, value, plotter):
         """renders a plane perpendicular to XY plane at value height"""
         z = self.neb.data.z

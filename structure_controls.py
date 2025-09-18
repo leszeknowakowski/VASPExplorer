@@ -90,7 +90,7 @@ class StructureControlsWidget(QWidget):
         self.forces_actors = []
 
         self.add_bonds()
-        self.add_sphere()
+        self.add_sphere(initialize=True)
 
     def update_data(self):
         self.geometry_slider.setMaximum(len(self.structure_plot_widget.data.outcar_coordinates) - 1)
@@ -147,7 +147,7 @@ class StructureControlsWidget(QWidget):
 
         self.sphere_radius_slider.valueChanged.connect(self.change_sphere_radius)
         self.sphere_radius_slider.valueChanged.connect(self.change_sphere_radius_label)
-        self.sphere_radius_slider.valueChanged.connect(self.add_sphere)
+        self.sphere_radius_slider.valueChanged.connect(lambda: self.add_sphere(initialize=False))
 
         sphere_layout = QHBoxLayout()
         sphere_layout.setSpacing(10)
@@ -248,7 +248,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.setTickInterval(1)
         self.geometry_slider.setSingleStep(1)
 
-        self.geometry_slider.valueChanged.connect(self.add_sphere)
+        self.geometry_slider.valueChanged.connect(lambda: self.add_sphere(initialize=False))
         self.geometry_slider.valueChanged.connect(self.update_geometry_value_label)
         self.geometry_slider.valueChanged.connect(self.add_bonds)
         self.geometry_slider.valueChanged.connect(self.toggle_symbols)
@@ -422,9 +422,14 @@ class StructureControlsWidget(QWidget):
         current_x = x[self.geometry_slider.value()]
         current_y = y[self.geometry_slider.value()]
 
-        s1 = MoveableScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
-        s1.addPoints([current_x], [current_y])
-        self.energy_plot_widget.addItem(s1)
+        brush = pg.mkBrush("#979797")
+        self.moveable_scatter_plot_item = (
+            MoveableScatterPlotItem(size=10,
+                                    pen=pg.mkPen(None),
+                                    brush=brush)
+        )
+        self.moveable_scatter_plot_item.addPoints([current_x], [current_y])
+        self.energy_plot_widget.addItem(self.moveable_scatter_plot_item)
 
     def toggle_spheres(self, flag):
         """switches on and off spheres visibility"""
@@ -461,25 +466,40 @@ class StructureControlsWidget(QWidget):
     def change_sphere_radius_label(self):
         self.sphere_radius_label.setText(f"Sphere radius: {self.sphere_radius}")
 
-    def add_sphere(self):
+    def add_sphere(self, initialize=False):
         """adds atoms from single geometry step as spheres to renderer.
          Using VTK code because it is 100x faster than pyvista
          """
 
-        coordinates = np.array(self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()])
-        if self.structure_plot_widget.sphere_actors:
-            for coord, source in zip(coordinates, self.structure_plot_widget.sphere_sources):
-                center = coord
-                source.SetCenter(*center)
-        else:
-            for coord, col in zip(coordinates, self.structure_plot_widget.atom_colors):
-                actor, source =  self._create_vtk_sphere(coord, col)
-                self.plotter.renderer.AddActor(actor)
-                self.structure_plot_widget.sphere_actors.append(actor)
-                self.structure_plot_widget.sphere_sources.append(source)
-            for actor in self.structure_plot_widget.sphere_actors:
-                actor.SetVisibility(True)
-        print("")
+        for actor in self.structure_plot_widget.sphere_actors:
+            self.plotter.renderer.RemoveActor(actor)
+        self.structure_plot_widget.sphere_actors = []
+        coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+
+        for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
+            actor, source = self._create_vtk_sphere(coord, col)
+            actor.SetObjectName(str(idx))
+            self.plotter.renderer.AddActor(actor)
+            self.structure_plot_widget.sphere_actors.append(actor)
+        for actor in self.structure_plot_widget.sphere_actors:
+            actor.SetVisibility(True)
+
+        if not initialize:
+            actors = self.structure_plot_widget.sphere_actors
+            colors = vtkNamedColors()
+            self.selected_actors = []
+
+            selected_rows = self.parent.structure_variable_control_tab.tableWidget.selectionModel().selectedRows()
+            if not selected_rows:
+                return
+
+            selected_rows_indexes = set()
+            for item in selected_rows:
+                selected_rows_indexes.add(item.row())
+            for row in selected_rows_indexes:
+                if 0 <= row < len(actors):
+                    actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
+                    self.selected_actors.append(actors[row])
 
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
