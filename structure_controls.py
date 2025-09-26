@@ -821,7 +821,7 @@ class StructureControlsWidget(QWidget):
         try:
             mags = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
         except AttributeError:
-            mags = ["N/A" for i in len(magmoms)]
+            mags = ["N/A" for i in range(len(magmoms))]
         return symb, coord, const, magmoms, suffixes, mags
 
     def update_row(self, row, atom_num_and_symb, coordinates, constraints):
