@@ -818,7 +818,10 @@ class StructureControlsWidget(QWidget):
         const = self.structure_plot_widget.data.all_constrains
         magmoms = self.structure_plot_widget.data.magmoms
         suffixes = self.structure_plot_widget.data.suffixes
-        mags = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
+        try:
+            mags = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
+        except AttributeError:
+            mags = ["N/A" for i in len(magmoms)]
         return symb, coord, const, magmoms, suffixes, mags
 
     def update_row(self, row, atom_num_and_symb, coordinates, constraints):
