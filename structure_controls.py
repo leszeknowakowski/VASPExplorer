@@ -501,6 +501,7 @@ class StructureControlsWidget(QWidget):
                     actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
                     self.selected_actors.append(actors[row])
 
+
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
         sphere_source = vtkSphereSource()
@@ -817,7 +818,8 @@ class StructureControlsWidget(QWidget):
         const = self.structure_plot_widget.data.all_constrains
         magmoms = self.structure_plot_widget.data.magmoms
         suffixes = self.structure_plot_widget.data.suffixes
-        return symb, coord, const, magmoms, suffixes
+        mags = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
+        return symb, coord, const, magmoms, suffixes, mags
 
     def update_row(self, row, atom_num_and_symb, coordinates, constraints):
         self.structure_plot_widget.data.atoms_symb_and_num[row] = atom_num_and_symb

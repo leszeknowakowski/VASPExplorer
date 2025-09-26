@@ -285,6 +285,9 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         LOG.debug("QtInteractor init stop")
 
     def setup_render_thread(self, auto_update: Union[float, bool] = 5.0):
+        '''
+        triggers render threads auto_update times per second
+        '''
         self.render_timer.stop()
         if float(auto_update) > 0.0:  # Can be False as well
             twait = int((auto_update**-1) * 1000.0)
@@ -329,7 +332,8 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         """Wrap ``BasePlotter.render``."""
         return BasePlotter.render(self, *args, **kwargs)
 
-    @conditional_decorator(threaded, platform.system() == "Darwin")
+    #@conditional_decorator(threaded, platform.system() == "Darwin")
+    @conditional_decorator(threaded, True)
     def render(self) -> None:
         """Override the ``render`` method to handle threading issues."""
         self._rendered = True  # Crucial for BasePlotter to know this has rendered

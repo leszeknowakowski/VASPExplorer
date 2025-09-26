@@ -198,9 +198,13 @@ class ChgcarVis(QWidget):
         open_file_button.clicked.connect(self.open_bader_file)
         self.bader_frame_layout.addWidget(open_file_button)
 
-        print_button = QPushButton("Print selected atoms charge")
+        print_button = QPushButton("Print sum of selection")
         print_button.clicked.connect(self.print_bader_charge)
         self.bader_frame_layout.addWidget(print_button)
+
+        print_separate_button = QPushButton("Print separate selection")
+        print_separate_button.clicked.connect(self.print_separate_bader_charges)
+        self.bader_frame_layout.addWidget(print_separate_button)
 
         self.layout.addWidget(self.bader_frame)
 
@@ -272,6 +276,16 @@ class ChgcarVis(QWidget):
         charges = np.array([float(self.bader_data[index][4]) for index in indexes])
         sum_charges = np.sum(charges)
         print(sum_charges)
+
+    def print_separate_bader_charges(self):
+        indexes = self.structure_variable_control.get_selected_rows()
+        charges = [float(self.bader_data[index][4]) for index in indexes]
+        atomic_symbols = [self.bader_data[index][5] for index in indexes]
+        symb_and_num = [x+y for x, y in zip(atomic_symbols, [str(num) for num in indexes])]
+        chg_dict = dict(zip(symb_and_num, charges))
+        for key, value in chg_dict.items():
+            print(key, ": ", value)
+        return chg_dict
 
     def update_data(self, data):
         if self.current_contour_actor is not None:
