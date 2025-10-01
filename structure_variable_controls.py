@@ -1,4 +1,5 @@
 import time
+
 tic = time.perf_counter()
 from PyQt5.QtGui import  QDropEvent, QIcon
 from exceptions import EmptyFile
@@ -114,7 +115,8 @@ class TableWidgetDragRows(QTableWidget):
         self.blockSignals(False)
         self.structure_control_widget.change_table_when_atom_added()
 
-    def update_all_data(self):
+    def update_all_data(self, mapping=None):
+        '''
         for column in range(self.columnCount()):
             text = self.horizontalHeaderItem(column).text()
             for row in range(self.rowCount()):
@@ -127,10 +129,37 @@ class TableWidgetDragRows(QTableWidget):
                 if text in ['X', 'Y', 'Z']:
                     new_value = float(self.item(row, column).text())
                     self.plot.data.outcar_coordinates[self.control.geometry_slider.value()][row][column - 3] = new_value
+                if text == "Number":
+                    self.plot.data.nums[row] = self.item(row, column).text()
                 elif text in ["Move X", "Move Y", "Move Z"]: # Move X, Move Y, Move Z columns (T or F)
                     new_value = self.item(row, column).text()
                     self.plot.data.all_constrains[row][
                             column - 6] = new_value.upper()
+        '''
+        if mapping is None:
+            keys = values = range(1, len(self.plot.data.nums) + 1)
+            mapping = dict(zip(keys, values))
+
+        simple = ['magmoms', 'suffixes', 'symbols', 'nums', 'all_constrains']
+        complex = ['outcar_coordinates']
+
+        for attr in simple:
+            lst = getattr(self.plot.data, attr)
+            new_list = self.sort_by_mapping(lst, mapping)
+            setattr(self.plot.data, attr, new_list)
+        for attr in complex:
+            all_lists = getattr(self.plot.data, attr)
+            new_all_lists = []
+            for list in all_lists:
+                new_list = self.sort_by_mapping(list, mapping)
+                new_all_lists.append(new_list)
+            setattr(self.plot.data, attr, new_all_lists)
+
+    def sort_by_mapping(self, list, mapping):
+        reordered = [None] * len(list)
+        for old_row, new_row in mapping.items():
+            reordered[new_row - 1] = list[old_row - 1]
+        return reordered
 
     def drop_on(self, event):
         index = self.indexAt(event.pos())
@@ -287,7 +316,9 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
         self.structure_control_widget.geometry_slider.valueChanged.connect(self.update_bonds)
         self.structure_control_widget.geometry_slider.valueChanged.connect(self.change_table_when_atom_added)
+        self.structure_control_widget.geometry_slider.valueChanged.connect(self.tableWidget.update_all_data)
         self.movement_slider_value = 50
+        self.rattle_magnitude_value = 10
 
     def create_table(self):
         self.tableWidget = TableWidgetDragRows(self)
@@ -298,7 +329,7 @@ class StructureVariableControls(QWidget):
         self.tableWidget.horizontalHeader().sortIndicatorChanged.connect(self.sort_by_column)
 
         # Get data from the data manager
-        atom_num_and_symb, coordinates, constraints, magmoms, suffixes, mags = self.structure_control_widget.get_table_data()
+        atom_num_and_symb, coordinates, constraints, magmoms, suffixes, mags, numbers = self.structure_control_widget.get_table_data()
 
         # Set row count based on the data
         num_atoms = len(atom_num_and_symb)
@@ -321,10 +352,11 @@ class StructureVariableControls(QWidget):
             magmom =magmoms[row]
             suffix = suffixes[row]
             mag = mags[row]
+            number = numbers[row]
 
             self.tableWidget.setItem(row, 0, QTableWidgetItem(atom))
             num = QTableWidgetItem()
-            num.setData(Qt.EditRole, row + 1)
+            num.setData(Qt.EditRole, number)
             self.tableWidget.setItem(row, 1, num)
             self.tableWidget.setItem(row, 2, QTableWidgetItem(suffix))
             self.tableWidget.setItem(row, 3, MyTableWidgetItem(x))
@@ -345,6 +377,19 @@ class StructureVariableControls(QWidget):
         header = self.tableWidget.horizontalHeader()
         header.setContextMenuPolicy(Qt.CustomContextMenu)
         header.customContextMenuRequested.connect(self.show_header_menu)
+
+        self.old_order = self.get_current_order()
+
+    def get_current_order(self):
+        """
+        Returns the current row order as a list of logical row indices.
+        Uses the "Number" column as stable ID.
+        """
+        order = []
+        for new_row in range(self.tableWidget.rowCount()):
+            item = self.tableWidget.item(new_row, 1)  # Number column
+            order.append(int(item.data(Qt.EditRole)))
+        return order
 
     def find_headers(self, row, column):
         header = self.tableWidget.horizontalHeaderItem(column).text()  # Get the header of the changed column
@@ -548,7 +593,7 @@ class StructureVariableControls(QWidget):
         self.atom_choose_window.sig.connect(self.change_data_when_atom_added)
 
     def change_data_when_atom_added(self):
-        name,  x,  y,  z,  x_constr,  y_constr,  z_constr,  magmom , suffix = self.atom_choose_window.get_atom_and_coords()
+        name,  x,  y,  z,  x_constr,  y_constr,  z_constr,  magmom , suffix, mag = self.atom_choose_window.get_atom_and_coords()
         names = self.structure_control_widget.structure_plot_widget.data.symbols
         if  name in names:
             pos = next(i for i in reversed(range(len(names))) if names[i] ==  name)
@@ -569,6 +614,9 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.structure_plot_widget.data.constrains.insert(pos + 1,  x_constr)
         self.structure_control_widget.structure_plot_widget.data.magmoms.insert(pos + 1, magmom)
         self.structure_control_widget.structure_plot_widget.data.suffixes.insert(pos + 1, suffix)
+        for magnetizations in self.structure_control_widget.structure_plot_widget.data.outcar_data.magnetizations:
+            magnetizations.insert(pos+1, mag)
+        self.structure_control_widget.structure_plot_widget.data.nums.insert(pos+1, len(self.structure_control_widget.structure_plot_widget.data.symbols)+1)
 
         self.change_table_when_atom_added()
         print("added")
@@ -799,9 +847,11 @@ class StructureVariableControls(QWidget):
 
     def sort_by_tags(self):
         self.tableWidget.blockSignals(True)
+        mapping = self.sort_mapping()
         self.tableWidget.sortByColumn(2, Qt.AscendingOrder)
         self.tableWidget.sortByColumn(0, Qt.AscendingOrder)
-        self.tableWidget.update_all_data()
+        self.tableWidget.update_all_data(mapping=mapping)
+        self.tableWidget.blockSignals(False)
         self.tableWidget.blockSignals(False)
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
@@ -809,34 +859,21 @@ class StructureVariableControls(QWidget):
 
     def sort_by_column(self):
         mapping = self.sort_mapping()
-        #self.sync_after_columns_sorting(self.structure_control_widget.structure_plot_widget.sphere_actors, mapping)
         self.tableWidget.blockSignals(True)
-        self.tableWidget.update_all_data()
+        self.tableWidget.update_all_data(mapping=mapping)
         self.tableWidget.blockSignals(False)
-        #self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
         self.structure_control_widget.add_sphere(initialize=False)
 
     def sort_mapping(self):
-        """Update self.my_list based on the new sorted order of the table."""
-        lst = []
-        for row in range(self.tableWidget.rowCount()):
-            id_value = int(self.tableWidget.item(row, 1).text())
-            lst.append(int(id_value))
+        """Create a mapping from old positions to new positions"""
+        new_order = self.get_current_order()
+        old_order = self.old_order
 
-        print(f"order: {lst}")
+        lookup = {val: i for i, val in enumerate(new_order, start=1)}
+        mapping = {i: lookup[val] for i, val in enumerate(old_order, start=1)}
 
-        return lst
-
-    def sync_after_columns_sorting(self, primary_list, mapping_list):
-        lst = []
-        for i in range(len(mapping_list)):
-            idx = mapping_list[i]
-            lst.append(primary_list[idx-1])
-
-        print(f"wanted list order: {lst}")
-        primary_list = lst
-        return lst
+        return mapping
 
     def rattle(self):
         coords = self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()]
@@ -846,7 +883,7 @@ class StructureVariableControls(QWidget):
         for index in sorted(indexes):
             selected_rows.append(index.row())
         rng = np.random.RandomState()
-        displacement = rng.normal(scale=0.05, size=np.array(coords).shape)
+        displacement = rng.normal(scale=self.rattle_magnitude_value/100, size=np.array(coords).shape)
         for i in range(len(coords)):
             if i in selected_rows:
                 new_coords.append(np.array(coords[i]) + displacement[i])
@@ -857,11 +894,16 @@ class StructureVariableControls(QWidget):
         for column in range(3,6):
             for row in range(self.tableWidget.rowCount()):
                 self.tableWidget.setItem(row, column, QTableWidgetItem(str(f"{new_coords[row][column-3]:.2f}")))
-        self.tableWidget.update_all_data()
+        self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()] = new_coords
+        mapping = self.sort_mapping()
+        self.tableWidget.update_all_data(mapping=mapping)
         self.tableWidget.blockSignals(False)
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()
         self.structure_control_widget.add_sphere(initialize=False)
+
+    def set_rattle_magnitude(self, value):
+        self.rattle_magnitude_value = value
 
     def modify_constraints(self):
         self.modify_constraints_window = ConstraintsWindow(self)
@@ -877,6 +919,8 @@ class StructureVariableControls(QWidget):
         self.move_atoms_qwidget.slider_value_changed.connect(self.set_movement_sensibility)
 
         self.move_atoms_qwidget.atom_rotated.connect(self.rotate_objects)
+        self.move_atoms_qwidget.rattle_slider.valueChanged.connect(self.set_rattle_magnitude)
+        self.move_atoms_qwidget.atom_rattled.connect(self.rattle)
 
     def add_bond_length(self):
         selected_atoms = self.get_selected_rows()
@@ -972,8 +1016,9 @@ class AtomChooseWindow(QWidget):
         z_constr = self.coords_table.item(2, 3).text()
         magmom = self.coords_table.item(3, 1).text()
         suffix = ""
+        mags = 0
 
-        return name, x, y, z, x_constr, y_constr, z_constr, magmom, suffix
+        return name, x, y, z, x_constr, y_constr, z_constr, magmom, suffix, mags
 
     def add_atom(self):
         try:
@@ -1186,6 +1231,7 @@ class ConstraintsWindow(QWidget):
 class MoveAtomsWindow(QWidget):
     atom_moved = pyqtSignal(str)
     atom_rotated = pyqtSignal(list)
+    atom_rattled = pyqtSignal()
     slider_value_changed = pyqtSignal(int)  # Emits slider value
 
     def __init__(self, parent=None):
@@ -1200,12 +1246,13 @@ class MoveAtomsWindow(QWidget):
 
         self.movement_layout = QVBoxLayout()
         self.rotation_layout = QVBoxLayout()
+        self.rattle_layout = QVBoxLayout()
 
         self.init_movement_layout()
         self.init_rotation_layout()
+        self.init_rattle_layout()
 
     def init_movement_layout(self):
-
         # Layout for movement buttons
         self.movement_buttons_layout = QVBoxLayout()
         movement_group = QGroupBox("movement")
@@ -1324,6 +1371,26 @@ class MoveAtomsWindow(QWidget):
 
         self.main_layout.addLayout(self.rotation_layout)
 
+    def init_rattle_layout(self):
+        rattle_group = QGroupBox("rattle")
+        self.rattle_widgets_layout = QVBoxLayout()
+        rattle_group.setLayout(self.rattle_widgets_layout)
+
+        rattle_label = QLabel("Rattle magnitude: ")
+        self.rattle_slider = QSlider(Qt.Horizontal)
+        self.rattle_slider.setRange(1, 100)
+        self.rattle_slider.setValue(10)
+
+        self.rattle_button = QPushButton("rattle!")
+        self.rattle_button.clicked.connect(self.rattle_atoms)
+
+        self.rattle_widgets_layout.addWidget(rattle_label, alignment=Qt.AlignTop)
+        self.rattle_widgets_layout.addWidget(self.rattle_slider, alignment=Qt.AlignTop)
+        self.rattle_widgets_layout.addWidget(self.rattle_button, alignment=Qt.AlignTop)
+
+        self.rattle_layout.addWidget(rattle_group)
+        self.main_layout.addLayout(self.rattle_layout)
+
     def get_atoms_center(self):
         centers = []
         if self.parent.structure_control_widget.selected_actors:
@@ -1352,6 +1419,9 @@ class MoveAtomsWindow(QWidget):
         psi = self.psi_line_edit.text()
         center = self.center_line_edit.text()
         self.atom_rotated.emit([phi, theta, psi, center])
+
+    def rattle_atoms(self):
+        self.atom_rattled.emit()
 
 class Bonds:
     def __init__(self, index1, index2, structure_variable_control_widget):

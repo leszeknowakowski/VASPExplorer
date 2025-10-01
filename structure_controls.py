@@ -5,8 +5,8 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
-    QHBoxLayout,QApplication, QSizePolicy, QGroupBox
-from PyQt5.QtGui import QIcon, QCursor
+    QHBoxLayout,QApplication, QSizePolicy, QGroupBox, QGraphicsView, QGraphicsScene, QGraphicsRectItem
+from PyQt5.QtGui import QIcon, QCursor, QColor, QBrush
 
 from scipy.spatial.distance import pdist, squareform
 
@@ -475,7 +475,7 @@ class StructureControlsWidget(QWidget):
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors = []
         coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
-
+        self.structure_plot_widget.assign_missing_colors()
         for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
             actor, source = self._create_vtk_sphere(coord, col)
             actor.SetObjectName(str(idx))
@@ -500,7 +500,6 @@ class StructureControlsWidget(QWidget):
                 if 0 <= row < len(actors):
                     actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
                     self.selected_actors.append(actors[row])
-
 
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
@@ -822,7 +821,8 @@ class StructureControlsWidget(QWidget):
             mags = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
         except AttributeError:
             mags = ["N/A" for i in range(len(magmoms))]
-        return symb, coord, const, magmoms, suffixes, mags
+        nums = self.structure_plot_widget.data.nums
+        return symb, coord, const, magmoms, suffixes, mags, nums
 
     def update_row(self, row, atom_num_and_symb, coordinates, constraints):
         self.structure_plot_widget.data.atoms_symb_and_num[row] = atom_num_and_symb

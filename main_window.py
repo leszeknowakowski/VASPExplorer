@@ -6,7 +6,7 @@ import os
 
 from console_widget import PythonConsole
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
+#sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 
 from config import AppConfig
 tic = time.perf_counter()
@@ -92,10 +92,10 @@ class MainWindow(QMainWindow):
         self.set_styles()
 
         # add geometry buttons and slider to toolbar
-        self.toolbar.addWidget(self.structure_plot_control_tab.end_geometry_button)
+        self.toolbar.addWidget(self.structure_plot_control_tab.start_geometry_button)
         self.toolbar.addWidget(self.structure_plot_control_tab.back_geometry_button)
         self.toolbar.addWidget(self.structure_plot_control_tab.next_geometry_button)
-        self.toolbar.addWidget(self.structure_plot_control_tab.start_geometry_button)
+        self.toolbar.addWidget(self.structure_plot_control_tab.end_geometry_button)
         self.toolbar.addWidget(self.structure_plot_control_tab.geometry_slider)
 
 
@@ -431,14 +431,15 @@ class MainWindow(QMainWindow):
             if any(os.path.isfile(os.path.join(cwd, fname)) for fname in files_to_check):
                 dir = cwd
             else:
-                dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
+                #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
-                #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
+                dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
-                #dir = r"D:\syncme\modelowanie DFT\lobster_tests\n2o\scf"
+                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
+                #dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
+                #dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR' # poscar with D1, D2, Ce1 etc.
 
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"

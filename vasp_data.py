@@ -21,6 +21,7 @@ class VaspData():
             doscar = self.parse_doscar(dir)
             self.process_doscar(doscar)
         self.process_poscar(poscar)
+        self.nums = list(range(1, self.number_of_atoms+1))
 
 
     def parse_outcar(self, dir):
