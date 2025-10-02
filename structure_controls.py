@@ -1,5 +1,7 @@
 import time
 
+import vtk
+
 tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
@@ -13,7 +15,7 @@ from scipy.spatial.distance import pdist, squareform
 from RangeSlider import QRangeSlider
 from vtk import vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
     vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper, vtkArrowSource, \
-vtkTransformPolyDataFilter, vtkTransform
+vtkTransformPolyDataFilter, vtkTransform, vtkLookupTable, vtkMinimalStandardRandomSequence
 from vtkmodules.vtkCommonCore import (
     vtkMath,
     vtkMinimalStandardRandomSequence
@@ -470,12 +472,60 @@ class StructureControlsWidget(QWidget):
         """adds atoms from single geometry step as spheres to renderer.
          Using VTK code because it is 100x faster than pyvista
          """
-
+        # remove previous actor(s)
         for actor in self.structure_plot_widget.sphere_actors:
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors = []
+
+        # get coordinates
         coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+
+        # assign colors
         self.structure_plot_widget.assign_missing_colors()
+        colors = self.structure_plot_widget.atom_colors
+
+        # create VTK colors
+        vtk_colors = vtk.vtkUnsignedCharArray()
+        vtk_colors.SetName("colors")
+        vtk_colors.SetNumberOfComponents(3)
+        for color in colors:
+            vtk_colors.InsertNextTuple3(*color)
+
+        # add points
+        points = vtkPoints()
+
+        for pos in coordinates:
+            points.InsertNextPoint(pos)
+
+        # combine into polydata
+        polydata = vtk.vtkPolyData()
+        polydata.SetPoints(points)
+        polydata.GetPointData().SetScalars(vtk_colors)
+
+        # set source
+        sphere_source = vtkSphereSource()
+        sphere_source.SetThetaResolution(20)
+        sphere_source.SetPhiResolution(20)
+
+        # create glyph
+        glyph3D = vtk.vtkGlyph3D()
+        glyph3D.SetColorModeToColorByScalar()
+        glyph3D.SetSourceConnection(sphere_source.GetOutputPort())
+        glyph3D.SetInputData(polydata)
+        glyph3D.ScalingOff()
+        glyph3D.Update()
+
+        # mapper and actor
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputData(polydata)
+        mapper.SetInputConnection(glyph3D.GetOutputPort())
+        mapper.ScalarVisibilityOn()
+
+        actor = vtk.vtkActor(mapper=mapper)
+
+        self.structure_plot_widget.sphere_actors.append(actor)
+        self.plotter.renderer.AddActor(actor)
+        '''
         for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
             actor, source = self._create_vtk_sphere(coord, col)
             actor.SetObjectName(str(idx))
@@ -500,7 +550,7 @@ class StructureControlsWidget(QWidget):
                 if 0 <= row < len(actors):
                     actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
                     self.selected_actors.append(actors[row])
-
+        '''
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
         sphere_source = vtkSphereSource()
