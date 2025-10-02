@@ -483,7 +483,7 @@ class StructureControlsWidget(QWidget):
         # assign colors
         self.structure_plot_widget.assign_missing_colors()
         colors = self.structure_plot_widget.atom_colors
-
+        #'''
         # create VTK colors
         vtk_colors = vtk.vtkUnsignedCharArray()
         vtk_colors.SetName("colors")
@@ -525,6 +525,8 @@ class StructureControlsWidget(QWidget):
 
         self.structure_plot_widget.sphere_actors.append(actor)
         self.plotter.renderer.AddActor(actor)
+        #'''
+
         '''
         for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
             actor, source = self._create_vtk_sphere(coord, col)
@@ -619,6 +621,7 @@ class StructureControlsWidget(QWidget):
             coord1 = coordinates[point1]
             coord2 = coordinates[point2]
             coord_pairs.append([coord1, coord2])
+        '''
         for pair in coord_pairs:
             if True:  # self.master_bond_visibility == 2:
                 line_source = vtkLineSource()
@@ -633,6 +636,42 @@ class StructureControlsWidget(QWidget):
 
                 self.structure_plot_widget.plotter.renderer.AddActor(actor)
                 self.structure_plot_widget.bond_actors.append(actor)
+        '''
+
+        points = vtk.vtkPoints()
+        lines = vtk.vtkCellArray()
+
+        for pair in coord_pairs:  # Zakładam że masz listę par współrzędnych
+            id1 = points.InsertNextPoint(pair[0])
+            id2 = points.InsertNextPoint(pair[1])
+
+            line = vtk.vtkLine()
+            line.GetPointIds().SetId(0, id1)
+            line.GetPointIds().SetId(1, id2)
+            lines.InsertNextCell(line)
+
+        # create polydata with lines
+        line_polydata = vtk.vtkPolyData()
+        line_polydata.SetPoints(points)
+        line_polydata.SetLines(lines)
+
+        # create tube filter
+        tube_filter = vtk.vtkTubeFilter()
+        tube_filter.SetInputData(line_polydata)
+        tube_filter.SetRadius(0.15)
+        tube_filter.SetNumberOfSides(8)
+        tube_filter.CappingOn()
+
+        # Mapper and actor
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(tube_filter.GetOutputPort())
+
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(0, 0, 0)  # Czarny kolor
+
+        self.structure_plot_widget.plotter.renderer.AddActor(actor)
+        self.structure_plot_widget.bond_actors.append(actor)
 
     def toggle_unit_cell(self, flag):
         """ switches on and off unit cell visibility"""

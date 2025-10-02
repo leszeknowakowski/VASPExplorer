@@ -1,5 +1,6 @@
 import time
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QMenu, QAction
+from PyQt5 import QtCore
 from QtInteractor import QtInteractor
 
 tic = time.perf_counter()
@@ -103,6 +104,7 @@ class StructureViewer(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.plotter = QtInteractor(auto_update=5)
+        self.fps_counter = FPSCounter(self.plotter)
 
         self.plotter.add_camera_orientation_widget()
 
@@ -258,3 +260,22 @@ class SymbolToColorMapper:
                 return user_input
             else:
                 print(f"'{user_input}' is not in color_data. Please try again.")
+
+class FPSCounter:
+    def __init__(self, vtk_widget):
+        self.vtk_widget = vtk_widget
+        self.frames = 0
+        self.start_time = time.time()
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update)
+        self.timer.start(0)
+
+
+    def update(self):
+        self.vtk_widget.GetRenderWindow().Render()
+        self.frames += 1
+        elapsed = time.time() - self.start_time
+        if elapsed >= 1.0:
+            print(f"FPS: {self.frames/elapsed:.2f}")
+            self.frames = 0
+            self.start_time = time.time()
