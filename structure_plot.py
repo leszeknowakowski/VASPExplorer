@@ -1,4 +1,6 @@
 import time
+
+from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QMenu, QAction
 from QtInteractor import QtInteractor
 
@@ -40,6 +42,7 @@ class QtInteractor(QtInteractor):
         self.screenshot("screenshot.png")
         print("Screenshot saved!")
 
+
 class StructureViewer(QWidget):
     def __init__(self, data, parent=None):
         super().__init__()
@@ -75,6 +78,9 @@ class StructureViewer(QWidget):
         self.plotter.add_key_event('z', lambda: self.turn_camera("z"))
         self.plotter.add_key_event('x', lambda: self.turn_camera("x"))
         self.plotter.add_key_event('y', lambda: self.turn_camera("y"))
+
+
+        self.plotter.interactor.installEventFilter(self)
 
     def reset_variables(self):
         self.coordinates = self.data.init_coordinates
@@ -236,6 +242,27 @@ class StructureViewer(QWidget):
     def closeEvent(self, QCloseEvent):
         super().closeEvent(QCloseEvent)
         self.plotter.Finalize()
+
+    def eventFilter(self, obj, event):
+        # Only handle key presses on interactor, when mouse is over it
+        if obj is self.plotter.interactor and event.type() == QEvent.KeyPress and self.plotter.interactor.underMouse():
+            key = event.key()
+            if key == Qt.Key_Left:
+                self.plotter.camera.Azimuth(-90)
+            elif key == Qt.Key_Right:
+                self.plotter.camera.Azimuth(90)
+            elif key == Qt.Key_Up:
+                self.plotter.camera.Elevation(90)
+            elif key == Qt.Key_Down:
+                self.plotter.camera.Elevation(-90)
+            else:
+                return False
+
+            self.plotter.reset_camera_clipping_range()
+            self.plotter.render()
+            return True
+
+        return super().eventFilter(obj, event)
 
 class SymbolToColorMapper:
     def __init__(self, color_data):
