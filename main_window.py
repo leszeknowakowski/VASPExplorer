@@ -72,7 +72,8 @@ class MainWindow(QMainWindow):
         print(f'import pyqtgraph in main: {toc - tic:0.4f}')
 
         self.splash.showMessage("Initializing UI", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
-        self.setWindowTitle('DOSWave v.0.0.0')
+        self.setWindowTitle('VASPy-vis v.0.0.0')
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "logo_small.png")))
         self.resize(1400, 1000)
 
         central_widget = QWidget()
@@ -166,12 +167,14 @@ class MainWindow(QMainWindow):
         modify_constraints_action = QAction("Modify Constraints", self)
         move_atoms_window = QAction("Move atoms", self)
         clear_bonds_menu_action = QAction("Clear Bonds", self)
+        view_cameras_action = QAction("View Cameras", self)
 
         save_action.triggered.connect(self.structure_variable_control_tab.save_poscar)
         copy_action.triggered.connect(self.structure_variable_control_tab.tableWidget.copy_table)
         modify_constraints_action.triggered.connect(self.structure_variable_control_tab.modify_constraints)
         move_atoms_window.triggered.connect(self.structure_variable_control_tab.move_atoms_widget)
         clear_bonds_menu_action.triggered.connect(self.structure_variable_control_tab.remove_bond_lengths)
+        view_cameras_action.triggered.connect(self.structure_plot_interactor_widget.show_camera_menu)
 
         # Create menu items
         file_menu = menubar.addMenu('File')
@@ -196,7 +199,11 @@ class MainWindow(QMainWindow):
 
         view_menu = menubar.addMenu('View')
         actors_menu = QMenu("Actors", self)
+        camera_menu = QMenu("Camera", self)
         view_menu.addMenu(actors_menu)
+        view_menu.addMenu(camera_menu)
+
+        camera_menu.addAction(view_cameras_action)
 
         actors_menu.addAction(clear_bonds_menu_action)
 

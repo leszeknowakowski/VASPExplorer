@@ -1,7 +1,9 @@
 import time
 
 from PyQt5.QtCore import Qt, QEvent
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QMenu, QAction
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QMenu, QAction, QHBoxLayout, QLabel, QPushButton, QLineEdit, \
+    QApplication
+from PyQt5.QtGui import QIcon, QPixmap
 from QtInteractor import QtInteractor
 
 tic = time.perf_counter()
@@ -70,6 +72,7 @@ class StructureViewer(QWidget):
         self.sphere_actors = []  # list of sphere actors
         self.sphere_sources = []
         self.geometry_actors = []  # list of geometries, each with actors list
+        self.camera_rotation_angle = 90 # angle of default camera rotation in degrees
         self.symbol_to_color_mapper = SymbolToColorMapper(self.color_data)
         self.reset_variables()
 
@@ -244,17 +247,18 @@ class StructureViewer(QWidget):
         self.plotter.Finalize()
 
     def eventFilter(self, obj, event):
+        rotation = self.camera_rotation_angle
         # Only handle key presses on interactor, when mouse is over it
         if obj is self.plotter.interactor and event.type() == QEvent.KeyPress and self.plotter.interactor.underMouse():
             key = event.key()
             if key == Qt.Key_Left:
-                self.plotter.camera.Azimuth(-90)
+                self.plotter.camera.Azimuth(-rotation)
             elif key == Qt.Key_Right:
-                self.plotter.camera.Azimuth(90)
+                self.plotter.camera.Azimuth(rotation)
             elif key == Qt.Key_Up:
-                self.plotter.camera.Elevation(90)
+                self.plotter.camera.Elevation(rotation)
             elif key == Qt.Key_Down:
-                self.plotter.camera.Elevation(-90)
+                self.plotter.camera.Elevation(-rotation)
             else:
                 return False
 
@@ -263,6 +267,65 @@ class StructureViewer(QWidget):
             return True
 
         return super().eventFilter(obj, event)
+
+    def show_camera_menu(self):
+        self.camer_menu = CameraMenu(parent=self)
+        self.camer_menu.show()
+
+class CameraMenu(QWidget):
+    """
+    Widget for changing the default camera rotation angle.
+    Angle is used when camera is rotated with arrows on keyboard
+    """
+    def __init__(self, parent=None):
+        super().__init__()
+        self.parent = parent
+        self.layout = QHBoxLayout()
+        self.setLayout(self.layout)
+        self.setWindowTitle("Camera movement")
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "logo_small.png")))
+
+        lbl = QLabel("Camera rotation angle: ")
+        self.camera_rotation_angle_qline = QLineEdit()
+        self.camera_rotation_angle_qline.setText(str(self.parent.camera_rotation_angle))
+        self.camera_rotation_angle_qline.editingFinished.connect(self.set_camera_rot_from_qline)
+
+        self.small_btns_layout = QVBoxLayout()
+        self.up_btn = QPushButton("^")
+        self.up_btn.clicked.connect(self.button_up)
+
+        self.down_btn = QPushButton("v")
+        self.down_btn.clicked.connect(self.button_down)
+
+        self.small_btns_layout.addWidget(self.up_btn)
+        self.small_btns_layout.addWidget(self.down_btn)
+
+        self.layout.addWidget(lbl)
+        self.layout.addWidget(self.camera_rotation_angle_qline)
+        self.layout.addLayout(self.small_btns_layout)
+
+    def set_camera_rot_from_qline(self):
+        """sets the camera rotation angle from edit line"""
+        angle = float(self.camera_rotation_angle_qline.text())
+        self.parent.camera_rotation_angle = angle
+
+    def set_camera_rotation(self, angle):
+        """sets the camera rotation angle"""
+        self.parent.camera_rotation_angle = angle
+
+    def button_up(self):
+        """slot when button up is pressed"""
+        angle = float(self.camera_rotation_angle_qline.text())
+        angle += 1
+        self.set_camera_rotation(angle)
+        self.camera_rotation_angle_qline.setText(str(angle))
+
+    def button_down(self):
+        """slot when button down is pressed"""
+        angle = float(self.camera_rotation_angle_qline.text())
+        angle -= 1
+        self.set_camera_rotation(angle)
+        self.camera_rotation_angle_qline.setText(str(angle))
 
 class SymbolToColorMapper:
     def __init__(self, color_data):
@@ -285,3 +348,4 @@ class SymbolToColorMapper:
                 return user_input
             else:
                 print(f"'{user_input}' is not in color_data. Please try again.")
+

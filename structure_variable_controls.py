@@ -963,6 +963,7 @@ class AtomChooseWindow(QWidget):
 
         self.periodic_table = PeriodicTable()
         self.periodic_table.setWindowTitle("Choose an element from periodic table")
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "logo_small.png")))
         self.periodic_table.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.periodic_table.element_selected.connect(self.update_label)
         self.periodic_table.show()
@@ -1049,6 +1050,8 @@ class ConstraintsWindow(QWidget):
         self.initUI()
 
     def initUI(self):
+        self.setWindowTitle("Constrains")
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "logo_small.png")))
         self.layout = QVBoxLayout()
         self.checkboxes_layout = QHBoxLayout()
 
@@ -1238,6 +1241,7 @@ class MoveAtomsWindow(QWidget):
         super().__init__()
         self.parent = parent
         self.setWindowTitle("Moving atoms")
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "logo_small.png")))
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
         self.initUI()
 
