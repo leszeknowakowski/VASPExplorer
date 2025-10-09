@@ -38,9 +38,12 @@ class VaspData():
             self.scf_energies = self.outcar_data.find_scf_energies()
 
     def parse_poscar(self, dir):
+        import glob
         poscar_path = os.path.join(dir, 'POSCAR')
         contcar_path = os.path.join(dir, 'CONTCAR')
         xdatcar_path = os.path.join(dir, 'XDATCAR')
+        xdatcar_ext = os.path.join(dir, '*.xdatcar')
+
         if not os.path.exists(poscar_path):
             self.poscar_file = False
         else:
@@ -53,8 +56,16 @@ class VaspData():
 
         if not os.path.exists(xdatcar_path):
             self.xdatcar_file = False
+            xdatcar_files = glob.glob(xdatcar_ext)
+            if not xdatcar_files:
+                self.xdatcar_file = False
+            else:
+                self.xdatcar_file = xdatcar_files[0]
         else:
             self.xdatcar_file = xdatcar_path
+
+
+
 
         if not self.contcar_file and not self.poscar_file and not self.xdatcar_file and not self.outcar_file:
             for file in os.listdir(dir):
@@ -97,13 +108,13 @@ class VaspData():
                         self.magmoms = self.poscar.number_of_atoms() * [0]
 
         if self.xdatcar_file:
-            if os.path.getsize(xdatcar_path) > 0:
-                self.xdatcar = self.parse_xdatcar(dir)
+            if os.path.getsize(self.xdatcar_file) > 0:
+                self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
                 self.poscar = PoscarParser(self.xdatcar_file)
                 self.coordinates = self.xdatcar.coordinates[0]
                 self.outcar_coordinates = self.xdatcar.coordinates
                 self.outcar_energies = [0 for step in self.outcar_coordinates]
-                self.magmoms = [0 for step in self.outcar_coordinates]
+                self.magmoms = [0 for atom in self.coordinates]
 
     def parse_doscar(self, dir):
         self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
@@ -164,8 +175,8 @@ class VaspData():
                     self.partitioned_lists[i].append(item)
                     break  # Once found, no need to continue checking other atoms
 
-    def parse_xdatcar(self, dir):
-        file = os.path.join(dir, "XDATCAR")
+    def parse_xdatcar(self, dir, file):
+        file = os.path.join(dir, file)
         if os.path.exists(file):
-            xdatcar = XDATCARParser(os.path.join(dir, "XDATCAR"))
+            xdatcar = XDATCARParser(os.path.join(dir, file))
             return xdatcar
