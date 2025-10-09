@@ -31,6 +31,8 @@ def symbols2numbers(symbols) -> List[int]:
                 s = re.sub(r'[\d_].*', '', s)
                 if s == "D":
                     s = "Ce"
+                if s == "M":
+                    s = "Co"
                 numbers.append(atomic_numbers[s])
         else:
             numbers.append(int(s))
