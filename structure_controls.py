@@ -904,14 +904,15 @@ class StructureControlsWidget(QWidget):
             for actor in self.forces_actors:
                 self.plotter.renderer.RemoveActor(actor)
         current_iter = self.geometry_slider.value()
-        forces = self.structure_plot_widget.data.outcar_data.forces[current_iter]
-        coordinates = self.structure_plot_widget.data.outcar_data.find_coordinates()[current_iter]
-        self.forces_actors = []
-        if self.forces_cb.isChecked():
-            for i, (center, force) in enumerate(zip(coordinates, forces)):
-                actor = self.create_arrow(center, force)
-                self.forces_actors.append(actor)
-                self.plotter.renderer.AddActor(actor)
+        if hasattr(self.structure_plot_widget.data, "outcar_data"):
+            forces = self.structure_plot_widget.data.outcar_data.forces[current_iter]
+            coordinates = self.structure_plot_widget.data.outcar_data.find_coordinates()[current_iter]
+            self.forces_actors = []
+            if self.forces_cb.isChecked():
+                for i, (center, force) in enumerate(zip(coordinates, forces)):
+                    actor = self.create_arrow(center, force)
+                    self.forces_actors.append(actor)
+                    self.plotter.renderer.AddActor(actor)
 
     def toggle_forces(self, flag):
         if self.forces_actors == []:

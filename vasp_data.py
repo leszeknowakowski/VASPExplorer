@@ -24,6 +24,7 @@ class VaspData():
         self.nums = list(range(1, self.number_of_atoms+1))
 
 
+
     def parse_outcar(self, dir):
         if not os.path.exists(os.path.join(dir, 'OUTCAR')):
             print('no OUTCAR found! importing CONTCAR or POSCAR')
@@ -37,54 +38,73 @@ class VaspData():
             self.scf_energies = self.outcar_data.find_scf_energies()
 
     def parse_poscar(self, dir):
-        if not os.path.exists(os.path.join(dir, 'CONTCAR')) and not os.path.exists(os.path.join(dir, 'POSCAR')):
+        poscar_path = os.path.join(dir, 'POSCAR')
+        contcar_path = os.path.join(dir, 'CONTCAR')
+        xdatcar_path = os.path.join(dir, 'XDATCAR')
+        if not os.path.exists(poscar_path):
+            self.poscar_file = False
+        else:
+            self.poscar_file = poscar_path
+
+        if not os.path.exists(contcar_path):
+            self.contcar_file = False
+        else:
+            self.contcar_file = contcar_path
+
+        if not os.path.exists(xdatcar_path):
+            self.xdatcar_file = False
+        else:
+            self.xdatcar_file = xdatcar_path
+
+        if not self.contcar_file and not self.poscar_file and not self.xdatcar_file and not self.outcar_file:
             for file in os.listdir(dir):
                 # Check if the file has a .cell extension
                 if file.endswith(".cell"):
                     # Read the .cell file
                     structure = read(os.path.join(dir,file))
                     write(os.path.join(dir,"POSCAR"), structure, format="vasp")
-
-        if not os.path.exists(os.path.join(dir, 'CONTCAR')):
-            if not os.path.exists(os.path.join(dir, 'POSCAR')):
-                p = input("eneter file name: ")
-                if not os.path.exists(p):
-                    raise FileNotFoundError('No important files found! Missing POSCAR')
                 else:
-                    self.poscar = PoscarParser(p)
-                    self.coordinates = self.poscar.coordinates()
-                    if not self.outcar_file:
-                        self.outcar_coordinates = [self.poscar.coordinates()]
-                        self.outcar_energies = [0]
-                        self.magmoms = self.poscar.number_of_atoms() * [0]
+                    p = input("eneter file name: ")
+                    if not os.path.exists(p):
+                        raise FileNotFoundError('No important files found! Missing POSCAR')
+                    else:
+                        self.poscar = PoscarParser(p)
+                        self.coordinates = self.poscar.coordinates()
+                        if not self.outcar_file:
+                            self.outcar_coordinates = [self.poscar.coordinates()]
+                            self.outcar_energies = [0]
+                            self.magmoms = self.poscar.number_of_atoms() * [0]
 
-            else:
-                self.poscar = PoscarParser(os.path.join(dir, 'POSCAR'))
-                self.coordinates = self.poscar.coordinates()
-                if not self.outcar_file:
-                    self.outcar_coordinates = [self.poscar.coordinates()]
-                    self.outcar_energies = [0]
-                    self.magmoms = self.poscar.number_of_atoms() * [0]
-        else:
-            if os.path.getsize(os.path.join(dir, 'CONTCAR')) > 0:
-                self.poscar = PoscarParser(os.path.join(dir, 'CONTCAR'))
+
+        if self.contcar_file:
+            if os.path.getsize(contcar_path) > 0:
+                self.poscar = PoscarParser(self.contcar_file)
                 self.coordinates = self.poscar.coordinates()
                 if self.outcar_file == False:
                     self.outcar_coordinates = [self.poscar.coordinates()]
                     self.outcar_energies = [0]
                     self.magmoms = self.poscar.number_of_atoms() * [0]
 
-            else:
-                if not os.path.exists(os.path.join(dir, 'POSCAR')):
+            else: # if contcar size is 0
+                if not os.path.exists(poscar_path):
                     raise EmptyFile('CONTCAR is found but appears to be empty! POSCAR missing! Check your files')
                 else:
-                    self.poscar = PoscarParser(os.path.join(dir, 'POSCAR'))
+                    self.poscar = PoscarParser(self.poscar_file)
                     self.coordinates = self.poscar.coordinates()
                     if not self.outcar_file or self.outcar_coordinates == []:
                         self.outcar_coordinates = [self.poscar.coordinates()]
                         self.outcar_energies = [0]
                         self.magmoms = self.poscar.number_of_atoms() * [0]
-        
+
+        if self.xdatcar_file:
+            if os.path.getsize(xdatcar_path) > 0:
+                self.xdatcar = self.parse_xdatcar(dir)
+                self.poscar = PoscarParser(self.xdatcar_file)
+                self.coordinates = self.xdatcar.coordinates[0]
+                self.outcar_coordinates = self.xdatcar.coordinates
+                self.outcar_energies = [0 for step in self.outcar_coordinates]
+                self.magmoms = [0 for step in self.outcar_coordinates]
+
     def parse_doscar(self, dir):
         self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
 
@@ -105,7 +125,6 @@ class VaspData():
         self.nedos = self.doscar.nedos
 
     def process_poscar(self, poscar):
-        #self.poscar = PoscarParser(os.path.join(dir, "POSCAR"))
         self.atoms_symb_and_num = self.poscar.symbol_and_number()
         atoms_underline_number = self.poscar.symbol_underline_number()
         self.number_of_atoms = self.poscar.number_of_atoms()
@@ -144,3 +163,9 @@ class VaspData():
                 if splitted[0] == atom:
                     self.partitioned_lists[i].append(item)
                     break  # Once found, no need to continue checking other atoms
+
+    def parse_xdatcar(self, dir):
+        file = os.path.join(dir, "XDATCAR")
+        if os.path.exists(file):
+            xdatcar = XDATCARParser(os.path.join(dir, "XDATCAR"))
+            return xdatcar

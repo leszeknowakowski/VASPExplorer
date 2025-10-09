@@ -447,7 +447,7 @@ class MainWindow(QMainWindow):
                 #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
                 #dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
                 #dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR' # poscar with D1, D2, Ce1 etc.
-
+                dir = r"D:\syncme\modelowanie DFT\1.Klaster\90.Lumi\1.testing\4.NEB_n2o_ads_CoO_CoO\3.opt_start_end\2.NEB\4.more_constrains\2.linear_with_middle\NEB\NEB\100"
 
                 #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             #print("can't resolve operating system")

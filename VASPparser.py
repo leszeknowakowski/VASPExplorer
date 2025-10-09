@@ -558,6 +558,11 @@ class BaderParser:
     def __init__(self, file):
         pass
 
+class XDATCARParser:
+    def __init__(self, file):
+        from ase.io.vasp import read_vasp_xdatcar
+        self.atoms = read_vasp_xdatcar(file, index=slice(None))
+        self.coordinates = [at.positions for at in self.atoms]
 
 
 if __name__ == "__main__":
