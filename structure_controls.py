@@ -488,18 +488,20 @@ class StructureControlsWidget(QWidget):
             actors = self.structure_plot_widget.sphere_actors
             colors = vtkNamedColors()
             self.selected_actors = []
+            try:
+                selected_rows = self.parent.structure_variable_control_tab.tableWidget.selectionModel().selectedRows()
+                if not selected_rows:
+                    return
 
-            selected_rows = self.parent.structure_variable_control_tab.tableWidget.selectionModel().selectedRows()
-            if not selected_rows:
-                return
-
-            selected_rows_indexes = set()
-            for item in selected_rows:
-                selected_rows_indexes.add(item.row())
-            for row in selected_rows_indexes:
-                if 0 <= row < len(actors):
-                    actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
-                    self.selected_actors.append(actors[row])
+                selected_rows_indexes = set()
+                for item in selected_rows:
+                    selected_rows_indexes.add(item.row())
+                for row in selected_rows_indexes:
+                    if 0 <= row < len(actors):
+                        actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
+                        self.selected_actors.append(actors[row])
+            except:
+                pass
 
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
