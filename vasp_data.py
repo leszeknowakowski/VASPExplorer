@@ -108,6 +108,10 @@ class VaspData():
                         self.magmoms = self.poscar.number_of_atoms() * [0]
 
         if self.xdatcar_file:
+            self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
+            self.xdatcar_file = self.xdatcar.xdatcar_file
+
+        if self.xdatcar_file:
             if os.path.getsize(self.xdatcar_file) > 0:
                 self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
                 self.poscar = PoscarParser(self.xdatcar_file)
