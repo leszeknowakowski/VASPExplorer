@@ -91,7 +91,7 @@ class StructureControlsWidget(QWidget):
 
         self.geometry_slider.valueChanged.connect(lambda: self.add_sphere(initialize=False))
         self.geometry_slider.valueChanged.connect(self.update_geometry_value_label)
-        self.geometry_slider.valueChanged.connect(self.add_bonds)
+        #self.geometry_slider.valueChanged.connect(self.add_bonds)
 
         self.geometry_value_label = QtWidgets.QLabel()
         self.geometry_value_label.setText(f"Geometry: {self.geometry_slider.value()}")

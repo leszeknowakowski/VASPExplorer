@@ -821,7 +821,7 @@ class StructureControlsWidget(QWidget):
         suffixes = self.structure_plot_widget.data.suffixes
         try:
             mags = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
-        except AttributeError:
+        except:
             mags = ["N/A" for i in range(len(magmoms))]
         nums = self.structure_plot_widget.data.nums
         return symb, coord, const, magmoms, suffixes, mags, nums
