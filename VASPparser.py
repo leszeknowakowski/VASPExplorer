@@ -1,5 +1,6 @@
 import time
 import os
+import numpy as np
 
 class OutcarParser:
     """Class to parse a OUTCAR file"""
@@ -435,9 +436,10 @@ class PoscarParser:
         if self.coordinate_type() == "Direct":  # convert from direct to cartesian
             coords_cart = []
             for coor in coordinates:
-                x = coor[0] * self.unit_cell_vectors()[0][0]
-                y = coor[1] * self.unit_cell_vectors()[1][1]
-                z = coor[2] * self.unit_cell_vectors()[2][2]
+                #x = coor[0] * self.unit_cell_vectors()[0][0]
+                #y = coor[1] * self.unit_cell_vectors()[1][1]
+                #z = coor[2] * self.unit_cell_vectors()[2][2]
+                x, y, z, = np.array(self.unit_cell_vectors()).T @ np.array(coor)
                 coords_cart.append([x, y, z])
             return coords_cart, constrain, all_constrains
         else:
@@ -561,14 +563,83 @@ class BaderParser:
 class XDATCARParser:
     def __init__(self, file):
         from ase.io.vasp import read_vasp_xdatcar
-        self.xdatcar_file = False
+        print("reading XDATCAR file")
+        self.file = file
+        self.xdatcar_file_exists = False
+        self.xdatcar_diff_exists = False
         try:
             self.atoms = read_vasp_xdatcar(file, index=slice(None))
             self.coordinates = [at.positions for at in self.atoms]
-            self.xdatcar_file = True
-        except:
-            self.xdatcar_file = False
+            self.xdatcar_file_exists = True
+        except ValueError: #probably original XDATCAR file, not custom diff format
+            try:
+                self.coordinates = self.read_diff_xdatcar(self.file)
+                self.xdatcar_file_exists = True
+                self.xdatcar_diff_exists = True
+            except: # something wrong with my parser or file
+                print("could not read XDATCAR diff file or file does not exist")
 
+
+    def read_diff_xdatcar(self, file):
+        """
+        Import custom XDATCAR diff file.
+        This file was created in order to reduce the original XDATCAR file in long MD runs.
+        It contains "Step" instead of "Direct coordinates" line. The first step is full configuration,
+        and each subseqent step contains only positions that have changed regarding last step.
+
+        """
+
+
+        images = []
+        current_step = []
+
+
+        with open(file, 'r') as fd:
+            comment = fd.readline()
+            scale = np.float64(fd.readline())
+            xx = [float(x) for x in fd.readline().split()]
+            yy = [float(y) for y in fd.readline().split()]
+            zz = [float(z) for z in fd.readline().split()]
+            cell = np.array([xx, yy, zz]) * scale
+
+            symbols = fd.readline().split()
+            numbers = [int(n) for n in fd.readline().split()]
+
+            for line in fd:
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith('Step'):
+                    if current_step:
+                        images.append(np.array(current_step, dtype=float))
+                        current_step = []
+                else:
+                    current_step.append(line.split())
+
+            if current_step:
+                images.append(np.array(current_step, dtype=float))
+        return images
+
+
+class OSZICARParser:
+    def __init__(self, file):
+        self.file = file
+        self.oszicar_file_exists = False
+        print("reading OSZICAR file")
+        try:
+            self.nrgs = self.read_oszicar(self.file)
+            self.oszicar_file_exists = True
+        except Exception as e:
+            self.oszicar_file_exists = False
+            print(e)
+
+    def read_oszicar(self, file):
+        nrgs = []
+        with open(file, 'r') as fd:
+            for line in fd:
+                energy = float(line.split()[4])
+                nrgs.append(energy)
+        return nrgs
 
 if __name__ == "__main__":
     doscar = DOSCARparser("D:\\syncme-from-c120\\modelowanie DFT\\czasteczki\\O2\\DOSCAR")

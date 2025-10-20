@@ -6,7 +6,7 @@ import os
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 from console_widget import PythonConsole
-
+import pyqtgraph as pg
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 
 from config import AppConfig
@@ -62,10 +62,11 @@ class MainWindow(QMainWindow):
                 dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 # dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 # dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                # dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
+                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
                 # dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
                 # dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR' # poscar with D1, D2, Ce1 etc.
-                dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\2.closer\rotation"
+                #dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\2.closer\rotation"
+                dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff"
 
                 # dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             # print("can't resolve operating system")
@@ -91,6 +92,7 @@ class StructureControlsWidget(QWidget):
 
         self.geometry_slider.valueChanged.connect(lambda: self.add_sphere(initialize=False))
         self.geometry_slider.valueChanged.connect(self.update_geometry_value_label)
+        self.geometry_slider.valueChanged.connect(self.update_scatter)
         #self.geometry_slider.valueChanged.connect(self.add_bonds)
 
         self.geometry_value_label = QtWidgets.QLabel()
@@ -132,6 +134,11 @@ class StructureControlsWidget(QWidget):
         self.geometry_frame_layout.addLayout(slider_layout)
         self.vlayout.addWidget(self.geometry_frame)
 
+        self.energy_plot_frame = QGroupBox(self)
+        self.energy_plot_frame.setTitle("Energy plot")
+        self.energy_plot_frame_layout = QVBoxLayout(self.energy_plot_frame)
+        self.energy_plot_layout()
+
         self.sphere_radius = 1
         self.bond_threshold = 2.45
         self.plotter = self.structure_plot_widget.plotter
@@ -170,7 +177,14 @@ class StructureControlsWidget(QWidget):
         for actor in self.structure_plot_widget.sphere_actors:
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors = []
-        coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+        cell = np.array(self.structure_plot_widget.data.unit_cell_vectors)
+        if self.structure_plot_widget.data.xdatcar.xdatcar_diff_exists:
+            init_coords = [cell@ np.array(lst[1:]) for lst in self.structure_plot_widget.data.outcar_coordinates[0]]
+            coords_to_change = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+            for c in coords_to_change:
+                idx = int(c[0])
+                init_coords[idx-1] = np.array(self.structure_plot_widget.data.unit_cell_vectors).T @ np.array(c[1:])
+        coordinates = init_coords
         self.structure_plot_widget.assign_missing_colors()
         for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
             actor, source = self._create_vtk_sphere(coord, col)
@@ -281,6 +295,81 @@ class StructureControlsWidget(QWidget):
 
                 self.structure_plot_widget.plotter.renderer.AddActor(actor)
                 self.structure_plot_widget.bond_actors.append(actor)
+
+    def energy_plot_layout(self):
+        self.energy_plot_widget = pg.PlotWidget()
+        self.energy_plot_widget.setTitle("")
+        self.add_scatter_plot()
+        self.update_scatter()
+
+        self.add_line_plot()
+
+        self.energy_plot_frame_layout.addWidget(self.energy_plot_widget)
+        self.vlayout.addWidget(self.energy_plot_frame)
+
+    def clear_energy_plot(self):
+        for item in self.energy_plot_widget.getPlotItem().listDataItems():
+            self.energy_plot_widget.removeItem(item)
+
+    def add_line_plot(self):
+        try:
+            self.energy_plot_widget.removeItem(self.line_plot)
+        except:
+            pass
+        y = self.structure_plot_widget.data.outcar_energies
+        x = list(range(len(y)))
+        self.line_plot = self.energy_plot_widget.plot(x, y)
+
+    def add_scatter_plot(self):
+        """
+        Plot scatter with geometry optimization energies.
+        When point is clicked, it shows the window with SCF energy convergence plot
+        """
+        y = self.structure_plot_widget.data.outcar_energies
+        x = list(range(len(y)))
+        s1 = pg.ScatterPlotItem(
+            size=10,
+            pen=pg.mkPen(None),
+            brush=pg.mkBrush(255, 255, 255, 0),
+            hoverable=True,
+            hoverSymbol='s',
+            hoverSize=10,
+            hoverPen=pg.mkPen('r', width=2),
+            hoverBrush=pg.mkBrush('g')
+        )
+        s1.addPoints(x, y)
+        self.energy_plot_widget.addItem(s1)
+
+    def update_scatter(self):
+        """
+        Updates scatter plot regarding geometry optimization step
+        """
+        for item in self.energy_plot_widget.getPlotItem().listDataItems():
+            if isinstance(item, MoveableScatterPlotItem):
+                self.energy_plot_widget.getPlotItem().removeItem(item)
+        y = self.structure_plot_widget.data.outcar_energies
+        x = list(range(len(y)))
+        current_x = x[self.geometry_slider.value()]
+        current_y = y[self.geometry_slider.value()]
+
+        brush = pg.mkBrush("#979797")
+        self.moveable_scatter_plot_item = (
+            MoveableScatterPlotItem(size=10,
+                                    pen=pg.mkPen(None),
+                                    brush=brush)
+        )
+        self.moveable_scatter_plot_item.addPoints([current_x], [current_y])
+        self.energy_plot_widget.addItem(self.moveable_scatter_plot_item)
+
+
+class MoveableScatterPlotItem(pg.ScatterPlotItem):
+    """
+    A Class for scatter plots which points can move.
+    Used to check instances and clear only moveable points
+    """
+    def __init__(self,*args, **kwargs):
+        super().__init__(*args, **kwargs)
+
 
 if __name__ == '__main__':
     tic = time.perf_counter()

@@ -115,8 +115,8 @@ class TableWidgetDragRows(QTableWidget):
         self.blockSignals(False)
         self.structure_control_widget.change_table_when_atom_added()
 
-    def update_all_data(self, mapping=None):
-        '''
+    def update_all_data(self, mapping=None, sort=False):
+
         for column in range(self.columnCount()):
             text = self.horizontalHeaderItem(column).text()
             for row in range(self.rowCount()):
@@ -131,29 +131,34 @@ class TableWidgetDragRows(QTableWidget):
                     self.plot.data.outcar_coordinates[self.control.geometry_slider.value()][row][column - 3] = new_value
                 if text == "Number":
                     self.plot.data.nums[row] = self.item(row, column).text()
-                elif text in ["Move X", "Move Y", "Move Z"]: # Move X, Move Y, Move Z columns (T or F)
+                if text in ["Move X", "Move Y", "Move Z"]: # Move X, Move Y, Move Z columns (T or F)
                     new_value = self.item(row, column).text()
                     self.plot.data.all_constrains[row][
                             column - 6] = new_value.upper()
-        '''
-        if mapping is None:
-            keys = values = range(1, len(self.plot.data.nums) + 1)
-            mapping = dict(zip(keys, values))
+                if text == "mags":
+                    try:
+                        self.plot.data.mags[self.control.geometry_slider.value()][row] = self.item(row, column).text()
+                    except:
+                        pass
+        if sort:
+            if mapping is None:
+                keys = values = range(1, len(self.plot.data.nums) + 1)
+                mapping = dict(zip(keys, values))
 
-        simple = ['magmoms', 'suffixes', 'symbols', 'nums', 'all_constrains']
-        complex = ['outcar_coordinates']
+            simple = ['magmoms', 'suffixes', 'symbols', 'nums', 'all_constrains']
+            complex = ['outcar_coordinates']
 
-        for attr in simple:
-            lst = getattr(self.plot.data, attr)
-            new_list = self.sort_by_mapping(lst, mapping)
-            setattr(self.plot.data, attr, new_list)
-        for attr in complex:
-            all_lists = getattr(self.plot.data, attr)
-            new_all_lists = []
-            for list in all_lists:
-                new_list = self.sort_by_mapping(list, mapping)
-                new_all_lists.append(new_list)
-            setattr(self.plot.data, attr, new_all_lists)
+            for attr in simple:
+                lst = getattr(self.plot.data, attr)
+                new_list = self.sort_by_mapping(lst, mapping)
+                setattr(self.plot.data, attr, new_list)
+            for attr in complex:
+                all_lists = getattr(self.plot.data, attr)
+                new_all_lists = []
+                for list in all_lists:
+                    new_list = self.sort_by_mapping(list, mapping)
+                    new_all_lists.append(new_list)
+                setattr(self.plot.data, attr, new_all_lists)
 
     def sort_by_mapping(self, list, mapping):
         reordered = [None] * len(list)
@@ -180,8 +185,33 @@ class TableWidgetDragRows(QTableWidget):
 
     def keyPressEvent(self, event):
         #super().keyPressEvent(event)
-        if event.key() == Qt.Key_C: # and (event.modifiers() & Qt.ControlModifier):
+        if event.key() == Qt.Key_C and (event.modifiers() & Qt.ControlModifier):
             self.copy_table()
+        elif event.key() == Qt.Key_V and (event.modifiers() & Qt.ControlModifier):
+            self.paste_to_cells()
+
+    def paste_to_cells(self):
+        selection = self.selectedIndexes()
+        if selection:
+            self.blockSignals(True)
+            row_anchor = selection[0].row()
+            column_anchor = selection[0].column()
+            clipboard = QApplication.clipboard()
+            rows = clipboard.text().split('\n')
+            print(len(rows))
+            current_row = self.currentRow()
+            #for n in range(len(rows)):
+            #    self.insertRow(current_row + n)
+            self.clearSelection()
+            self.selectRow(current_row)
+            for indx_row, row in enumerate(rows):
+                values = row.split('\t')
+                for indx_col, value in enumerate(values):
+                    if row_anchor + indx_row < self.rowCount() and column_anchor + indx_col < self.columnCount():
+                        item = QTableWidgetItem(value)
+                        self.setItem(row_anchor + indx_row, column_anchor + indx_col, item)
+        self.blockSignals(False)
+        self.update_all_data(sort=False)
 
     def copy_table(self):
         copied_cells = sorted(self.selectedIndexes())
@@ -850,7 +880,7 @@ class StructureVariableControls(QWidget):
         mapping = self.sort_mapping()
         self.tableWidget.sortByColumn(2, Qt.AscendingOrder)
         self.tableWidget.sortByColumn(0, Qt.AscendingOrder)
-        self.tableWidget.update_all_data(mapping=mapping)
+        self.tableWidget.update_all_data(mapping=mapping, sort=True)
         self.tableWidget.blockSignals(False)
         self.tableWidget.blockSignals(False)
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
@@ -860,7 +890,7 @@ class StructureVariableControls(QWidget):
     def sort_by_column(self):
         mapping = self.sort_mapping()
         self.tableWidget.blockSignals(True)
-        self.tableWidget.update_all_data(mapping=mapping)
+        self.tableWidget.update_all_data(mapping=mapping, sort=True)
         self.tableWidget.blockSignals(False)
         self.structure_control_widget.add_bonds()
         self.structure_control_widget.add_sphere(initialize=False)
@@ -896,7 +926,7 @@ class StructureVariableControls(QWidget):
                 self.tableWidget.setItem(row, column, QTableWidgetItem(str(f"{new_coords[row][column-3]:.2f}")))
         self.structure_control_widget.structure_plot_widget.data.outcar_coordinates[self.structure_control_widget.geometry_slider.value()] = new_coords
         mapping = self.sort_mapping()
-        self.tableWidget.update_all_data(mapping=mapping)
+        self.tableWidget.update_all_data(mapping=mapping, sort=True)
         self.tableWidget.blockSignals(False)
         self.structure_control_widget.structure_plot_widget.assign_missing_colors()
         self.structure_control_widget.add_bonds()

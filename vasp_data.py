@@ -29,6 +29,9 @@ class VaspData():
         if not os.path.exists(os.path.join(dir, 'OUTCAR')):
             print('no OUTCAR found! importing CONTCAR or POSCAR')
             self.outcar_file = False
+        elif  os.path.getsize(os.path.join(dir, 'OUTCAR'))/1024/1024/1024 > 1.5:
+            print('OUTCAR found but is too big. Supressing output')
+            self.outcar_file = False
         else:
             self.outcar_file = True
             self.outcar_data = OutcarParser(dir, 'OUTCAR')
@@ -41,8 +44,9 @@ class VaspData():
         import glob
         poscar_path = os.path.join(dir, 'POSCAR')
         contcar_path = os.path.join(dir, 'CONTCAR')
-        xdatcar_path = os.path.join(dir, 'XDATCAR')
+        xdatcar_path = os.path.join(dir, '*XDATCAR*')
         xdatcar_ext = os.path.join(dir, '*.xdatcar')
+        oszicar_path = os.path.join(dir, 'OSZICAR')
 
         if not os.path.exists(poscar_path):
             self.poscar_file = False
@@ -54,15 +58,20 @@ class VaspData():
         else:
             self.contcar_file = contcar_path
 
-        if not os.path.exists(xdatcar_path):
-            self.xdatcar_file = False
+        xdatcar_files = glob.glob(xdatcar_path)
+        if not(xdatcar_files):
             xdatcar_files = glob.glob(xdatcar_ext)
-            if not xdatcar_files:
+            if not(xdatcar_files):
                 self.xdatcar_file = False
             else:
                 self.xdatcar_file = xdatcar_files[0]
         else:
-            self.xdatcar_file = xdatcar_path
+            self.xdatcar_file = xdatcar_files[0]
+
+        if not os.path.exists(oszicar_path):
+            self.oszicar_file = False
+        else:
+            self.oszicar_file = oszicar_path
 
 
 
@@ -109,16 +118,32 @@ class VaspData():
 
         if self.xdatcar_file:
             self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
-            self.xdatcar_file = self.xdatcar.xdatcar_file
+            xdatcar_file_exists = self.xdatcar.xdatcar_file_exists
 
-        if self.xdatcar_file:
-            if os.path.getsize(self.xdatcar_file) > 0:
-                self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
-                self.poscar = PoscarParser(self.xdatcar_file)
-                self.coordinates = self.xdatcar.coordinates[0]
-                self.outcar_coordinates = self.xdatcar.coordinates
-                self.outcar_energies = [0 for step in self.outcar_coordinates]
-                self.magmoms = [0 for atom in self.coordinates]
+            if xdatcar_file_exists:
+                if os.path.getsize(self.xdatcar_file) > 0:
+                    self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
+                    self.poscar = PoscarParser(self.xdatcar_file)
+                    self.coordinates = self.xdatcar.coordinates[0]
+                    if not self.outcar_file or self.outcar_coordinates == []:
+                        self.outcar_coordinates = self.xdatcar.coordinates
+                        self.outcar_energies = [0 for step in self.outcar_coordinates]
+                        self.magmoms = [0 for atom in self.coordinates]
+
+        if self.poscar_file:
+            self.poscar = PoscarParser(self.poscar_file)
+            self.coordinates = self.poscar.coordinates()
+            if not self.outcar_file:
+                if self.outcar_coordinates == []:
+                    if not self.xdatcar_file:
+                        self.outcar_coordinates = [self.poscar.coordinates()]
+                        self.outcar_energies = [0]
+                        self.magmoms = self.poscar.number_of_atoms() * [0]
+
+        if self.oszicar_file:
+            self.oszicar = OSZICARParser(self.oszicar_file)
+            if self.oszicar.oszicar_file_exists:
+                self.outcar_energies = self.oszicar.nrgs
 
     def parse_doscar(self, dir):
         self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))
