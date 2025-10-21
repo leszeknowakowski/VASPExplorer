@@ -73,9 +73,6 @@ class VaspData():
         else:
             self.oszicar_file = oszicar_path
 
-
-
-
         if not self.contcar_file and not self.poscar_file and not self.xdatcar_file and not self.outcar_file:
             for file in os.listdir(dir):
                 # Check if the file has a .cell extension
@@ -94,6 +91,25 @@ class VaspData():
                             self.outcar_coordinates = [self.poscar.coordinates()]
                             self.outcar_energies = [0]
                             self.magmoms = self.poscar.number_of_atoms() * [0]
+
+        if self.xdatcar_file:
+            if not self.outcar_file:
+                self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
+                xdatcar_file_exists = self.xdatcar.xdatcar_file_exists
+                if xdatcar_file_exists:
+                    if os.path.getsize(self.xdatcar_file) > 0:
+                        self.poscar = PoscarParser(self.xdatcar_file)
+                        self.coordinates = self.xdatcar.coordinates[0]
+                        if self.outcar_coordinates == []:
+                            self.outcar_coordinates = self.xdatcar.coordinates
+                            self.outcar_energies = [0 for step in self.outcar_coordinates]
+                            self.magmoms = [0 for atom in self.coordinates]
+                    if self.oszicar_file:
+                        self.oszicar = OSZICARParser(self.oszicar_file)
+                        if self.oszicar.oszicar_file_exists:
+                            self.outcar_energies = self.oszicar.nrgs
+            else:
+                self.xdatcar_file = False
 
 
         if self.contcar_file:
@@ -116,20 +132,6 @@ class VaspData():
                         self.outcar_energies = [0]
                         self.magmoms = self.poscar.number_of_atoms() * [0]
 
-        if self.xdatcar_file:
-            self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
-            xdatcar_file_exists = self.xdatcar.xdatcar_file_exists
-
-            if xdatcar_file_exists:
-                if os.path.getsize(self.xdatcar_file) > 0:
-                    self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
-                    self.poscar = PoscarParser(self.xdatcar_file)
-                    self.coordinates = self.xdatcar.coordinates[0]
-                    if not self.outcar_file or self.outcar_coordinates == []:
-                        self.outcar_coordinates = self.xdatcar.coordinates
-                        self.outcar_energies = [0 for step in self.outcar_coordinates]
-                        self.magmoms = [0 for atom in self.coordinates]
-
         if self.poscar_file:
             self.poscar = PoscarParser(self.poscar_file)
             self.coordinates = self.poscar.coordinates()
@@ -140,10 +142,6 @@ class VaspData():
                         self.outcar_energies = [0]
                         self.magmoms = self.poscar.number_of_atoms() * [0]
 
-        if self.oszicar_file:
-            self.oszicar = OSZICARParser(self.oszicar_file)
-            if self.oszicar.oszicar_file_exists:
-                self.outcar_energies = self.oszicar.nrgs
 
     def parse_doscar(self, dir):
         self.doscar = DOSCARparser(os.path.join(dir, "DOSCAR"))

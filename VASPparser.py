@@ -1,6 +1,8 @@
 import time
 import os
 import numpy as np
+import sys
+
 
 class OutcarParser:
     """Class to parse a OUTCAR file"""
@@ -562,22 +564,56 @@ class BaderParser:
 
 class XDATCARParser:
     def __init__(self, file):
-        from ase.io.vasp import read_vasp_xdatcar
+
         print("reading XDATCAR file")
         self.file = file
         self.xdatcar_file_exists = False
         self.xdatcar_diff_exists = False
+
+        self.length = self.find_steps(file)
+
+        self.read_xdatcar(file)
+
+    def read_xdatcar(self, file):
+        from ase.io.vasp import read_vasp_xdatcar
         try:
             self.atoms = read_vasp_xdatcar(file, index=slice(None))
             self.coordinates = [at.positions for at in self.atoms]
             self.xdatcar_file_exists = True
-        except ValueError: #probably original XDATCAR file, not custom diff format
+        except ValueError: #probably XDATCAR_diff file
             try:
-                self.coordinates = self.read_diff_xdatcar(self.file)
+                self.coordinates = self.read_diff_xdatcar(file)
                 self.xdatcar_file_exists = True
                 self.xdatcar_diff_exists = True
             except: # something wrong with my parser or file
                 print("could not read XDATCAR diff file or file does not exist")
+
+    def find_steps(self, file):
+        search_strings = ["Step", "Direct"]
+
+        with open(self.file, 'r') as file:
+            if sys.getsizeof(file) > 10*1024*1024:
+                file.seek(0, 2)
+                file.seek(file.tell() - 16500, 0)
+                line = file.readline()
+                lines = file.readlines()
+                file.seek(file.tell() - 16500, 0)
+                file.readline()
+            else:
+                lines = file.readlines()
+                file.seek(0)
+            i = 0
+            while i < len(lines):
+                i += 1
+                line = file.readline()
+                if any(item in line for item in search_strings):
+                    if len(line.strip().split()) == 2:
+                        step = int(line.strip().split()[1])
+                    elif len(line.strip().split()) == 3:
+                        step = int(line.strip().split()[2])
+                    else:
+                        raise ValueError("Error! XDATCAR file is corrupted!")
+            return int(step)
 
 
     def read_diff_xdatcar(self, file):
@@ -610,6 +646,8 @@ class XDATCARParser:
                 if not line:
                     continue
                 if line.startswith('Step'):
+                    step_no = int(line.split()[1])
+                    print("\r", f"Step {step_no} ou of {self.length}", end="") if step_no % 10000 == 0 else None
                     if current_step:
                         images.append(np.array(current_step, dtype=float))
                         current_step = []

@@ -178,12 +178,14 @@ class StructureControlsWidget(QWidget):
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors = []
         cell = np.array(self.structure_plot_widget.data.unit_cell_vectors)
-        if self.structure_plot_widget.data.xdatcar.xdatcar_diff_exists:
+        if self.structure_plot_widget.data.xdatcar_file:
             init_coords = [cell@ np.array(lst[1:]) for lst in self.structure_plot_widget.data.outcar_coordinates[0]]
             coords_to_change = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
             for c in coords_to_change:
                 idx = int(c[0])
                 init_coords[idx-1] = np.array(self.structure_plot_widget.data.unit_cell_vectors).T @ np.array(c[1:])
+        else:
+            init_coords = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
         coordinates = init_coords
         self.structure_plot_widget.assign_missing_colors()
         for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
@@ -375,6 +377,7 @@ if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
 
+    os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/2.good/")
 
     window = MainWindow()
 

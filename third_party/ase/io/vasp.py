@@ -372,6 +372,7 @@ def read_vasp_xdatcar(filename='XDATCAR', index=-1):
             cell = np.array([xx, yy, zz]) * lattice_constant
 
             symbols = fd.readline().split()
+            symbols = [re.sub(r'[\d_].*', '', s) for s in symbols] # leave only alphanumeric, drop suffixes
             numbers = [int(n) for n in fd.readline().split()]
             total = sum(numbers)
 
