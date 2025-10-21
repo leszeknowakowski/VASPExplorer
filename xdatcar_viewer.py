@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 from config import AppConfig
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
-    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog, QHBoxLayout, QVBoxLayout, QGroupBox
+    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog, QHBoxLayout, QVBoxLayout, \
+    QGroupBox, QSlider
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QEvent
 from PyQt5 import QtWidgets
@@ -27,6 +28,49 @@ from vtkmodules.vtkCommonCore import (
 )
 from vtkmodules.vtkCommonMath import vtkMatrix4x4
 
+class SlowSlider(QtWidgets.QSlider):
+    def __init__(self, orientation=Qt.Horizontal, parent=None):
+        super().__init__(orientation, parent)
+        self.last_mouse_pos = None
+        self.setMinimum(0)
+        self.setMaximum(100)
+        self.setValue(50)
+
+    def mousePressEvent(self, event):
+        self.last_mouse_pos = event.pos()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.last_mouse_pos is None:
+            self.last_mouse_pos = event.pos()
+            super().mouseMoveEvent(event)
+            return
+
+        # Modifier keys
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers == Qt.ShiftModifier:
+            scale = 0.1  # 10x slower
+        elif modifiers == (Qt.ShiftModifier | Qt.AltModifier):
+            scale = 0.01  # 100x slower
+        else:
+            scale = 1.0
+
+        # Calculate movement
+        delta = event.pos().x() - self.last_mouse_pos.x()
+        delta_value = delta * scale * (self.maximum() - self.minimum()) / self.width()
+
+        # Update value manually
+        new_value = self.value() + delta_value
+        new_value = max(self.minimum(), min(self.maximum(), new_value))
+        self.setValue(int(new_value))
+
+        self.last_mouse_pos = event.pos()
+
+    def mouseReleaseEvent(self, event):
+        self.last_mouse_pos = None
+        super().mouseReleaseEvent(event)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -39,11 +83,16 @@ class MainWindow(QMainWindow):
         dir = self.set_working_dir()
         self.data = VaspData(dir)
 
+        self.splitter = QSplitter(Qt.Horizontal)
+
         self.structure_plot_interactor_widget = StructureViewer(self.data, self)
         self.structure_plot_control_tab = StructureControlsWidget(self.structure_plot_interactor_widget, self)
 
-        main_layout.addWidget(self.structure_plot_interactor_widget)
-        main_layout.addWidget(self.structure_plot_control_tab)
+        self.splitter.addWidget(self.structure_plot_interactor_widget)
+        self.splitter.addWidget(self.structure_plot_control_tab)
+
+        main_layout.addWidget(self.splitter)
+
 
     def set_working_dir(self):
         """ gets the current working dir. Useful for building"""
@@ -82,7 +131,7 @@ class StructureControlsWidget(QWidget):
         self.vlayout = QVBoxLayout(self)
         self.vlayout.setAlignment(Qt.AlignTop)
 
-        self.geometry_slider = QtWidgets.QSlider()
+        self.geometry_slider = SlowSlider()
         self.geometry_slider.setOrientation(Qt.Horizontal)
         self.geometry_slider.setMinimum(0)
         self.geometry_slider.setMaximum(len(self.structure_plot_widget.data.outcar_coordinates) - 1)
@@ -377,8 +426,9 @@ if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
 
-    os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/2.good/")
 
+    #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/2.good/")
+    os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
     window = MainWindow()
 
 

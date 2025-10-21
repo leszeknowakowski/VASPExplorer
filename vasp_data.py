@@ -100,7 +100,12 @@ class VaspData():
                     if os.path.getsize(self.xdatcar_file) > 0:
                         self.poscar = PoscarParser(self.xdatcar_file)
                         self.coordinates = self.xdatcar.coordinates[0]
-                        if self.outcar_coordinates == []:
+                        if hasattr(self, "outcar_coordinates"):
+                            if self.outcar_coordinates == []:
+                                self.outcar_coordinates = self.xdatcar.coordinates
+                                self.outcar_energies = [0 for step in self.outcar_coordinates]
+                                self.magmoms = [0 for atom in self.coordinates]
+                        else:
                             self.outcar_coordinates = self.xdatcar.coordinates
                             self.outcar_energies = [0 for step in self.outcar_coordinates]
                             self.magmoms = [0 for atom in self.coordinates]
@@ -136,7 +141,6 @@ class VaspData():
             self.poscar = PoscarParser(self.poscar_file)
             self.coordinates = self.poscar.coordinates()
             if not self.outcar_file:
-                if self.outcar_coordinates == []:
                     if not self.xdatcar_file:
                         self.outcar_coordinates = [self.poscar.coordinates()]
                         self.outcar_energies = [0]
