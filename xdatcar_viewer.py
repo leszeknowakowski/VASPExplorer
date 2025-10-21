@@ -428,7 +428,7 @@ if __name__ == '__main__':
 
 
     #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/2.good/")
-    os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
+    #os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
     window = MainWindow()
 
 
