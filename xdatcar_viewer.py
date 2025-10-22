@@ -183,6 +183,18 @@ class StructureControlsWidget(QWidget):
         self.geometry_frame_layout.addLayout(slider_layout)
         self.vlayout.addWidget(self.geometry_frame)
 
+        self.plane_frame = QGroupBox(self)
+        self.plane_frame.setTitle("Plane")
+        self.plane_frame_layout = QVBoxLayout(self.plane_frame)
+
+        self.plane_slider_layout = QHBoxLayout()
+        self.plane_slider = QSlider(Qt.Horizontal)
+        self.add_plane_higher(10)
+        self.plane_slider.valueChanged.connect(self.all_planes_position)
+        self.plane_slider_layout.addWidget(self.plane_slider)
+        self.plane_frame_layout.addLayout(self.plane_slider_layout)
+        self.vlayout.addWidget(self.plane_frame)
+
         self.energy_plot_frame = QGroupBox(self)
         self.energy_plot_frame.setTitle("Energy plot")
         self.energy_plot_frame_layout = QVBoxLayout(self.energy_plot_frame)
@@ -196,6 +208,47 @@ class StructureControlsWidget(QWidget):
 
         self.add_sphere()
 
+    def add_plane_higher(self, value):
+        """renders a plane perpendicular to XY plane at value height"""
+        self.planeSource_heigher = vtkPlaneSource()
+        self.structure_plot_widget.plane_actor_heigher = vtkActor()
+        self._add_plane(self.planeSource_heigher, self.structure_plot_widget.plane_actor_heigher, value)
+
+    def _add_plane(self, source, actor, value):
+        """renders a plane perpendicular to XY plane at value height"""
+        if actor is not None:
+            self.structure_plot_widget.plotter.remove_actor(actor)
+        z = self.structure_plot_widget.data.z
+        colors = vtkNamedColors()
+        colors.SetColor('BkgColor', [26, 51, 77, 255])
+
+        source.SetNormal(0.0, 0.0, 1.0)
+        source.SetOrigin(-5, -5, z / 100 * value)
+        source.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z / 100 * value)
+        source.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z / 100 * value)
+        source.Update()
+        plane = source.GetOutput()
+
+        # Create a mapper and actor
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputData(plane)
+
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(colors.GetColor3d('White'))
+        actor.GetProperty().SetAmbient(100)
+        #  self.plane_actor_heigher.GetProperty().SetOpacity()
+
+        self.structure_plot_widget.plotter.renderer.AddActor(actor)
+
+    def all_planes_position(self):
+        endVal = self.plane_slider.value()
+        z = self.structure_plot_widget.data.z
+        self.planeSource_heigher.SetOrigin(-5, -5, z / 100 * endVal)
+        self.planeSource_heigher.SetPoint1(self.structure_plot_widget.data.x + 5, -5, z / 100 * endVal)
+        self.planeSource_heigher.SetPoint2(-5, self.structure_plot_widget.data.y + 5, z / 100 * endVal)
+        self.planeSource_heigher.Update()
+
+        self.structure_plot_widget.plotter.renderer.Render()
 
     def end_geometry(self):
         last = len(self.structure_plot_widget.data.outcar_coordinates)
@@ -429,6 +482,7 @@ if __name__ == '__main__':
 
     #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/2.good/")
     #os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
+    os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/2.good/1/1.view")
     window = MainWindow()
 
 
