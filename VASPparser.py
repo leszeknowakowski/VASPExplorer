@@ -568,18 +568,18 @@ class XDATCARParser:
         self.file = file
         self.xdatcar_file_exists = False
         self.xdatcar_diff_exists = False
-
         self.length = self.find_steps(file)
 
         self.read_xdatcar(file)
 
     def read_xdatcar(self, file):
         from ase.io.vasp import read_vasp_xdatcar
-        try:
+        f = os.path.split(file)
+        if f[-1] == "XDATCAR":
             self.atoms = read_vasp_xdatcar(file, index=slice(None))
             self.coordinates = [at.positions for at in self.atoms]
             self.xdatcar_file_exists = True
-        except ValueError: #probably XDATCAR_diff file
+        elif f[-1].endswith("diff"):
             try:
                 self.coordinates = self.read_diff_xdatcar(file)
                 self.xdatcar_file_exists = True
@@ -591,16 +591,11 @@ class XDATCARParser:
         search_strings = ["Step", "Direct"]
 
         with open(self.file, 'r') as file:
-            if sys.getsizeof(file) > 10*1024*1024:
-                file.seek(0, 2)
-                file.seek(file.tell() - 16500, 0)
-                line = file.readline()
-                lines = file.readlines()
-                file.seek(file.tell() - 16500, 0)
-                file.readline()
-            else:
-                lines = file.readlines()
-                file.seek(0)
+            file.seek(0, 2)
+            file.seek(file.tell() - 16500, 0)
+            lines = file.readlines()
+            file.seek(file.tell() - 16500, 0)
+            file.readline()
             i = 0
             while i < len(lines):
                 i += 1

@@ -15,7 +15,7 @@ from config import AppConfig
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
     QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog, QHBoxLayout, QVBoxLayout, \
-    QGroupBox, QSlider
+    QGroupBox, QSlider, QMessageBox
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QEvent
 from PyQt5 import QtWidgets
@@ -54,6 +54,8 @@ class SlowSlider(QtWidgets.QSlider):
             scale = 0.1  # 10x slower
         elif modifiers == (Qt.ShiftModifier | Qt.AltModifier):
             scale = 0.01  # 100x slower
+        elif modifiers == (Qt.ControlModifier | Qt.AltModifier | Qt.ShiftModifier):
+            scale = 0.001
         else:
             scale = 1.0
 
@@ -282,14 +284,7 @@ class StructureControlsWidget(QWidget):
         """updates the label indicating current geometry number"""
         self.geometry_value_label.setText(f'geometry number: {self.geometry_slider.value()}')
 
-    def add_sphere(self, initialize=False):
-        """adds atoms from single geometry step as spheres to renderer.
-         Using VTK code because it is 100x faster than pyvista
-         """
-
-        for actor in self.structure_plot_widget.sphere_actors:
-            self.plotter.renderer.RemoveActor(actor)
-        self.structure_plot_widget.sphere_actors = []
+    def get_current_coords(self):
         cell = np.array(self.structure_plot_widget.data.unit_cell_vectors)
         if self.structure_plot_widget.data.xdatcar_file:
             init_coords = [cell@ np.array(lst[1:]) for lst in self.structure_plot_widget.data.outcar_coordinates[0]]
@@ -299,7 +294,20 @@ class StructureControlsWidget(QWidget):
                 init_coords[idx-1] = np.array(self.structure_plot_widget.data.unit_cell_vectors).T @ np.array(c[1:])
         else:
             init_coords = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
-        coordinates = init_coords
+
+        return init_coords
+
+    def add_sphere(self, initialize=False):
+        """adds atoms from single geometry step as spheres to renderer.
+         Using VTK code because it is 100x faster than pyvista
+         """
+
+        for actor in self.structure_plot_widget.sphere_actors:
+            self.plotter.renderer.RemoveActor(actor)
+        self.structure_plot_widget.sphere_actors = []
+
+        coordinates = self.get_current_coords()
+
         self.structure_plot_widget.assign_missing_colors()
         for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
             actor, source = self._create_vtk_sphere(coord, col)
@@ -423,13 +431,14 @@ class StructureControlsWidget(QWidget):
         if not file_name:
             QMessageBox.warning(self, "No File", "No file selected.")
             return
-        coords = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+        coords = self.get_current_coords()
         with open(file_name, "w") as f:
             for line in header:
                 f.write(line)
-            f.write("Direct\n")
+            f.write("Cartesian\n")
             for pos in coords:
-                f.write(" ".join(map(str, pos[1:]))+"\n")
+                f.write(' '.join(f"{c:.6f}" for c in pos)+"\n")
+                #f.write(" ".join(map(str, pos))+"\n")
 
 
     def energy_plot_layout(self):
@@ -486,8 +495,8 @@ class StructureControlsWidget(QWidget):
                 self.energy_plot_widget.getPlotItem().removeItem(item)
         y = self.structure_plot_widget.data.outcar_energies
         x = list(range(len(y)))
-        current_x = x[self.geometry_slider.value()]
-        current_y = y[self.geometry_slider.value()]
+        current_x = x[self.geometry_slider.value()+1]
+        current_y = y[self.geometry_slider.value()+1]
 
         brush = pg.mkBrush("#979797")
         self.moveable_scatter_plot_item = (
@@ -528,6 +537,7 @@ if __name__ == '__main__':
 
     #os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\2.good")
     #os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
+    #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/3.good+-Z_coords/1.Z-coord_up/1.cont/view")
 
     window = MainWindow()
 
