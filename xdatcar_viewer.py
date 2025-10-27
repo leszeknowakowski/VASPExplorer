@@ -124,6 +124,7 @@ class MainWindow(QMainWindow):
             self.dir = dir
         return dir
 
+
 class StructureControlsWidget(QWidget):
     def __init__(self, structure_plot, parent=None):
         super().__init__()
@@ -200,6 +201,10 @@ class StructureControlsWidget(QWidget):
         self.print_positions_button = QtWidgets.QPushButton("Print positions")
         self.print_positions_button.clicked.connect(self.print_positions)
         self.vlayout.addWidget(self.print_positions_button)
+
+        self.write_poscar_button = QtWidgets.QPushButton("Write Poscar")
+        self.write_poscar_button.clicked.connect(self.write_poscar_file)
+        self.vlayout.addWidget(self.write_poscar_button)
 
         self.energy_plot_frame = QGroupBox(self)
         self.energy_plot_frame.setTitle("Energy plot")
@@ -411,6 +416,22 @@ class StructureControlsWidget(QWidget):
         for pos in coords:
             print(" ".join(map(str, pos[1:])))
 
+    def write_poscar_file(self):
+        header = self.structure_plot_widget.data.xdatcar.get_header()
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save POSCAR", "POSCAR", "All Files (*)", options=options)
+        if not file_name:
+            QMessageBox.warning(self, "No File", "No file selected.")
+            return
+        coords = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+        with open(file_name, "w") as f:
+            for line in header:
+                f.write(line)
+            f.write("Direct\n")
+            for pos in coords:
+                f.write(" ".join(map(str, pos[1:]))+"\n")
+
+
     def energy_plot_layout(self):
         self.energy_plot_widget = pg.PlotWidget()
         self.energy_plot_widget.setTitle("")
@@ -482,7 +503,6 @@ class StructureControlsWidget(QWidget):
         Show scatter plot with energy optimization plot for certain geometry step.
         For unknown reason signal is not send when first point is clicked.
         """
-        print("clicked points", points)
         if len(points) > 1:
             length = len(points)
             point = points[int(length / 2)]
@@ -506,7 +526,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
 
-    os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\2.good")
+    #os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\2.good")
     #os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
 
     window = MainWindow()

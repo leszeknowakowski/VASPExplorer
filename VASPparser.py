@@ -460,7 +460,6 @@ class PoscarParser:
     def all_constrains(self):
         return self.parse_coordinates()[2]
 
-
 class DOSCARparser:
 
     def __init__(self, file):
@@ -625,10 +624,8 @@ class XDATCARParser:
 
         """
 
-
         images = []
         current_step = []
-
 
         with open(file, 'r') as fd:
             comment = fd.readline()
@@ -657,6 +654,12 @@ class XDATCARParser:
             if current_step:
                 images.append(np.array(current_step, dtype=float))
         return images
+
+    def get_header(self):
+        with open(self.file, 'r') as fd:
+            header = [fd.readline() for _ in range(7)]
+
+        return header
 
 
 class OSZICARParser:
