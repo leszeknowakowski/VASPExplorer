@@ -5,6 +5,8 @@ import platform
 import os
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
+from sympy.physics.units import length
+
 from console_widget import PythonConsole
 import pyqtgraph as pg
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
@@ -194,6 +196,10 @@ class StructureControlsWidget(QWidget):
         self.plane_slider_layout.addWidget(self.plane_slider)
         self.plane_frame_layout.addLayout(self.plane_slider_layout)
         self.vlayout.addWidget(self.plane_frame)
+
+        self.print_positions_button = QtWidgets.QPushButton("Print positions")
+        self.print_positions_button.clicked.connect(self.print_positions)
+        self.vlayout.addWidget(self.print_positions_button)
 
         self.energy_plot_frame = QGroupBox(self)
         self.energy_plot_frame.setTitle("Energy plot")
@@ -400,6 +406,11 @@ class StructureControlsWidget(QWidget):
                 self.structure_plot_widget.plotter.renderer.AddActor(actor)
                 self.structure_plot_widget.bond_actors.append(actor)
 
+    def print_positions(self):
+        coords = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+        for pos in coords:
+            print(" ".join(map(str, pos[1:])))
+
     def energy_plot_layout(self):
         self.energy_plot_widget = pg.PlotWidget()
         self.energy_plot_widget.setTitle("")
@@ -442,6 +453,7 @@ class StructureControlsWidget(QWidget):
             hoverBrush=pg.mkBrush('g')
         )
         s1.addPoints(x, y)
+        s1.sigClicked.connect(self.clicked_scatter_plot)
         self.energy_plot_widget.addItem(s1)
 
     def update_scatter(self):
@@ -465,6 +477,20 @@ class StructureControlsWidget(QWidget):
         self.moveable_scatter_plot_item.addPoints([current_x], [current_y])
         self.energy_plot_widget.addItem(self.moveable_scatter_plot_item)
 
+    def clicked_scatter_plot(self, plot, points):
+        """
+        Show scatter plot with energy optimization plot for certain geometry step.
+        For unknown reason signal is not send when first point is clicked.
+        """
+        print("clicked points", points)
+        if len(points) > 1:
+            length = len(points)
+            point = points[int(length / 2)]
+        else:
+            point = points[0]
+        val = point._index
+        self.geometry_slider.setValue(val)
+
 
 class MoveableScatterPlotItem(pg.ScatterPlotItem):
     """
@@ -480,9 +506,9 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
 
-    #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/2.good/")
+    os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\2.good")
     #os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
-    os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/2.good/1/1.view")
+
     window = MainWindow()
 
 
