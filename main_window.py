@@ -461,7 +461,7 @@ if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
     app.setStyle(QStyleFactory.create("Fusion"))
-    os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/0.training/5.interface_small")
+    #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/0.training/5.interface_small")
     window = MainWindow()
 
     window.log_program_launch()

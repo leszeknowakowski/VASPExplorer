@@ -1213,7 +1213,7 @@ class ConstraintsWindow(QWidget):
             QMessageBox.warning(self, "No File", "No file selected.")
             return
         self.apply_constraints()
-        write(file_name[0], self.atoms, format="traj")
+        write(file_name, self.atoms, format="traj")
         QMessageBox.information(self, "Success", "File saved successfully.")
         self.close()
         self.file_choose.close()
