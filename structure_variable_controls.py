@@ -583,6 +583,9 @@ class StructureVariableControls(QWidget):
             elif isinstance(target, tempfile._TemporaryFileWrapper):
                 stream = target
                 close_after = False
+            elif isinstance(target, tempfile._io.TextIOWrapper):
+                stream = target
+                close_after = False
             else:
                 raise ValueError("Target must be 'default', a file path string, an io.StringIO object or a tempfile._TemporaryFileWrapper object")
 
