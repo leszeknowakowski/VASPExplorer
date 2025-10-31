@@ -1120,6 +1120,7 @@ class ConstraintsWindow(QWidget):
         tmp_poscar.seek(0)
         try:
             self.atoms = read(tmp_poscar, format='vasp')
+            self.constraints_list.extend(self.atoms.constraints)
         except:
             print("atoms in POSCAR have different symbols then standard atomic symbols.")
             print(f'symbols in poscar: {self.parent_class.structure_control_widget.structure_plot_widget.data.atomic_symbols}')
