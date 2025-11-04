@@ -48,6 +48,7 @@ class StructureControlsWidget(QWidget):
         self.plotter = self.structure_plot_widget.plotter
         self.constrain_actor = self.structure_plot_widget.constrain_actor
         self.bond_actor = self.structure_plot_widget.bond_actors
+        self.bond_visibility = 1
 
         self.plotter.enable_rectangle_picking(show_frustum=False, callback=self.on_selection)
         self.plotter.add_key_event(key='r', callback=self.shift_event)
@@ -551,6 +552,8 @@ class StructureControlsWidget(QWidget):
         connect signal when self.bond_threshold is passed as argument, so it has to be implemen-
         ted in this module. So does all functions which depend on slider/checkbox variables
         """
+        if self.bond_visibility == 0:
+            return
         bond_threshold = self.bond_threshold
         geometry_slider_value = self.geometry_slider.value()
         coord_pairs = []
@@ -771,6 +774,7 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.symb_actor.SetVisibility(False)
 
     def toggle_bonds(self, flag):
+        self.bond_visibility = flag
         for actor in self.structure_plot_widget.bond_actors:
             actor.SetVisibility(flag)
 
