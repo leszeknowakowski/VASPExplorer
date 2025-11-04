@@ -248,9 +248,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.setTickInterval(1)
         self.geometry_slider.setSingleStep(1)
 
-        self.geometry_slider.valueChanged.connect(lambda: self.add_sphere(initialize=False))
         self.geometry_slider.valueChanged.connect(self.update_geometry_value_label)
-        self.geometry_slider.valueChanged.connect(self.add_bonds)
         self.geometry_slider.valueChanged.connect(self.toggle_symbols)
         self.geometry_slider.valueChanged.connect(self.toggle_mag_above_plane)
         self.geometry_slider.valueChanged.connect(self.toggle_constrain_above_plane)
@@ -466,10 +464,17 @@ class StructureControlsWidget(QWidget):
     def change_sphere_radius_label(self):
         self.sphere_radius_label.setText(f"Sphere radius: {self.sphere_radius}")
 
+    def get_spheres_visibility(self):
+        visibility_mask = []
+        for actor in self.structure_plot_widget.sphere_actors:
+            visibility_mask.append(actor.GetVisibility())
+        return visibility_mask
+
     def add_sphere(self, initialize=False):
         """adds atoms from single geometry step as spheres to renderer.
          Using VTK code because it is 100x faster than pyvista
          """
+        visibility_mask = self.get_spheres_visibility()
 
         for actor in self.structure_plot_widget.sphere_actors:
             self.plotter.renderer.RemoveActor(actor)
@@ -479,12 +484,14 @@ class StructureControlsWidget(QWidget):
         for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
             actor, source = self._create_vtk_sphere(coord, col)
             actor.SetObjectName(str(idx))
+            actor.SetVisibility(1)
             self.plotter.renderer.AddActor(actor)
             self.structure_plot_widget.sphere_actors.append(actor)
-        for actor in self.structure_plot_widget.sphere_actors:
-            actor.SetVisibility(True)
+
 
         if not initialize:
+            for actor, flag in zip(self.structure_plot_widget.sphere_actors, visibility_mask):
+                actor.SetVisibility(flag)
             actors = self.structure_plot_widget.sphere_actors
             colors = vtkNamedColors()
             self.selected_actors = []
@@ -502,6 +509,7 @@ class StructureControlsWidget(QWidget):
                         self.selected_actors.append(actors[row])
             except:
                 pass
+            return
 
     def _create_vtk_sphere(self, coord, col, theta_resolution=20, phi_resolution=20):
         # Create a sphere
@@ -536,7 +544,7 @@ class StructureControlsWidget(QWidget):
         actor.VisibilityOff()  # Equivalent to render=False in PyVista
         return actor, sphere_source
 
-    def add_bonds(self):
+    def add_bonds(self, show_all=True):
         """
         render bonds as lines. First calculate all pairs, which distance is less than threshold,
         and then uses vtkLine to create a bond. For unknown reason, function doesn't work with
@@ -557,6 +565,9 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.bond_actors = []
         self.structure_plot_widget.coord_pairs = []
 
+        visibility_mask = self.get_spheres_visibility()
+        if not show_all:
+            coordinates = [e for e,v in zip(coordinates, visibility_mask) if v==1]
         # Calculate pairwise distances
         distances = squareform(pdist(coordinates))
 
@@ -585,6 +596,7 @@ class StructureControlsWidget(QWidget):
 
                 self.structure_plot_widget.plotter.renderer.AddActor(actor)
                 self.structure_plot_widget.bond_actors.append(actor)
+        return
 
     def toggle_unit_cell(self, flag):
         """ switches on and off unit cell visibility"""
@@ -761,7 +773,6 @@ class StructureControlsWidget(QWidget):
     def toggle_bonds(self, flag):
         for actor in self.structure_plot_widget.bond_actors:
             actor.SetVisibility(flag)
-
 
     def set_bond_threshold(self, value):
         """ setter of the bond_threshold_value"""

@@ -343,7 +343,7 @@ class StructureVariableControls(QWidget):
         self.layout.addWidget(self.tableWidget)
         self.tableWidget.setMinimumWidth(0)
 
-        self.structure_control_widget.selected_actors_changed.connect(self.rectangle_rows_selection)
+        self.structure_control_widget.selected_actors_changed.connect(lambda: self.rectangle_rows_selection(rows=None))
         self.structure_control_widget.geometry_slider.valueChanged.connect(self.update_bonds)
         self.structure_control_widget.geometry_slider.valueChanged.connect(self.change_table_when_atom_added)
         self.structure_control_widget.geometry_slider.valueChanged.connect(self.tableWidget.update_all_data)
@@ -507,6 +507,7 @@ class StructureVariableControls(QWidget):
             if 0 <= row < len(actors):
                 actors[row].GetProperty().SetColor(colors.GetColor3d('Yellow'))
                 self.structure_control_widget.selected_actors.append(actors[row])
+        return
 
     def is_row_selected(self, row):
         column_count = self.tableWidget.columnCount()
@@ -515,22 +516,30 @@ class StructureVariableControls(QWidget):
                 return False
         return True
 
-    def rectangle_rows_selection(self):
-        shift_pressed = False
+    def rectangle_rows_selection(self, rows=None):
         if not self.structure_control_widget.selected_actors:
             self.tableWidget.clearSelection()
-        rows = self.get_selected_rows()
+        if rows is None:
+            rows = self.get_selected_rows()
+        model = self.tableWidget.selectionModel()
         self.tableWidget.blockSignals(True)
 
-        # if shift button is pressed, remove prevoiusly selected rows to avoid unselection
         if self.parent.shift_pressed:
-            previous_rows = [x.row() for x in self.tableWidget.selectionModel().selectedRows()]
-            new_selected_rows = [x for x in rows if x not in previous_rows]
-            for row in new_selected_rows:
-                self.tableWidget.selectRow(row)
-        else:
+            # Add new rows to selection (preserving existing)
+            selection = QItemSelection()
             for row in rows:
-                self.tableWidget.selectRow(row)
+                index = self.tableWidget.model().index(row, 0)
+                selection.merge(QItemSelection(index, index), QItemSelectionModel.Select)
+            model.select(selection, QItemSelectionModel.Select | QItemSelectionModel.Rows)
+        else:
+            # Invert selection for the specified rows
+            for row in rows:
+                index = self.tableWidget.model().index(row, 0)
+                if model.isSelected(index):
+                    model.select(index, QItemSelectionModel.Deselect | QItemSelectionModel.Rows)
+                else:
+                    model.select(index, QItemSelectionModel.Select | QItemSelectionModel.Rows)
+
         self.tableWidget.blockSignals(False)
         self.on_selection_changed()
 
@@ -656,12 +665,14 @@ class StructureVariableControls(QWidget):
 
     def change_table_when_atom_added(self):
         self.tableWidget.blockSignals(True)
+        selected_rows = self.get_selected_rows()
         self.tableWidget.clearContents()
         self.layout.removeWidget(self.tableWidget)
         self.tableWidget.blockSignals(False)
 
         # Rebuild the table with the updated data
         self.create_table()
+        self.rectangle_rows_selection(rows=selected_rows)
 
         # Add the new table to the layout
         self.layout.addWidget(self.tableWidget)
