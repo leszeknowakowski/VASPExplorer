@@ -154,6 +154,10 @@ class StructureViewer(QWidget):
         stripped_symbols = [''.join([char for char in input_string if char.isalpha()]) for input_string in splitted_symbols]
         self.data.stripped_symbols = stripped_symbols
 
+        ################################# warning #####################################
+        ########## arbitrary change of D to Ce and C to Co ############################
+        stripped_symbols = ['Ce' if x.lower() == 'd' else 'Co' if x.lower() == 'c' else x for x in stripped_symbols]
+
         # Assign colors to atoms based on the mapping or directly from self.color_data
         self.atom_colors = [
             self.color_data[self.symbol_to_color_mapper.get_mapped_symbol(symbol)]

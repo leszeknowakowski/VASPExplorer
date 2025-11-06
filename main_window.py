@@ -168,6 +168,7 @@ class MainWindow(QMainWindow):
         move_atoms_window = QAction("Move atoms", self)
         clear_bonds_menu_action = QAction("Clear Bonds", self)
         view_cameras_action = QAction("View Cameras", self)
+        view_convex_hull_action = QAction("View Convex Hull", self)
 
         save_action.triggered.connect(self.structure_variable_control_tab.save_poscar)
         copy_action.triggered.connect(self.structure_variable_control_tab.tableWidget.copy_table)
@@ -175,6 +176,7 @@ class MainWindow(QMainWindow):
         move_atoms_window.triggered.connect(self.structure_variable_control_tab.move_atoms_widget)
         clear_bonds_menu_action.triggered.connect(self.structure_variable_control_tab.remove_bond_lengths)
         view_cameras_action.triggered.connect(self.structure_plot_interactor_widget.show_camera_menu)
+        view_convex_hull_action.triggered.connect(self.structure_variable_control_tab.view_convex_hull)
 
         # Create menu items
         file_menu = menubar.addMenu('File')
@@ -202,6 +204,7 @@ class MainWindow(QMainWindow):
         camera_menu = QMenu("Camera", self)
         view_menu.addMenu(actors_menu)
         view_menu.addMenu(camera_menu)
+        view_menu.addAction(view_convex_hull_action)
 
         camera_menu.addAction(view_cameras_action)
 
@@ -392,6 +395,7 @@ class MainWindow(QMainWindow):
 
             self.dir = selected_dir
             self.set_window_title(self.dir)
+            AppConfig.dir = selected_dir
 
         #except Exception as e:
         #QMessageBox.critical(self, "Error Loading Data", str(e))
@@ -448,9 +452,8 @@ class MainWindow(QMainWindow):
                 #dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
                 #dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR' # poscar with D1, D2, Ce1 etc.
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\2.spinel_3x3_ceria_186"
-                #dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.full_interface_3x3\3.mlff"
+                dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\1.precursors_and_clusters\5.larger_513"
 
-                #dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
             #print("can't resolve operating system")
             self.dir = dir
         AppConfig.dir = dir

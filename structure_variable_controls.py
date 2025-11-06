@@ -986,6 +986,25 @@ class StructureVariableControls(QWidget):
             bond.clear_bond_labels()
             bond.add_bond_length()
 
+    def view_convex_hull(self):
+        from convex_hull import ConvexHullWidget
+        from ase.io import read
+        atoms = None
+        self.dir = AppConfig.dir
+        files = ["CONTCAR", "POSCAR", "XDATCAR"]
+        for file in files:
+            f = os.path.join(self.dir, file)
+            try:
+                atoms = read(f)
+            except:
+                pass
+        if atoms is None:
+            return
+        self.convex_hull_widget = ConvexHullWidget(atoms, plotter=self.structure_control_widget.plotter)
+        self.convex_hull_widget.resize(800, 400)
+        self.convex_hull_widget.show()
+
+
 # noinspection PyUnresolvedReferences
 class AtomChooseWindow(QWidget):
     sig = pyqtSignal()
