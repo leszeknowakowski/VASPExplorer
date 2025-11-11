@@ -442,15 +442,114 @@ class StructureControlsWidget(QWidget):
 
 
     def energy_plot_layout(self):
+        self.nrg_tabs = QTabWidget()
+
         self.energy_plot_widget = pg.PlotWidget()
         self.energy_plot_widget.setTitle("")
+
+        self.nrg_tabs.addTab(self.energy_plot_widget, "Energy line")
+        self.nrg_tabs.addTab(self.heatmap_energy(), "Energy heatmap")
+        self.nrg_tabs.setCurrentIndex(1)
         self.add_scatter_plot()
         self.update_scatter()
 
         self.add_line_plot()
 
-        self.energy_plot_frame_layout.addWidget(self.energy_plot_widget)
+        self.energy_plot_frame_layout.addWidget(self.nrg_tabs)
         self.vlayout.addWidget(self.energy_plot_frame)
+
+    def heatmap_energy(self):
+        self.data = np.array(self.structure_plot_widget.data.outcar_energies)
+        self.data = np.append(self.data[1:],self.data[-1])
+        self.data = self.data.reshape(36, 100, 100)
+        self.heatmap_widget = QWidget()
+        self.heatmap_layout = QVBoxLayout()
+
+        self.heatmap_slider_layout = QHBoxLayout()
+
+        self.heatmap_slider = QSlider(Qt.Horizontal)
+        self.heatmap_slider.setMinimum(0)
+        self.heatmap_slider.setMaximum(len(self.data)-1)
+        self.heatmap_slider.valueChanged.connect(self.on_slider_value_changed)
+
+        self.heatmap_slider_label = QLabel("rotation number:")
+        self.heatmap_lbl_number = QLabel(str(self.heatmap_slider.value()))
+
+        self.heatmap_slider_layout.addWidget(self.heatmap_slider_label)
+        self.heatmap_slider_layout.addWidget(self.heatmap_lbl_number)
+        self.heatmap_slider_layout.addWidget(self.heatmap_slider)
+
+        self.heatmap_layout.addLayout(self.heatmap_slider_layout)
+
+
+        self.heatmap_plot = pg.GraphicsLayoutWidget()
+        item = self.create_matrix(self.data[0])
+        self.add_energy_heatmap_plot(item, self.heatmap_plot)
+        self.heatmap_layout.addWidget(self.heatmap_plot)
+
+        self.heatmap_widget.setLayout(self.heatmap_layout)
+        return self.heatmap_widget
+
+
+    def add_energy_heatmap_plot(self, item, parent, gradient="CET-D1A", name="", **kwargs):
+        parent.clear()
+        view = parent.addPlot()
+        view.setLabel("left", "y dimension")
+        view.setLabel("bottom", "x dimension")
+        view.invertY(True)
+        view.setDefaultPadding(0.0)
+        view.addItem(item)
+        view.showAxes(True, showValues=(True, True, False, False), size=20)
+        view.getAxis('bottom').setHeight(20)
+        view.getAxis('left').setWidth(50)
+
+        width, height = item.image.shape
+        base_size = 800
+        aspect_ratio = width / height
+        vb = view.getViewBox()
+        vb.setAspectLocked(True)
+        plot_width = base_size
+        plot_height = int(base_size / aspect_ratio)
+        colorMap = pg.colormap.get(gradient)
+        bar = pg.ColorBarItem(colorMap=colorMap, **kwargs)
+        bar.setImageItem(item, insert_in=view)
+
+    def rearrange_data(self, data):
+        indices = np.load("indices.npy")
+        indices = indices.reshape(3, 20, 20,3)
+
+        ind = indices[0]
+
+        shape = np.shape(data)
+        rearranged = np.empty_like(data)
+        for i in range(shape[0]):
+            for j in range(shape[1]):
+                _, x, y = ind[i, j]
+                rearranged[x,y] = data[i,j]
+        return rearranged
+
+    def create_matrix(self, data):
+        #data  = self.rearrange_data(data)
+
+        #data = np.roll(data, -1, axis=1)
+        data_copy = data.copy()
+        data_copy[1::2] = data_copy[1::2, ::-1]
+        image_item = pg.ImageItem()
+        image_item.setImage(data_copy.T)
+        image_item.mouseClickEvent = self.on_map_left_clicked
+        return image_item
+
+    def on_map_left_clicked(self, event):
+        pos = event.pos()
+        x, y = int(pos.x())+1, int(pos.y())+1
+        print(f"{x}, {y}")
+        val = x * y
+        self.geometry_slider.setValue(val)
+
+    def on_slider_value_changed(self, value):
+        self.heatmap_lbl_number.setText(str(value))
+        item = self.create_matrix(self.data[value])
+        self.add_energy_heatmap_plot(item, self.heatmap_plot)
 
     def clear_energy_plot(self):
         for item in self.energy_plot_widget.getPlotItem().listDataItems():
@@ -534,15 +633,9 @@ if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
 
-
-    #os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\2.good")
-    #os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
-    #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/1.production/3.massive_search/1.3x3/1.spinel_3x3_ceria_mlff/1.MLFF/3.good+-Z_coords/1.Z-coord_up/1.cont/view")
-
+    os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\3.good+-Z_coords\1.Z-coord_up")
+    #os.chdir(r"D:\syncme\test_for_doswizard\MLFF_with_copying")
     window = MainWindow()
-
-
-
 
     toc = time.perf_counter()
     print(f'Execution time: {toc - tic:0.4f} seconds')

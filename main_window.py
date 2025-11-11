@@ -154,6 +154,9 @@ class MainWindow(QMainWindow):
 
         save_action = QAction(QIcon(os.path.join(icon_path, "save.png")), "Save", self)
         save_action.setShortcut("Ctrl+S")
+
+        save_gif_action = QAction("Save gif", self)
+        save_gif_action.triggered.connect(self.structure_plot_control_tab.save_gif)
         quit_action = QAction("Quit", self)
         quit_action.setShortcut("Ctrl+Q")
 
@@ -182,6 +185,7 @@ class MainWindow(QMainWindow):
         file_menu = menubar.addMenu('File')
 
         file_menu.addAction(open_action)
+        file_menu.addAction(save_gif_action)
         # install later
         #file_menu.addAction(new_action)
         #file_menu.addAction(save_action)
@@ -448,7 +452,7 @@ class MainWindow(QMainWindow):
                 dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
+                dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
                 #dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
                 #dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR' # poscar with D1, D2, Ce1 etc.
                 #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\2.spinel_3x3_ceria_186"

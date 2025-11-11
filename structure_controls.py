@@ -4,15 +4,15 @@ tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtWidgets import QFrame, QWidget, QVBoxLayout, QLabel, \
-    QHBoxLayout,QApplication, QSizePolicy, QGroupBox, QGraphicsView, QGraphicsScene, QGraphicsRectItem
-from PyQt5.QtGui import QIcon, QCursor, QColor, QBrush
+from PyQt5.QtWidgets import  QWidget, QVBoxLayout, QLabel, QFileDialog, QDialog, QDialogButtonBox,\
+    QHBoxLayout, QApplication,  QGroupBox, QSpinBox
+from PyQt5.QtGui import QIcon, QCursor
 
 from scipy.spatial.distance import pdist, squareform
 
 from RangeSlider import QRangeSlider
 from vtk import vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
-    vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper, vtkArrowSource, \
+    vtkPolyDataMapper, vtkArrowSource, \
 vtkTransformPolyDataFilter, vtkTransform
 from vtkmodules.vtkCommonCore import (
     vtkMath,
@@ -1003,6 +1003,64 @@ class StructureControlsWidget(QWidget):
         actor.GetProperty().SetColor(colors.GetColor3d('Cyan'))
 
         return actor
+
+    def save_gif(self):
+        """Render a GIF by looping through slider positions."""
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save GIF", "animation.gif", "GIF Files (*.gif)"
+        )
+        if not filename:
+            return
+        class FPSsetter(QDialog):
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.setWindowTitle("Set FPS")
+                self.layout = QVBoxLayout(self)
+                self.label = QLabel("FPS:")
+                self.layout.addWidget(self.label)
+                self.fps_input = QSpinBox()
+                self.fps_input.setMinimum(1)
+                self.fps_input.setValue(20)
+                self.fps_input.setMaximum(100)
+                self.layout.addWidget(self.fps_input)
+
+                # OK and Cancel buttons
+                buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+                buttons.accepted.connect(self.accept_value)
+                buttons.rejected.connect(self.reject)
+                self.layout.addWidget(buttons)
+
+                self.setLayout(self.layout)
+
+            def accept_value(self):
+                self.fps = int(self.fps_input.value())
+                self.accept()
+
+        dialog = FPSsetter()
+        if dialog.exec_() == QDialog.Accepted:
+            print(f"Integer entered: {dialog.fps}")
+        else:
+            print("Dialog cancelled. Set FPS to 10")
+            dialog.fps = 10
+
+        slider_min = self.geometry_slider.minimum()
+        slider_max = self.geometry_slider.maximum()
+        slider_value = self.geometry_slider.value()
+        self.geometry_slider.setValue(slider_min)
+
+        self.structure_plot_widget.plotter._picking_text.prop.opacity = 0
+        self.plotter.open_gif(filename, fps=dialog.fps)
+        for i in range(slider_min, slider_max):
+            self.geometry_slider.setValue(i)
+            QApplication.processEvents()
+            self.plotter.write_frame()
+            print(f"\rWriting frame {i} of {slider_max}", end= "")
+        self.geometry_slider.setValue(slider_value)
+        print("\ncreating gif file")
+        self.plotter.mwriter.close()
+        self.structure_plot_widget.plotter._picking_text.prop.opacity = 1
+        print("Done")
+
 
     def closeEvent(self, QCloseEvent):
         super().closeEvent(QCloseEvent)
