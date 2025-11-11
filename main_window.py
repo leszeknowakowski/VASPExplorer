@@ -450,13 +450,11 @@ class MainWindow(QMainWindow):
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
                 #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
                 dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
-                #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
+                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
                 #dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
                 #dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR' # poscar with D1, D2, Ce1 etc.
-                #dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\2.spinel_3x3_ceria_186"
-                dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\1.precursors_and_clusters\5.larger_513"
+                #dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\1.precursors_and_clusters\5.larger_513"
 
             #print("can't resolve operating system")
             self.dir = dir

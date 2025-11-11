@@ -4,8 +4,8 @@ tic = time.perf_counter()
 import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtWidgets import  QWidget, QVBoxLayout, QLabel, QFileDialog, QDialog, QDialogButtonBox,\
-    QHBoxLayout, QApplication,  QGroupBox, QSpinBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QFileDialog, QDialog, QDialogButtonBox, \
+    QHBoxLayout, QApplication, QGroupBox, QSpinBox, QPushButton
 from PyQt5.QtGui import QIcon, QCursor
 
 from scipy.spatial.distance import pdist, squareform
@@ -194,11 +194,22 @@ class StructureControlsWidget(QWidget):
         self.render_frame_layout.addWidget(unit_cell_cb)
 
         # ############### forces ########################
+        self.forces_layout = QHBoxLayout()
         self.forces_cb = QtWidgets.QCheckBox()
         self.forces_cb.setChecked(False)
         self.forces_cb.setText('forces')
         self.forces_cb.stateChanged.connect(self.toggle_forces)
-        self.render_frame_layout.addWidget(self.forces_cb)
+        self.forces_layout.addWidget(self.forces_cb)
+
+        self.max_force_btn = QPushButton("Max force")
+        self.max_force_btn.clicked.connect(self.max_force)
+        self.forces_layout.addWidget(self.max_force_btn)
+
+        self.rmse_forces_btn = QPushButton("RMSE force")
+        self.rmse_forces_btn.clicked.connect(self.rmse_forces)
+        self.forces_layout.addWidget(self.rmse_forces_btn)
+
+        self.render_frame_layout.addLayout(self.forces_layout)
 
     def text_control_widget(self):
         """ widgets connected to rendering text on 3d structure, such as numbers of atom, constrains """
@@ -937,6 +948,18 @@ class StructureControlsWidget(QWidget):
         else:
             for actor in self.forces_actors:
                 actor.SetVisibility(flag)
+
+    def max_force(self):
+        val = self.geometry_slider.value()
+        f = np.array(self.structure_plot_widget.data.outcar_data.forces[val])
+        max = np.max(f)
+        print(f"max force: {max}")
+
+    def rmse_forces(self):
+        val = self.geometry_slider.value()
+        f = np.array(self.structure_plot_widget.data.outcar_data.forces[val])
+        rmse = np.sqrt(np.mean(f**2))
+        print(f"rmse forces: {rmse}")
 
     def create_arrow(self, center, vector):
         colors = vtkNamedColors()
