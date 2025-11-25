@@ -168,6 +168,9 @@ class DosPlotWidget(QWidget):
         for atom_index in selected_atoms:
             for orbital_index in selected_orbitals:
                 plot_color = next(color_gen_down)
+                pen = pg.mkPen(plot_color, width=self.PLOT_LINEWIDTH)
+                pen.setCapStyle(QtCore.Qt.PenCapStyle.RoundCap)
+                pen.setJoinStyle(QtCore.Qt.PenJoinStyle.RoundJoin)
                 plot_data = dataset_down[atom_index][orbital_index]
                 self.full_range_plot.plot([-x for x in plot_data],
                                           nrg,
