@@ -667,6 +667,7 @@ class OSZICARParser:
             self.oszicar_file_exists = True
         except Exception as e:
             self.oszicar_file_exists = False
+            self.nrgs = [0]
             print(e)
 
     def read_oszicar(self, file):
