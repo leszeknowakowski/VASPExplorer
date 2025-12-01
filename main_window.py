@@ -72,7 +72,6 @@ class MainWindow(QMainWindow):
         print(f'import pyqtgraph in main: {toc - tic:0.4f}')
 
         self.splash.showMessage("Initializing UI", Qt.AlignBottom| Qt.AlignCenter, Qt.black)
-        self.setWindowTitle('VASPy-vis v.0.0.0')
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icons", "logo_small.png")))
         self.resize(1400, 1000)
 
@@ -367,7 +366,7 @@ class MainWindow(QMainWindow):
         parts = abs_path.strip(os.sep).split(os.sep)
         # Join the last 6 components
         last_6_dirs = os.sep.join(parts[-6:])
-        self.setWindowTitle("VASPy-vis v. " + self.__version__ + ": " +last_6_dirs)
+        self.setWindowTitle("VASPUI v. " + self.__version__ + ": " + last_6_dirs)
 
     def choose_dir(self):
         """Open a directory and reload all VASP data from it, updating the GUI."""

@@ -598,10 +598,8 @@ class StructureVariableControls(QWidget):
             else:
                 raise ValueError("Target must be 'default', a file path string, an io.StringIO object or a tempfile._TemporaryFileWrapper object")
 
-
-
             # Write POSCAR content
-            stream.write("created by Leszek Nowakowski with VASPy-vis \n")
+            stream.write("created by VASPUI \n")
             stream.write("1.0000000000000\n")
             stream.write(f" {x:.6f}\t0.000000 0.000000\n")
             stream.write(f" 0.0000000 {y:.6f} 0.000000\n")
