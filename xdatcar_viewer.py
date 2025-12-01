@@ -7,7 +7,6 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 from sympy.physics.units import length
 
-import VASPparser
 from console_widget import PythonConsole
 import pyqtgraph as pg
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
@@ -85,8 +84,8 @@ class MainWindow(QMainWindow):
         main_layout = QHBoxLayout(central_widget)
         from structure_plot import StructureViewer
         from vasp_data import VaspData
-        self.dir = self.set_working_dir()
-        self.data = VaspData(self.dir)
+        dir = self.set_working_dir()
+        self.data = VaspData(dir)
 
         self.splitter = QSplitter(Qt.Horizontal)
 
@@ -461,11 +460,8 @@ class StructureControlsWidget(QWidget):
 
     def heatmap_energy(self):
         self.data = np.array(self.structure_plot_widget.data.outcar_energies)
-        if len(self.data) == 1:
-            oszicar = VASPparser.OSZICARParser("OSZICAR")
-            self.data = oszicar.nrgs
         self.data = np.append(self.data[1:],self.data[-1])
-        self.data = self.data.reshape(18, 100, 100)
+        self.data = self.data.reshape(36, 100, 100)
         self.heatmap_widget = QWidget()
         self.heatmap_layout = QVBoxLayout()
 
@@ -596,7 +592,7 @@ class StructureControlsWidget(QWidget):
         for item in self.energy_plot_widget.getPlotItem().listDataItems():
             if isinstance(item, MoveableScatterPlotItem):
                 self.energy_plot_widget.getPlotItem().removeItem(item)
-        y = self.data.flatten()
+        y = self.structure_plot_widget.data.outcar_energies
         x = list(range(len(y)))
         current_x = x[self.geometry_slider.value()+1]
         current_y = y[self.geometry_slider.value()+1]
@@ -636,10 +632,9 @@ class MoveableScatterPlotItem(pg.ScatterPlotItem):
 if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
-    if "PYCHARM_HOSTED" in os.environ:
-        base = "/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/2.production/3.massive_search/1.3x3/"
-        dir = "1.spinel_3x3_ceria_mlff/1.MLFF/3.good_0/1.again_small_scan/1.view"
-        os.chdir(base + dir)
+
+    os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\3.good+-Z_coords\1.Z-coord_up")
+    #os.chdir(r"D:\syncme\test_for_doswizard\MLFF_with_copying")
     window = MainWindow()
 
     toc = time.perf_counter()

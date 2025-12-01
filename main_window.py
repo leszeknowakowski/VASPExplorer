@@ -448,8 +448,8 @@ class MainWindow(QMainWindow):
             else:
                 #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
                 #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                #dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
-                dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
+                dir = "D:\\syncme\\test_for_doswizard\\3.small_perovskites"
+                #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
                 #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
                 #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
                 #dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
