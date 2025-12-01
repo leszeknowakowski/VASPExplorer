@@ -632,10 +632,9 @@ class MoveableScatterPlotItem(pg.ScatterPlotItem):
 if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
-    if "PYCHARM_HOSTED" in os.environ:
-        base = "/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/2.production/3.massive_search/1.3x3/"
-        dir = "1.spinel_3x3_ceria_mlff/1.MLFF/3.good+-Z_coords/1.Z-coord_up/1.cont"
-        os.chdir(base + dir)
+
+    os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\3.good+-Z_coords\1.Z-coord_up")
+    #os.chdir(r"D:\syncme\test_for_doswizard\MLFF_with_copying")
     window = MainWindow()
 
     toc = time.perf_counter()
