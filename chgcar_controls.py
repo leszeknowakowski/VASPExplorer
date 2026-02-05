@@ -6,7 +6,7 @@ from PyQt5.QtCore import QFileInfo
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
     QFileDialog, QPushButton, QHBoxLayout, QSlider, QMainWindow, QProgressBar, QDialog, QMessageBox, \
-    QGroupBox, QSpacerItem, QSizePolicy, QGridLayout
+    QGroupBox, QSpacerItem, QSizePolicy, QGridLayout, QCheckBox, QSpinBox
 from PyQt5 import QtCore
 import numpy as np
 #import chopPARCHG_test_chgcar_comp as chp
@@ -206,6 +206,17 @@ class ChgcarVis(QWidget):
         print_separate_button.clicked.connect(self.print_separate_bader_charges)
         self.bader_frame_layout.addWidget(print_separate_button)
 
+        self.charges_button_cb = QCheckBox()
+        self.charges_button_cb.setChecked(False)
+        self.charges_button_cb.setText("show bader charges")
+
+        self.charges_button_cb.stateChanged.connect(self.show_bader_charges)
+        self.bader_frame_layout.addWidget(self.charges_button_cb)
+        self.structure_variable_control.structure_control_widget.plane_height_range_slider.startValueChanged.connect(
+            self.show_bader_charges)
+        self.structure_variable_control.structure_control_widget.plane_height_range_slider.endValueChanged.connect(
+            self.show_bader_charges)
+
         self.layout.addWidget(self.bader_frame)
 
     def open_bader_file(self):
@@ -287,6 +298,28 @@ class ChgcarVis(QWidget):
             print(key, ": ", value)
         return chg_dict
 
+    def show_bader_charges(self, flag):
+        if hasattr(self, "bader_charges_actor"):
+            self.chg_plotter.renderer.RemoveActor(self.bader_charges_actor)
+        indices, coordinates = self.structure_variable_control.structure_control_widget.find_indices_between_planes()
+        coords = []
+        baders = []
+        try:
+            bader_charges = [self.bader_data[index][4] for index in range(len(self.bader_data))]
+        except AttributeError:
+            warning = QMessageBox.warning(self, 'Warning',
+                                         "It seems like no bader data was loaded. Choose a ACF.corrected file",
+                                         QMessageBox.Ok)
+            self.open_bader_file()
+        bader_charges = [self.bader_data[index][4] for index in range(len(self.bader_data))]
+        for i in range(len(indices)):
+            coords.append(list(coordinates[indices[i]]))
+            baders.append(bader_charges[indices[i]])
+        self.bader_charges_actor = self.chg_plotter.add_point_labels(coords, baders, font_size=30,
+                                                   show_points=False, always_visible=True, shape=None)
+        self.bader_charges_actor.SetVisibility(flag)
+
+
     def update_data(self, data):
         if self.current_contour_actor is not None:
             self.clear_contours()
@@ -308,15 +341,21 @@ class ChgcarVis(QWidget):
 
     #@profile
     def create_chgcar_data(self):
-        """ creates data for plotting  """
+        """ creates data for plotting.  """
 
         chopping_factor = 1
         if os.path.exists(self.chg_file_path):
-            #try:
+            # freeze plotter rendering (it slows down reading CHGCAR, even if
+            # it is in another thread
             self.chg_plotter.setup_render_thread(0)
+
+            # read CHGCAR using ASE VaspChargeDensity class in CHGCARParser
             self.charge_data = CHGCARParser(self.chg_file_path, chopping_factor)
             self.charge_data.progress.connect(self.progress_window.update_progress)
             self.charge_data.change_label.connect(self.progress_window.change_label)
+
+            # it runs in another thread, so we have to use start() to run
+            # the worker thread
             self.charge_data.start()
             self.charge_data.finished.connect(self.add_contours)
             self.charge_data.finished.connect(self.close_progress_window)
@@ -596,9 +635,9 @@ class ChgcarVis(QWidget):
         Args:
             matrix (array): an array of (X, Y, Z) factors to duplicate in selected directions
         """
-        x = matrix[0]
+        z = matrix[0]
         y = matrix[1]
-        z = matrix[2]
+        x = matrix[2]
         total_supercell = np.tile(self.charge_data.all_numbers[0], (z, y, x))
         spin_supercell = np.tile(self.charge_data.all_numbers[1], (z, y, x))
         self.charge_data.all_numbers = [total_supercell, spin_supercell]
@@ -678,17 +717,22 @@ class ChgcarVis(QWidget):
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
         self.charge_data._unit_cell_vectors = supercell.cell[:]
+        self.charge_data.atoms = supercell
         self.charge_data._scale_factor = 1
-        self.charge_data._grid = np.flip(np.shape(self.charge_data.all_numbers[0]))
+        self.charge_data._grid = np.shape(self.charge_data.all_numbers[0])
         self.add_contours()
 
     def make_supercell(self):
-        matrix = (2,2,1) # #######################TODO: CHANGE LATER!!!###############################################################
+        dialog = SupercellShapeDialog(initial_values=(2,2,1))
 
-        #self.make_atoms_supercell(matrix)
-        self.make_charge_supercell(matrix)
-        self.read_supercell_to_vaspy(matrix)
-        self.supercell_made = True
+        if not dialog.exec_() == QDialog.Accepted:
+            return
+        else:
+            matrix = dialog.get_values()
+            print("User selected:", matrix)
+            self.make_charge_supercell(matrix)
+            self.read_supercell_to_vaspy(matrix)
+            self.supercell_made = True
 
 
     def delete_atom(self, index):
@@ -731,12 +775,64 @@ class ChgcarVis(QWidget):
             #if self.supercell_made is not None:
             #    self.charge_data.create_new_header(self.buffer)
 
-            self.charge_data.save_all_file(file_path, 1, format='vasp')
+            self.charge_data.save_all_file(
+                file_path,
+                [self.charge_data.all_numbers[0]],
+                [self.charge_data.all_numbers[1]],
+                self.charge_data.aug,
+                self.charge_data.aug_diff
+            )
+        print("done")
 
     def closeEvent(self, QCloseEvent):
         """former closeEvent in case of many interactors"""
         super().closeEvent(QCloseEvent)
         self.chg_plotter.Finalize()
+
+
+class SupercellShapeDialog(QDialog):
+    """ Dialog Window for choosing a supercell shape"""
+    def __init__(self, parent=None, initial_values=(1,1,1)):
+        super().__init__(parent)
+        self.setWindowTitle("Enter three integers")
+
+        layout = QVBoxLayout(self)
+
+        # Create spinboxes
+        self.spin1 = QSpinBox()
+        self.spin2 = QSpinBox()
+        self.spin3 = QSpinBox()
+
+        # Optional: set ranges
+        for spin in (self.spin1, self.spin2, self.spin3):
+            spin.setRange(-1000, 1000)
+
+        # Set initial values
+        self.spin1.setValue(initial_values[0])
+        self.spin2.setValue(initial_values[1])
+        self.spin3.setValue(initial_values[2])
+
+        # Add to layout with labels
+        for i, spin in enumerate((self.spin1, self.spin2, self.spin3), start=1):
+            row = QHBoxLayout()
+            row.addWidget(QLabel(f"Value {i}:"))
+            row.addWidget(spin)
+            layout.addLayout(row)
+
+        # Buttons
+        button_row = QHBoxLayout()
+        ok_btn = QPushButton("OK")
+        cancel_btn = QPushButton("Cancel")
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn.clicked.connect(self.reject)
+        button_row.addWidget(ok_btn)
+        button_row.addWidget(cancel_btn)
+
+        layout.addLayout(button_row)
+
+    def get_values(self):
+        return (self.spin1.value(), self.spin2.value(), self.spin3.value())
+
 
 if __name__ == "__main__":
     """ just for building """

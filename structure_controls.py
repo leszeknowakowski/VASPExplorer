@@ -351,11 +351,12 @@ class StructureControlsWidget(QWidget):
         planes_layout = QtWidgets.QHBoxLayout()
         planes_layout.addWidget(top_plane_cb)
         planes_layout.addWidget(bottom_plane_cb)
-        planes_layout.addWidget(self.plane_height_range_slider)
+
         planes_layout.addWidget(plane_color_label)
         planes_layout.addWidget(self.plane_color_button)
 
         self.planes_frame_layout.addLayout(planes_layout)
+        self.planes_frame_layout.addWidget(self.plane_height_range_slider)
         self.vlayout.addWidget(self.planes_frame)
 
     def energy_plot_layout(self):

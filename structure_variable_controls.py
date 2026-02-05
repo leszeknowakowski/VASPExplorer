@@ -235,6 +235,8 @@ class TableWidgetDragRows(QTableWidget):
 class StructureVariableControls(QWidget):
     atom_deleted = pyqtSignal(int)
     all_atoms_deleted = pyqtSignal(str)
+    selected_actors_signal = pyqtSignal(list)
+
     def __init__(self, structure_control_widget, parent=None):
         super().__init__(structure_control_widget)
 
@@ -555,6 +557,10 @@ class StructureVariableControls(QWidget):
                 rows.append(item.row())
         return rows
 
+    def handle_request_selected(self):
+        rows = self.get_selected_rows()
+        self.selected_actors_signal.emit(rows)
+
     def save_poscar(self, target="default"):
         import io
         import tempfile
@@ -571,9 +577,9 @@ class StructureVariableControls(QWidget):
         # check for duplicates - if exists, POSCAR can be saved, but VASP will not run, so it is useless
         if len(atoms) != len(set(atoms)):
             QMessageBox.critical(self, "Error",
-                                 f"There are duplicates in elements name. VASP can not accept that. Sort elements first (by clicking \"sort\" on structure tab)")
-            return
-        else:
+                                 f"There are duplicates in elements name. I hope you know what you'are doing. You can sort elements first (by clicking \"sort\" on structure tab)")
+
+        if True:
             # Decide if we're writing to a file or a stream
             if target == "default":
                 options = QFileDialog.Options()

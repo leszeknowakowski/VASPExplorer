@@ -20,6 +20,7 @@ class DosControlWidget(QWidget):
     """
 
     statusMessage = Qt.pyqtSignal(str)
+    request_selected = Qt.pyqtSignal()
 
     def __init__(self, data, plot_widget):
         """initialize"""
@@ -203,6 +204,11 @@ class DosControlWidget(QWidget):
         select_all_atoms_btn.clicked.connect(self.select_all_atoms)
         self.select_atom_layout.addWidget(select_all_atoms_btn)
 
+        select_from_3d = QPushButton("select from 3D", self)
+        select_from_3d.clicked.connect(self.select_from_3D)
+        select_from_3d.setToolTip("from selected atoms in 3D plot")
+        self.select_atom_layout.addWidget(select_from_3d)
+
         deselect_all_atoms_btn = QPushButton("Deselect all", self)
         deselect_all_atoms_btn.clicked.connect(self.deselect_all_atoms)
         self.deselect_atom_layout.addWidget(deselect_all_atoms_btn)
@@ -304,6 +310,15 @@ class DosControlWidget(QWidget):
     def select_all_atoms(self):
         flatten = [element for sublist in self.data.partitioned_lists for element in sublist]
         self.update_atom_checkboxes(flatten, True)
+
+    def select_from_3D(self):
+        self.request_selected.emit()
+
+    def recieve_selected(self, atoms):
+        self.deselect_all_atoms()
+        flatten = [element for sublist in self.data.partitioned_lists for element in sublist]
+        selection = [flatten[idx] for idx in atoms]
+        self.update_atom_checkboxes(selection, True)
 
     def deselect_all_atoms(self):
         flatten = [element for sublist in self.data.partitioned_lists for element in sublist]

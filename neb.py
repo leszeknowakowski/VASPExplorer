@@ -604,7 +604,7 @@ class NebWindow(QMainWindow):
 
     def update_slider_label(self):
         self.slider_count_label.setText(f"Steps: {self.geo_slider.value()}")
-    '''
+
     def add_sphere(self, coord, col, radius, plotter):
         sphereSource = vtkSphereSource()
         sphereSource.SetRadius(radius)
@@ -623,7 +623,7 @@ class NebWindow(QMainWindow):
         plotter.AddActor(actor)
 
         return actor
-    '''
+
     def _add_plane(self, source, actor, value, plotter):
         """renders a plane perpendicular to XY plane at value height"""
         z = self.neb.data.z
@@ -812,11 +812,8 @@ class NebWindow(QMainWindow):
 
 
 if __name__ == "__main__":
-    #dir = ("D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1"
-    #       ".2ominus_o2ads\\2.second")
-
     dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
-    #neb = ReadNebData(dir)
+
     app = QApplication(sys.argv)
 
     #app.setStyleSheet(STYLE_SHEET.py)

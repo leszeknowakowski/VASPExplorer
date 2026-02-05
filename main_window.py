@@ -261,7 +261,6 @@ class MainWindow(QMainWindow):
 
         # widget for controling the DOS plot
         self.dos_control_widget = DosControlWidget(self.data, self.dos_plot_widget)
-        self.dos_control_widget.statusMessage.connect(self.show_blinking_status)
         right_tab_widget.addTab(self.dos_control_widget, "DOS Parameters")
 
         # topmost tab widget for all structure plot manipulations
@@ -299,6 +298,11 @@ class MainWindow(QMainWindow):
         splitter.addWidget(right_tab_widget)
         splitter.setStretchFactor(0,1)
         splitter.setStretchFactor(1,1)
+
+        # connections
+        self.dos_control_widget.statusMessage.connect(self.show_blinking_status)
+        self.dos_control_widget.request_selected.connect(self.structure_variable_control_tab.handle_request_selected)
+        self.structure_variable_control_tab.selected_actors_signal.connect(self.dos_control_widget.recieve_selected)
 
     def create_status_bar(self):
         self.status_bar = self.statusBar()
@@ -465,7 +469,8 @@ if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
     app.setStyle(QStyleFactory.create("Fusion"))
-    #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/0.training/5.interface_small")
+    if "PYCHARM_HOSTED" in os.environ:
+        os.chdir("/net/storage/pr3/plgrid/plgg_zkln/1.LUMI/3.Co3O4/2.deep_reduction/1.octa-octa/1.gas_to_metaloxo/4.co3+_co4+/1.metal-oxo/2.Co4+_O____Co3+/1.HSE")
     window = MainWindow()
 
     window.log_program_launch()

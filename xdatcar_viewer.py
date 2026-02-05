@@ -109,20 +109,8 @@ class MainWindow(QMainWindow):
             if any(os.path.isfile(os.path.join(cwd, fname)) for fname in files_to_check):
                 dir = cwd
             else:
-                # dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                # dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                # dir = "D:\\syncme\\modelowanie DFT\\lobster_tests\\Si\\Si"
-                dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
-                # dir = r"H:\3.LUMI\6.interface\2.interface\4.MLFF\3.validation\2.new_june2025\8.interaface_spinel_3x3_ceria_mlff_closer\2.MLFF"
-                # dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
-                # dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
-                # dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR' # poscar with D1, D2, Ce1 etc.
-                #dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\2.closer\rotation"
                 dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff"
 
-                # dir = "C:\\Users\\lesze\\OneDrive\\Materials Studio Projects\\interfaceCo3O4_CeO2_Files\\Documents\\interface\\Co3o4 3x3\\v4_with_mlff_ceria\\spinel_3x3_supercell CASTEP Energy"
-            # print("can't resolve operating system")
             self.dir = dir
         return dir
 
@@ -461,7 +449,7 @@ class StructureControlsWidget(QWidget):
     def heatmap_energy(self):
         self.data = np.array(self.structure_plot_widget.data.outcar_energies)
         self.data = np.append(self.data[1:],self.data[-1])
-        self.data = self.data.reshape(36, 100, 100)
+        self.data = self.data.reshape(18, 100, 100)
         self.heatmap_widget = QWidget()
         self.heatmap_layout = QVBoxLayout()
 
@@ -529,11 +517,7 @@ class StructureControlsWidget(QWidget):
         return rearranged
 
     def create_matrix(self, data):
-        #data  = self.rearrange_data(data)
-
-        #data = np.roll(data, -1, axis=1)
         data_copy = data.copy()
-        data_copy[1::2] = data_copy[1::2, ::-1]
         image_item = pg.ImageItem()
         image_item.setImage(data_copy.T)
         image_item.mouseClickEvent = self.on_map_left_clicked
@@ -633,8 +617,12 @@ if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
 
-    os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\3.good+-Z_coords\1.Z-coord_up")
-    #os.chdir(r"D:\syncme\test_for_doswizard\MLFF_with_copying")
+    if __name__ == "__main__":
+        if "PYCHARM_HOSTED" in os.environ:
+            base = "/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/2.production/3.massive_search/2.4x4/"
+            dir = "1.spinel_4x4_ceria_XXX/2.Scan_optimal_Zdist/1.view"
+            os.chdir(base + dir)
+
     window = MainWindow()
 
     toc = time.perf_counter()

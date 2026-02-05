@@ -671,12 +671,13 @@ class OSZICARParser:
             print(e)
 
     def read_oszicar(self, file):
+        with open(file, 'r') as f:
+            lines = f.readlines()
         nrgs = []
-        with open(file, 'r') as fd:
-            for line in fd:
-                energy = float(line.split()[4])
-                nrgs.append(energy)
-        return nrgs
+        for line in lines:
+            if "F=" in line:
+                nrgs.append(float(line.split()[2]))
+        return np.array(nrgs)
 
 if __name__ == "__main__":
     doscar = DOSCARparser("D:\\syncme-from-c120\\modelowanie DFT\\czasteczki\\O2\\DOSCAR")

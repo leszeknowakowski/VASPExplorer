@@ -85,7 +85,6 @@ class CHGCARParser(QThread):
         self.aug = self.chgcar.aug
         self.aug_diff = self.chgcar.augdiff
 
-
     def update_progress(self, progress):
         self.progress.emit(progress)
 
@@ -134,8 +133,8 @@ class CHGCARParser(QThread):
 
     def chop(self, grid, chop_number):
         z = grid.shape[2]
-        y = grid.shape[0]
-        x = grid.shape[1]
+        y = grid.shape[1]
+        x = grid.shape[0]
         divisors = self.common_divisors(z, y, x)
         if chop_number in divisors:
             return grid[:x:chop_number, :y:chop_number, :z:chop_number]
@@ -213,7 +212,7 @@ class CHGCARParser(QThread):
         # Write occupancies for each atom
         for atom_key in sorted(atoms.keys()):
             occupancies = atoms[atom_key]
-            result.append(f"augmentation occupancies   {atom_key} {len(occupancies)}")
+            result.append(f"{'augmentation occupancies':24}{atom_key:4d}{len(occupancies):4d}")
             result.append(self.format_numbers(occupancies, "aug"))
 
         # Write leftovers at the end
@@ -221,6 +220,128 @@ class CHGCARParser(QThread):
             result.append(self.format_numbers(leftovers, "leftovers"))
 
         return "\n".join(result)
+
+    def get_formatted_item(self, item, format='small'):
+        if format == 'small':
+            formatted_item = format(item, ".3f")
+        elif format == 'vasp':
+            x = item
+            if x == 0.0:
+                return " 0.00000000000E+00"  # special case
+            exp = 0
+            norm_x = abs(x)
+            while norm_x >= 1.0:
+                norm_x /= 10.0
+                exp += 1
+            while norm_x < 0.1:
+                norm_x *= 10.0
+                exp -= 1
+            sign = "-" if x < 0 else ""
+            formatted_item = f"{sign}{norm_x:.11f}E{exp:+03d}"
+            if formatted_item[0] == '-':
+                formatted_item = formatted_item[2:]
+                formatted_item = "-" + formatted_item
+        return formatted_item
+
+    def save_total_file(self, output_file_path, chop_number, format='small'):
+        """" save chopped file as CHGCAR-total-choppedx{chop_num}.vasp with total charge density """
+        with open(output_file_path, 'w') as output_file:
+            for list in self.header:
+                output_file.write(list)
+            #output_file.write(" ".join([str(x // chop_number) for x in self.grid_result]) + "\n")
+
+            for i, item in enumerate(self.all_numbers[0].flatten(), 1):
+                formatted_item = self.get_formatted_item(item, format)
+                output_file.write(str(formatted_item))
+                if i % 10 == 0:
+                    output_file.write("\n")
+                else:
+                    output_file.write("\t")
+
+    def _write_chg(self, fobj, chg, volume, format='chg'):
+        """Write charge density
+
+        Utility function similar to _read_chg but for writing.
+
+        """
+        # Make a 1D copy of chg, must take transpose to get ordering right
+        chgtmp = chg.T.ravel()
+        # Multiply by volume
+        chgtmp = chgtmp * volume
+        # Must be a tuple to pass to string conversion
+        chgtmp = tuple(chgtmp)
+        # CHG format - 10 columns
+        if format.lower() == 'chg':
+            # Write all but the last row
+            for ii in range((len(chgtmp) - 1) // 10):
+                fobj.write(' %#11.5G %#11.5G %#11.5G %#11.5G %#11.5G\
+    %#11.5G %#11.5G %#11.5G %#11.5G %#11.5G\n' % chgtmp[ii * 10:(ii + 1) * 10])
+            # If the last row contains 10 values then write them without a
+            # newline
+            if len(chgtmp) % 10 == 0:
+                fobj.write(' %#11.5G %#11.5G %#11.5G %#11.5G %#11.5G'
+                           ' %#11.5G %#11.5G %#11.5G %#11.5G %#11.5G' %
+                           chgtmp[len(chgtmp) - 10:len(chgtmp)])
+            # Otherwise write fewer columns without a newline
+            else:
+                for ii in range(len(chgtmp) % 10):
+                    fobj.write((' %#11.5G') %
+                               chgtmp[len(chgtmp) - len(chgtmp) % 10 + ii])
+        # Other formats - 5 columns
+        else:
+            # Write all but the last row
+            for ii in range((len(chgtmp) - 1) // 5):
+                fobj.write(' %17.10E %17.10E %17.10E %17.10E %17.10E\n' %
+                           chgtmp[ii * 5:(ii + 1) * 5])
+            # If the last row contains 5 values then write them without a
+            # newline
+            if len(chgtmp) % 5 == 0:
+                fobj.write(' %17.10E %17.10E %17.10E %17.10E %17.10E' %
+                           chgtmp[len(chgtmp) - 5:len(chgtmp)])
+            # Otherwise write fewer columns without a newline
+            else:
+                for ii in range(len(chgtmp) % 5):
+                    fobj.write((' %17.10E') %
+                               chgtmp[len(chgtmp) - len(chgtmp) % 5 + ii])
+        # Write a newline whatever format it is
+        fobj.write('\n')
+
+    def save_all_file(self, filename, spin_up, spin_down, aug, augdiff):
+        """Write VASP charge density in CHG format.
+
+          filename: str
+              Name of file to write to.
+          format: str
+              String specifying whether to write in CHGCAR or CHG
+              format.
+
+          """
+        import ase.io.vasp as aiv
+        format = "chgcar"
+        with open(filename, 'w') as fd:
+            for ii, chg in enumerate(spin_up):
+                if format == 'chgcar' and ii != len(spin_up) - 1:
+                    continue  # Write only the last image for CHGCAR
+                aiv.write_vasp(fd,
+                               self.atoms,
+                               direct=True)
+                fd.write('\n')
+                for dim in chg.shape:
+                    fd.write(' %4i' % dim)
+                fd.write('\n')
+                vol = self.atoms.get_volume()
+                self._write_chg(fd, chg, vol, format)
+                if format == 'chgcar':
+                    fd.write(aug)
+                fd.write('\n')
+                for dim in chg.shape:
+                    fd.write(' %4i' % dim)
+                fd.write('\n')  # a new line after dim is required
+                self._write_chg(fd, spin_down[ii], vol, format)
+                if format == 'chgcar':
+                    # a new line is always provided self._write_chg
+                    fd.write(augdiff)
+
 
 class VaspChargeDensity(QObject):
     """Class for representing VASP charge density.
