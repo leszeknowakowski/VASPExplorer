@@ -1,14 +1,18 @@
 import time
 
 if True:
-    from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout
+    from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout,QGraphicsItem, QApplication, QAction, \
+                                QFileDialog
     from PyQt5 import QtCore
+    from PyQt5.QtGui import QPainter, QPdfWriter, QPageSize
+    from PyQt5.QtCore import QMarginsF, Qt, QSizeF, QRectF
     import pyqtgraph as pg
     from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
     import re
     import numpy as np
     import sys
     from itertools import cycle
+    from pyqtgraph.exporters.Exporter import Exporter
 
 
 class DosPlotWidget(QWidget):
@@ -45,6 +49,19 @@ class DosPlotWidget(QWidget):
         plot_splitter = QSplitter(QtCore.Qt.Horizontal)
         self.full_range_plot = pg.PlotWidget()
         self.bounded_plot = pg.PlotWidget()
+
+        export_action_bounded = QAction("Export to PDF", self.bounded_plot)
+        export_action_bounded.triggered.connect(
+            lambda: self.export_to_pdf(self.bounded_plot)
+        )
+        self.bounded_plot.getViewBox().menu.addAction(export_action_bounded)
+
+        export_action_full = QAction("Export to PDF", self.full_range_plot)
+        export_action_full.triggered.connect(
+            lambda: self.export_to_pdf(self.full_range_plot)
+        )
+        self.full_range_plot.getViewBox().menu.addAction(export_action_full)
+
         plot_splitter.addWidget(self.full_range_plot)
         plot_splitter.addWidget(self.bounded_plot)
         plot_splitter.setStretchFactor(0, 2)
@@ -359,6 +376,18 @@ class DosPlotWidget(QWidget):
         self.saved_plots_window = MergedPlotWindow(saved_plots, nrg)
         self.saved_plots_window.show()
 
+    def export_to_pdf(self, plot_widget):
+        filename, _ = QFileDialog.getSaveFileName(
+            plot_widget,
+            "Save plot data",
+            "",
+            "PDF Files (*.pdf);;All Files (*)"
+        )
+        if not filename:
+            return  # user cancelled
+        exporter = PDFExporter(plot_widget)
+        exporter.export(filename=filename)
+
 
 class MergedPlotWindow(QWidget):
     """
@@ -399,3 +428,54 @@ class MergedPlotDataItem(PlotDataItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+
+class PDFExporter(Exporter):
+    """A pdf exporter for pyqtgraph graphs. Based on pyqtgraph's
+     ImageExporter.
+     There is a bug in Qt<5.12 that makes Qt wrongly use a cosmetic pen
+     (QTBUG-68537). Workaround: do not use completely opaque colors.
+     There is also a bug in Qt<5.12 with bold fonts that then remain bold.
+     To see it, save the OWNomogram output."""
+    def __init__(self, item):
+        Exporter.__init__(self, item)
+        if isinstance(item, QGraphicsItem) or isinstance(item, pg.widgets.PlotWidget.PlotWidget):
+            scene = item.scene()
+        else:
+            scene = item
+        bgbrush = scene.views()[0].backgroundBrush()
+        bg = bgbrush.color()
+        if bgbrush.style() == Qt.NoBrush:
+            bg.setAlpha(0)
+        self.background = bg
+        # The following code is a workaround for a bug in pyqtgraph 1.1. The suggested
+        # fix upstream was pyqtgraph/pyqtgraph#1458
+        try:
+            from pg.graphicsItems.ViewBox.ViewBox import ChildGroup
+            for item in self.getPaintItems():
+                if isinstance(item, ChildGroup):
+                    if item.flags() & QGraphicsItem.ItemClipsChildrenToShape:
+                        item.setFlag(QGraphicsItem.ItemClipsChildrenToShape, False)
+        except:  # pylint: disable=bare-except
+            pass
+    def export(self, filename=None):
+        pw = QPdfWriter(filename)
+        dpi = int(QApplication.primaryScreen().logicalDotsPerInch())
+        pw.setResolution(dpi)
+        pw.setPageMargins(QMarginsF(0, 0, 0, 0))
+        pw.setPageSize(
+            QPageSize(QSizeF(self.getTargetRect().size()) / dpi * 25.4,
+                      QPageSize.Millimeter))
+        painter = QPainter(pw)
+        try:
+            self.setExportMode(True, {'antialias': True,
+                                      'background': self.background,
+                                      'painter': painter})
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            if QtCore.QT_VERSION >= 0x050D00:
+                painter.setRenderHint(QPainter.LosslessImageRendering, True)
+            self.getScene().render(painter,
+                                   QRectF(self.getTargetRect()),
+                                   QRectF(self.getSourceRect()))
+        finally:
+            self.setExportMode(False)
+        painter.end()
