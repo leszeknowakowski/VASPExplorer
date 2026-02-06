@@ -50,6 +50,12 @@ class DosPlotWidget(QWidget):
         self.full_range_plot = pg.PlotWidget()
         self.bounded_plot = pg.PlotWidget()
 
+        for item in [self.full_range_plot, self.bounded_plot]:
+            for axis in ["left", "bottom"]:
+                item.getPlotItem().getAxis(axis).setPen(pg.mkPen('black'))
+                item.getPlotItem().getAxis(axis).setTextPen(pg.mkPen('black'))
+            item.getPlotItem().getAxis('left').setTickSpacing(2.0, 2.0)
+
         export_action_bounded = QAction("Export to PDF", self.bounded_plot)
         export_action_bounded.triggered.connect(
             lambda: self.export_to_pdf(self.bounded_plot)
