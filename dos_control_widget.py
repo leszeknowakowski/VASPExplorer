@@ -209,6 +209,10 @@ class DosControlWidget(QWidget):
         select_from_3d.setToolTip("from selected atoms in 3D plot")
         self.select_atom_layout.addWidget(select_from_3d)
 
+        invert_atom_selection_btn = QPushButton("Invert selection", self)
+        invert_atom_selection_btn.clicked.connect(self.invert_atom_selection)
+        self.select_atom_layout.addWidget(invert_atom_selection_btn)
+
         deselect_all_atoms_btn = QPushButton("Deselect all", self)
         deselect_all_atoms_btn.clicked.connect(self.deselect_all_atoms)
         self.deselect_atom_layout.addWidget(deselect_all_atoms_btn)
@@ -319,6 +323,14 @@ class DosControlWidget(QWidget):
         flatten = [element for sublist in self.data.partitioned_lists for element in sublist]
         selection = [flatten[idx] for idx in atoms]
         self.update_atom_checkboxes(selection, True)
+
+    def invert_atom_selection(self):
+        """Invert atom checkbox selection"""
+        for checkbox in self.atom_checkboxes:
+            checkbox.blockSignals(True)
+            checkbox.setChecked(not checkbox.isChecked())
+            checkbox.blockSignals(False)
+        self.checkbox_changed()
 
     def deselect_all_atoms(self):
         flatten = [element for sublist in self.data.partitioned_lists for element in sublist]
