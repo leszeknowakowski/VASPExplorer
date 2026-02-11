@@ -469,8 +469,8 @@ if __name__ == '__main__':
     tic = time.perf_counter()
     app = QApplication(sys.argv)
     app.setStyle(QStyleFactory.create("Fusion"))
-    #if "PYCHARM_HOSTED" in os.environ:
-    #    os.chdir("/net/storage/pr3/plgrid/plgg_zkln/1.LUMI/3.Co3O4/2.deep_reduction/1.octa-octa/1.gas_to_metaloxo/4.co3+_co4+/1.metal-oxo/2.Co4+_O____Co3+/1.HSE")
+    if "PYCHARM_HOSTED" in os.environ and platform.system() == 'Linux':
+        os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/1.precursors_and_clusters/5.larger405/1.first/1.first_magnetization/2.ibrion=3_isym=-1/2.no_magnetization")
     window = MainWindow()
 
     window.log_program_launch()

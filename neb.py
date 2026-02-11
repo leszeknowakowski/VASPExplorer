@@ -4,11 +4,9 @@ from vasp_data import VaspData
 import os
 import sys
 import json
-from dataclasses import dataclass
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QHBoxLayout,
                              QSlider, QSplitter, QTableWidget, QTableWidgetItem, QHeaderView,
                              QPushButton, QCheckBox)
-
 from PyQt5.QtGui import QFont
 from PyQt5 import QtCore
 from scipy.spatial.distance import pdist, squareform
@@ -17,11 +15,9 @@ import pyqtgraph as pg
 from vtkmodules.vtkCommonColor import vtkNamedColors
 from vtkmodules.vtkFiltersSources import vtkSphereSource,  vtkLineSource, vtkPlaneSource
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
-from vtkmodules.vtkInteractionWidgets import vtkCameraOrientationWidget, vtkOrientationMarkerWidget
-from vtkmodules.vtkRenderingCore import vtkActor,  vtkRenderer, vtkPolyDataMapper
+from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper
 from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData, vtkPolyLine
-from vtkmodules.vtkFiltersCore import vtkAppendPolyData
 from vtkmodules.vtkRenderingCore import vtkActor2D, vtkPolyDataMapper2D, vtkRenderer
 from vtkmodules.vtkRenderingCore import vtkCoordinate
 import platform
@@ -90,11 +86,11 @@ class NebWindow(QMainWindow):
 
         QMainWindow.__init__(self, parent)
         if platform.system() == 'Linux':
-            dir = './'
+            self.dir = './'
         else:
             #dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\3.dummy"
-            dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
-        self.neb = ReadNebData(dir)
+            self.dir = "D:\\syncme\\modelowanie DFT\\co3o4_new_new\\9.deep_o2_reduction\\5.newest_after_statistics\\2.NEB\\1.2ominus_o2ads\\3.NEB\\4.again_with_converged_wavecars\\2.NEB"
+        self.neb = ReadNebData(self.dir)
 
         script_dir = os.path.dirname(__file__)
         colors_file = os.path.join(script_dir, 'elementColorSchemes.json')
@@ -221,7 +217,7 @@ class NebWindow(QMainWindow):
         self.add_numbers()
 
         # Set main window properties
-        self.setWindowTitle("NEBviewer v0.0.1")
+        self.setWindowTitle(f"NEBviewer v0.0.1 {os.getcwd()}")
         self.resize(1600, 800)
 
     def add_slider_widget(self):

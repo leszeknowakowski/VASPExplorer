@@ -634,7 +634,7 @@ class StructureVariableControls(QWidget):
         self.all_atoms_deleted.emit("done")
 
     def add_atom(self):
-        self.atom_choose_window = AtomChooseWindow()
+        self.atom_choose_window = AtomChooseWindow(parent=self)
         self.atom_choose_window.show()
         self.atom_choose_window.sig.connect(self.change_data_when_atom_added)
 
@@ -1013,8 +1013,9 @@ class StructureVariableControls(QWidget):
 class AtomChooseWindow(QWidget):
     sig = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, parent=None):
         super().__init__()
+        self.parent = parent
         self.layout = QVBoxLayout()
 
         self.atom_coords_layout = QHBoxLayout()
@@ -1034,10 +1035,17 @@ class AtomChooseWindow(QWidget):
         self.periodic_table.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.periodic_table.element_selected.connect(self.update_label)
         self.periodic_table.show()
-
-        self.x_coord = QTableWidgetItem("0")
-        self.y_coord = QTableWidgetItem("0")
-        self.z_coord = QTableWidgetItem("0")
+        if self.parent == None:
+            self.x_coord = QTableWidgetItem("0")
+            self.y_coord = QTableWidgetItem("0")
+            self.z_coord = QTableWidgetItem("0")
+        else:
+            selected_atoms = self.parent.structure_control_widget.selected_actors
+            if len(selected_atoms) > 0:
+                x, y, z = selected_atoms[0].GetCenter()
+                self.x_coord = QTableWidgetItem(str(f"{x:2f}"))
+                self.y_coord = QTableWidgetItem(str(f"{y:2f}"))
+                self.z_coord = QTableWidgetItem(str(f"{z:2f}"))
 
         self.coords_table.setItem(1, 0, QTableWidgetItem("coordinates:"))
         self.coords_table.setItem(1, 1, self.x_coord)

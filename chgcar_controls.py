@@ -188,6 +188,7 @@ class ChgcarVis(QWidget):
 
     def init_bader_UI(self):
         self.bader_file = None
+        self.bader_data_loaded = False
         self.bader_frame = QGroupBox(self)
         self.bader_frame.setTitle("Bader charge manipulation")
         self.bader_frame.setMaximumHeight(150)
@@ -281,45 +282,43 @@ class ChgcarVis(QWidget):
 
         if all(matches) or reply == QMessageBox.Yes:
             self.bader_data = bader.atoms
+            self.bader_data_loaded = True
 
     def print_bader_charge(self):
-        indexes = self.structure_variable_control.get_selected_rows()
-        charges = np.array([float(self.bader_data[index][4]) for index in indexes])
-        sum_charges = np.sum(charges)
-        print(sum_charges)
+        if self.bader_data_loaded:
+            indexes = self.structure_variable_control.get_selected_rows()
+            charges = np.array([float(self.bader_data[index][4]) for index in indexes])
+            sum_charges = np.sum(charges)
+            print(sum_charges)
 
     def print_separate_bader_charges(self):
-        indexes = self.structure_variable_control.get_selected_rows()
-        charges = [float(self.bader_data[index][4]) for index in indexes]
-        atomic_symbols = [self.bader_data[index][5] for index in indexes]
-        symb_and_num = [x+y for x, y in zip(atomic_symbols, [str(num) for num in indexes])]
-        chg_dict = dict(zip(symb_and_num, charges))
-        for key, value in chg_dict.items():
-            print(key, ": ", value)
-        return chg_dict
+        if self.bader_data_loaded:
+            indexes = self.structure_variable_control.get_selected_rows()
+            charges = [float(self.bader_data[index][4]) for index in indexes]
+            atomic_symbols = [self.bader_data[index][5] for index in indexes]
+            symb_and_num = [x+y for x, y in zip(atomic_symbols, [str(num) for num in indexes])]
+            chg_dict = dict(zip(symb_and_num, charges))
+            for key, value in chg_dict.items():
+                print(key, ": ", value)
+            return chg_dict
 
     def show_bader_charges(self, flag):
-        if hasattr(self, "bader_charges_actor"):
-            self.chg_plotter.renderer.RemoveActor(self.bader_charges_actor)
-        indices, coordinates = self.structure_variable_control.structure_control_widget.find_indices_between_planes()
-        coords = []
-        baders = []
-        try:
+        if self.bader_data_loaded:
+            if hasattr(self, "bader_charges_actor"):
+                self.chg_plotter.renderer.RemoveActor(self.bader_charges_actor)
+            indices, coordinates = self.structure_variable_control.structure_control_widget.find_indices_between_planes()
+            coords = []
+            baders = []
+
             bader_charges = [self.bader_data[index][4] for index in range(len(self.bader_data))]
-        except AttributeError:
-            warning = QMessageBox.warning(self, 'Warning',
-                                         "It seems like no bader data was loaded. Choose a ACF.corrected file",
-                                         QMessageBox.Ok)
-            self.open_bader_file()
-        bader_charges = [self.bader_data[index][4] for index in range(len(self.bader_data))]
-        for i in range(len(indices)):
-            coords.append(list(coordinates[indices[i]]))
-            baders.append(bader_charges[indices[i]])
-        self.bader_charges_actor = self.chg_plotter.add_point_labels(coords, baders, font_size=30,
-                                                   show_points=False, always_visible=True, shape=None)
-        self.bader_charges_actor.SetVisibility(flag)
-
-
+            for i in range(len(indices)):
+                coords.append(list(coordinates[indices[i]]))
+                baders.append(bader_charges[indices[i]])
+            self.bader_charges_actor = self.chg_plotter.add_point_labels(coords, baders, font_size=30,
+                                                                         show_points=False, always_visible=True,
+                                                                         shape=None)
+            self.bader_charges_actor.SetVisibility(flag)
+                  
     def update_data(self, data):
         if self.current_contour_actor is not None:
             self.clear_contours()
@@ -493,7 +492,7 @@ class ChgcarVis(QWidget):
 
         # Set isosurface values
         if self.contour_type == "spin":
-            if largest_value> 1:
+            if largest_value> 0.5:
                 contour_filter.SetValue(0, -self.eps * largest_value)
                 contour_filter.SetValue(1, self.eps * largest_value)
             else:
