@@ -278,14 +278,17 @@ class ChgcarVis(QWidget):
         coords_bader = [[float(x_), float(y_), float(z_)] for x_, y_, z_, in zip(x, y, z)]
 
         matches = []
+        threshold = 0.1
         lst = ['X', 'Y', 'Z']
         for i, (sub1, sub2) in enumerate(zip(coords, coords_bader)):
             for j, (a, b) in enumerate(zip(sub1, sub2)):
-                match = round(a, 2) == round(b, 2)
+                diff = abs(a-b)
+                match = diff <= threshold
                 matches.append(match)
                 if not match:
                     atom = symb_and_num[i]
-                    print(f"Element {atom} at coordinate {lst[j]}: {round(a, 2)} vs {round(b, 2)} does not match!")
+                    print(f"Element {atom} at coordinate {lst[j]}: "
+                    f"{a:.2f} vs {b:.2f} does not match!")
 
         if not all(matches):
             reply = QMessageBox.question(self, 'Proceed',
@@ -554,6 +557,7 @@ class ChgcarVis(QWidget):
 
         # Now warp the ImageData using vtkTransformFilter
         transform = vtk.vtkTransform()
+        basis = basis.T
         transform.SetMatrix([
             basis[0, 0], basis[0, 1], basis[0, 2], 0,
             basis[1, 0], basis[1, 1], basis[1, 2], 0,

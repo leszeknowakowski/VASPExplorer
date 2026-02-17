@@ -303,7 +303,7 @@ class StructureVariableControls(QWidget):
 
         # add and connect buttons
         self.selected_atoms_btn_layout.addWidget(self.print_selected_atoms_btn)
-        self.print_selected_atoms_btn.clicked.connect(self.print_selected_atoms)
+        self.print_selected_atoms_btn.clicked.connect(lambda : self.print_selected_atoms(print_atoms=True))
         self.selected_atoms_btn_layout.addWidget(self.add_selection_input_field)
         self.selected_atoms_btn_layout.addWidget(self.select_added_atoms)
         self.select_added_atoms.clicked.connect(self.add_input_to_selection)
