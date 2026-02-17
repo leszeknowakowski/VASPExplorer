@@ -828,11 +828,12 @@ class StructureVariableControls(QWidget):
         except IndexError:
             print("no atoms selected")
 
-    def print_selected_atoms(self):
+    def print_selected_atoms(self, print_atoms=True):
         selected_rows = self.get_selected_rows()
         selected_atoms = [x + 1 for x in selected_rows]
-        print("Selected atoms numbers:")
-        print(selected_atoms)
+        if print_atoms:
+            print("Selected atoms numbers:")
+            print(selected_atoms)
         return selected_atoms
 
     def add_input_to_selection(self):

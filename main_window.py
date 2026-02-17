@@ -470,7 +470,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle(QStyleFactory.create("Fusion"))
     if "PYCHARM_HOSTED" in os.environ and platform.system() == 'Linux':
-        os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/1.precursors_and_clusters/5.larger405/1.first/1.first_magnetization/2.ibrion=3_isym=-1/2.no_magnetization")
+        os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/1.tests/2.ddec")
     window = MainWindow()
 
     window.log_program_launch()

@@ -1,7 +1,5 @@
 import time
-
 import vtk
-from PyQt5.QtCore import QFileInfo
 
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
@@ -9,7 +7,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QLabel, \
     QGroupBox, QSpacerItem, QSizePolicy, QGridLayout, QCheckBox, QSpinBox
 from PyQt5 import QtCore
 import numpy as np
-#import chopPARCHG_test_chgcar_comp as chp
+import subprocess, tempfile
 from process_CHGCAR import CHGCARParser
 try:
     from memory_profiler import profile
@@ -94,6 +92,7 @@ class ChgcarVis(QWidget):
         spacer = QSpacerItem(20,40,QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.layout.addSpacerItem(spacer)
         self.init_bader_UI()
+        self.init_DDEC_UI()
 
     def init_chgcar_UI(self):
         """ initialize GUI for this tab """
@@ -220,6 +219,21 @@ class ChgcarVis(QWidget):
 
         self.layout.addWidget(self.bader_frame)
 
+    def init_DDEC_UI(self):
+        self.DDEC_file = None
+
+        self.ddec_frame = QGroupBox(self)
+        self.ddec_frame.setTitle("Bond order manipulation")
+        self.ddec_frame.setMaximumHeight(150)
+        self.ddec_frame_layout = QVBoxLayout(self.ddec_frame)
+        self.ddec_frame_layout.setAlignment(QtCore.Qt.AlignTop)
+
+        self.DDEC_choose_window_btn = QPushButton("Choose DDEC fragments")
+        self.DDEC_choose_window_btn.clicked.connect(self.perform_BO)
+        self.ddec_frame_layout.addWidget(self.DDEC_choose_window_btn)
+
+        self.layout.addWidget(self.ddec_frame)
+
     def open_bader_file(self):
         """
         functon to create window with bader charge file choose.
@@ -337,6 +351,73 @@ class ChgcarVis(QWidget):
         """
 
         self.contour_type = type
+
+    def perform_BO(self):
+        self.ddec_window = DDECAtomSelector(self)
+        self.ddec_window.fragments_selected.connect(self.run_bo_script)
+        self.ddec_window.show()
+
+    def run_bo_script(self, frag1, frag2):
+
+        if not frag1:
+            print("ERROR: Fragment 1 cannot be empty.")
+            return
+
+        base_dir = "./"
+        base_name = "DDEC6_even_tempered_bond_orders"
+        script_dir = os.path.join(os.path.dirname(__file__), "scripts")
+
+        xyz_file = os.path.join(base_dir, f"{base_name}.xyz")
+        csv_file = os.path.join(base_dir, f"{base_name}.csv")
+        corrected_path = os.path.join(base_dir, f"{base_name}-corrected.xyz")
+        fragments_path = os.path.join(base_dir, f"{base_name}-fragments.xyz")
+
+        if not os.path.exists(xyz_file):
+            print("Cannot read xyz file")
+            return
+
+        # Step 1 ? cleanup
+        subprocess.run([
+            "awk",
+            "-f", os.path.join(script_dir, "chargemol_cleanup_bo.awk"),
+            "-v", "threshold=0",
+            "-v", "format=csv",
+            "-v", "triangle=yes"
+        ], input=open(xyz_file).read(), text=True,
+            stdout=open(csv_file, "w"))
+
+        ranges_script = os.path.join(script_dir, "vasp_bader_get_ranges.awk")
+
+        atoms_value = subprocess.getoutput(f"awk -f {ranges_script}")
+
+        # Step 2 ? fragments
+        awk_command = [
+            "awk",
+            "-v", f'atoms="{atoms_value}"',
+            "-v", f"frag1={frag1}",
+        ]
+
+        if frag2:
+            awk_command += ["-v", f"frag2={frag2}"]
+
+        awk_command += [
+            "-f", os.path.join(script_dir, "chargemol_frags.awk"),
+            csv_file
+        ]
+
+        with open(corrected_path, "w") as stdout_file, \
+                open(fragments_path, "w") as stderr_file:
+
+            result = subprocess.run(
+                awk_command,
+                stdout=stdout_file,
+                stderr=stderr_file,
+                text=True
+            )
+
+        with open(fragments_path, "r") as fragment_file:
+            lines = fragment_file.readlines()
+            print(lines[-1])
 
     #@profile
     def create_chgcar_data(self):
@@ -832,6 +913,115 @@ class SupercellShapeDialog(QDialog):
     def get_values(self):
         return (self.spin1.value(), self.spin2.value(), self.spin3.value())
 
+class DDECAtomSelector(QWidget):
+    fragments_selected = QtCore.pyqtSignal(str, str)  # frag1, frag2
+    def __init__(self, parent):
+        super().__init__()
+        self.parent = parent
+        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        self.frag1_atoms = []
+        self.frag2_atoms = []
+
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle("Fragment Selector")
+
+        # Buttons
+        self.btn_frag1 = QPushButton("choose selected atoms for frag1")
+        self.btn_frag2 = QPushButton("choose selected atoms for frag2")
+
+        # Labels to show selected atoms
+        self.label_frag1 = QLabel("[]")
+        self.label_frag2 = QLabel("[]")
+
+        # Connect buttons
+        self.btn_frag1.clicked.connect(self.handle_frag1)
+        self.btn_frag2.clicked.connect(self.handle_frag2)
+
+        # Layouts
+        layout_frag1 = QHBoxLayout()
+        layout_frag1.addWidget(self.btn_frag1)
+        layout_frag1.addWidget(self.label_frag1)
+
+        layout_frag2 = QHBoxLayout()
+        layout_frag2.addWidget(self.btn_frag2)
+        layout_frag2.addWidget(self.label_frag2)
+
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(layout_frag1)
+        main_layout.addLayout(layout_frag2)
+
+        self.setLayout(main_layout)
+
+    # -------- Button handlers --------
+
+    def handle_frag1(self):
+        self.frag1_atoms = self.choose_atoms_frag1()
+        formatted = self.format_atoms(self.frag1_atoms)
+        self.label_frag1.setText(formatted)
+        self.frag1_formatted_atoms = formatted
+
+    def handle_frag2(self):
+        self.frag2_atoms = self.choose_atoms_frag2()
+        formatted = self.format_atoms(self.frag2_atoms)
+        self.label_frag2.setText(formatted)
+        self.frag2_formatted_atoms = formatted
+
+    # -------- Dummy selection functions --------
+    # Replace these with your real selection logic
+
+    def choose_atoms_frag1(self):
+        frag = self.parent.structure_variable_control.print_selected_atoms(print_atoms=False)
+        return frag
+
+    def choose_atoms_frag2(self):
+        frag = self.parent.structure_variable_control.print_selected_atoms(print_atoms=False)
+        return frag
+
+    # -------- Formatting logic --------
+
+    def format_atoms(self, atom_list):
+        if not atom_list:
+            return "[]"
+
+        atom_list = sorted(atom_list)
+        result = []
+        start = atom_list[0]
+        prev = atom_list[0]
+
+        for num in atom_list[1:]:
+            if num == prev + 1:
+                prev = num
+            else:
+                result.append(self._format_range(start, prev))
+                start = num
+                prev = num
+
+        result.append(self._format_range(start, prev))
+
+        return ",".join(result)
+
+    def _format_range(self, start, end):
+        length = end - start + 1
+        if length >= 3:
+            return f"{start}-{end}"
+        elif length == 2:
+            return f"{start}, {end}"
+        else:
+            return f"{start}"
+
+    def closeEvent(self, event):
+        if not self.frag1_formatted_atoms:
+            QMessageBox.warning(self, "Warning", "Fragment 1 cannot be empty!")
+            event.ignore()
+            return
+        if hasattr(self, "frag2_formatted_atoms"):
+            frag2 = self.frag2_formatted_atoms
+        else:
+            frag2 = ""
+        self.fragments_selected.emit(self.frag1_formatted_atoms, frag2)
+        event.accept()
 
 if __name__ == "__main__":
     """ just for building """
