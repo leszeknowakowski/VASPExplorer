@@ -472,6 +472,7 @@ if __name__ == '__main__':
     app.setStyle(QStyleFactory.create("Fusion"))
     if "PYCHARM_HOSTED" in os.environ and platform.system() == 'Linux':
         os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/1.tests/2.VASPUI/1.trigonal_chgcar")
+        #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/1.Co3O4_3x3/5.After_MLFF/1.spinel_3x3_ceria_mlff/4.vacancy/1.vacancy_ceria/1.V0/2.RB/4.diff_CHGCAR/1.spinel")
     window = MainWindow()
 
     window.log_program_launch()

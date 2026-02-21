@@ -80,6 +80,9 @@ class ChgcarVis(QWidget):
         self.box_widget = None
         self.supercell_made = None
         self.charge_data = None
+        self.chg_threads = []
+        self.chg_file_paths = []
+        self.chgcar_data = {}
         self.structure_variable_control.atom_deleted.connect(self.delete_atom)
         self.structure_variable_control.all_atoms_deleted.connect(self.create_header_when_deleted)
 
@@ -437,33 +440,44 @@ class ChgcarVis(QWidget):
             print(lines[-1])
 
     def edit_volumetric_data(self):
-        pass
+        self.volume_editing_window = VolumetricDataEditingWindow(parent=self)
+        self.volume_editing_window.show()
 
     #@profile
-    def create_chgcar_data(self):
+    def create_chgcar_data(self, file_path, init):
         """ creates data for plotting.  """
 
         chopping_factor = 1
-        if os.path.exists(self.chg_file_path):
-            # freeze plotter rendering (it slows down reading CHGCAR, even if
-            # it is in another thread
-            self.chg_plotter.setup_render_thread(0)
+        if not os.path.exists(file_path):
+            return
+        # freeze plotter rendering (it slows down reading CHGCAR, even if
+        # it is in another thread
+        self.chg_plotter.setup_render_thread(0)
 
-            # read CHGCAR using ASE VaspChargeDensity class in CHGCARParser
-            self.charge_data = CHGCARParser(self.chg_file_path, chopping_factor)
-            self.charge_data.progress.connect(self.progress_window.update_progress)
-            self.charge_data.change_label.connect(self.progress_window.change_label)
+        self.chg_file_paths.append(file_path)
+        # read CHGCAR using ASE VaspChargeDensity class in CHGCARParser
+        thread = CHGCARParser(file_path, 1)
+        thread.file_path = file_path
 
-            # it runs in another thread, so we have to use start() to run
-            # the worker thread
-            self.charge_data.start()
-            self.charge_data.finished.connect(self.add_contours)
-            self.charge_data.finished.connect(self.close_progress_window)
-            self.charge_data.finished.connect(self._after_reading)
+        self.chg_threads.append(thread)
+        thread.progress.connect(self.progress_window.update_progress)
+        thread.change_label.connect(self.progress_window.change_label)
 
-            #except Exception as e:
-            #    print("ooopsie! cannot read data")
-            #    print(f"An error occurred: {e}")
+        # it runs in another thread, so we have to use start() to run
+        # the worker thread
+        thread.start()
+        thread.finished.connect(lambda: self._on_chgcar_finished(thread, init))
+
+    def _on_chgcar_finished(self, thread, init):
+        self.chgcar_data[thread.file_path] = thread
+
+        if init:
+            self.add_contours()
+        self.close_progress_window()
+        self._after_reading()
+
+        thread.deleteLater()
+        self.chg_threads.remove(thread)
 
     def update_eps(self):
         """ update isosurface value with slider """
@@ -482,10 +496,10 @@ class ChgcarVis(QWidget):
         self.chg_eps_value_label.setText(str(value/100))
 
     def get_chopping_factor(self):
-        voxel_size = self.charge_data.voxel_size()
+        voxel_size = self.chgcar_data[self.chg_file_path].voxel_size()
         optimal_size = 0.25
-        grid = self.charge_data.chgcar._grid
-        common_divisors = self.charge_data.common_divisors(*grid)
+        grid = self.chgcar_data[self.chg_file_path].chgcar._grid
+        common_divisors = self.chgcar_data[self.chg_file_path].common_divisors(*grid)
         if voxel_size[0] < optimal_size:
             chop = optimal_size / voxel_size[0]
             if int(chop) not in common_divisors:
@@ -498,34 +512,34 @@ class ChgcarVis(QWidget):
 
     def get_volumetric_data(self, chopping_factor):
         if self.contour_type == "total":
-            volumetric_data = self.charge_data.chop(
-                self.charge_data.all_numbers[0],
+            volumetric_data = self.chgcar_data[self.chg_file_path].chop(
+                self.chgcar_data[self.chg_file_path].all_numbers[0],
                 chopping_factor
             )
         elif self.contour_type == "spin":
-            volumetric_data = self.charge_data.chop(
-                self.charge_data.all_numbers[1],
+            volumetric_data = self.chgcar_data[self.chg_file_path].chop(
+                self.chgcar_data[self.chg_file_path].all_numbers[1],
                 chopping_factor
             )
         elif self.contour_type == "alfa":
-            if self.charge_data.alfa is None:
-                self.charge_data.calc_alfa_beta()
-                volumetric_data = self.charge_data.chop(
-                    self.charge_data.alfa,
+            if self.chgcar_data[self.chg_file_path].alfa is None:
+                self.chgcar_data[self.chg_file_path].calc_alfa_beta()
+                volumetric_data = self.chgcar_data[self.chg_file_path].chop(
+                    self.chgcar_data[self.chg_file_path].alfa,
                     chopping_factor
                 )
             else:
-                volumetric_data = self.charge_data.alfa
+                volumetric_data = self.chgcar_data[self.chg_file_path].alfa
 
         elif self.contour_type == "beta":
-            if self.charge_data.beta is None:
-                self.charge_data.calc_alfa_beta()
-                volumetric_data = self.charge_data.chop(
-                    self.charge_data.beta,
+            if self.chgcar_data[self.chg_file_path].beta is None:
+                self.chgcar_data[self.chg_file_path].calc_alfa_beta()
+                volumetric_data = self.chgcar_data[self.chg_file_path].chop(
+                    self.chgcar_data[self.chg_file_path].beta,
                     chopping_factor
                 )
             else:
-                volumetric_data = self.charge_data.beta
+                volumetric_data = self.chgcar_data[self.chg_file_path].beta
 
         if volumetric_data is None:
             print("Invalid contour type")
@@ -537,7 +551,7 @@ class ChgcarVis(QWidget):
     def add_contours(self):
         """ creates the isosurface contours from charge density data """
 
-        if self.charge_data == None:
+        if self.chgcar_data[self.chg_file_path] == None:
             # if no charge data was loaded, print message
             print("no data was found")
             return
@@ -552,7 +566,7 @@ class ChgcarVis(QWidget):
         min_val = np.min(volumetric_data)
         largest_value = np.max([np.abs(max_val), np.abs(min_val)])
 
-        basis = self.charge_data.atoms.cell[:]
+        basis = self.chgcar_data[self.chg_file_path].atoms.cell[:]
 
         nx, ny, nz = volumetric_data.shape
 
@@ -657,23 +671,22 @@ class ChgcarVis(QWidget):
             self.process_chg_file(self.chg_file_path)
         self.chg_button_counter += 1
 
-    def process_chg_file(self, file_path):
+    def process_chg_file(self, file_path, init=True):
         """
         function to process CHGCAR file
         """
-
         self.progress_window = DialogWIndow(file_path)
         self.progress_window.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         self.progress_window.show()
-        self.chg_file_path = file_path
-        self.create_chgcar_data()
+        if init:
+            self.chg_file_path = file_path
+        self.create_chgcar_data(self.chg_file_path, init)
 
     def close_progress_window(self):
         self.progress_window.close()
 
     def _after_reading(self):
         self.chg_plotter.setup_render_thread(5)
-
 
     def add_flip_box_widget(self):
         if self.box_widget is None:
@@ -705,10 +718,10 @@ class ChgcarVis(QWidget):
         x_start, x_stop, y_start, y_stop, z_start, z_stop = [x if x >= 0 else 0 for x in self.box_bounds]
         box_min = np.array([x_start, y_start, z_start])
         box_max = np.array([x_stop, y_stop, z_stop])
-        voxel_size = self.charge_data.voxel_size()
+        voxel_size = self.chgcar_data[self.chg_file_path].voxel_size()
         x_min, y_min, z_min = np.floor(box_min / voxel_size).astype(int)
         x_max, y_max, z_max = np.ceil(box_max / voxel_size).astype(int)
-        grid_max = list(self.charge_data.chgcar._grid)
+        grid_max = list(self.chgcar_data[self.chg_file_path].chgcar._grid)
         x_max, y_max, z_max = [min(v, l) for v, l in zip(grid_max, [x_max, y_max, z_max])]
 
         data[z_min: z_max, y_min: y_max, x_min: x_max] *= factor
@@ -739,21 +752,21 @@ class ChgcarVis(QWidget):
         z = matrix[0]
         y = matrix[1]
         x = matrix[2]
-        total_supercell = np.tile(self.charge_data.all_numbers[0], (z, y, x))
-        spin_supercell = np.tile(self.charge_data.all_numbers[1], (z, y, x))
-        self.charge_data.all_numbers = [total_supercell, spin_supercell]
+        total_supercell = np.tile(self.chgcar_data[self.chg_file_path].all_numbers[0], (z, y, x))
+        spin_supercell = np.tile(self.chgcar_data[self.chg_file_path].all_numbers[1], (z, y, x))
+        self.chgcar_data[self.chg_file_path].all_numbers = [total_supercell, spin_supercell]
 
         multiplication = x * y * z
-        aug_dict, aug_leftovers = self.charge_data.read_augmentation(self.charge_data.aug)
-        aug_diff_dict, aug_diff_leftovers = self.charge_data.read_augmentation(self.charge_data.aug_diff)
+        aug_dict, aug_leftovers = self.chgcar_data[self.chg_file_path].read_augmentation(self.chgcar_data[self.chg_file_path].aug)
+        aug_diff_dict, aug_diff_leftovers = self.chgcar_data[self.chg_file_path].read_augmentation(self.chgcar_data[self.chg_file_path].aug_diff)
 
-        new_aug_dict, new_aug_leftovers = self.charge_data.tile_dict_and_list(aug_dict, aug_leftovers, multiplication)
-        new_aug_diff_dict, new_aug_diff_leftovers = self.charge_data.tile_dict_and_list(aug_diff_dict, aug_diff_leftovers, multiplication)
+        new_aug_dict, new_aug_leftovers = self.chgcar_data[self.chg_file_path].tile_dict_and_list(aug_dict, aug_leftovers, multiplication)
+        new_aug_diff_dict, new_aug_diff_leftovers = self.chgcar_data[self.chg_file_path].tile_dict_and_list(aug_diff_dict, aug_diff_leftovers, multiplication)
 
-        new_aug = self.charge_data.rebuild_string(new_aug_dict, new_aug_leftovers)
-        new_aug_diff = self.charge_data.rebuild_string(new_aug_diff_dict, new_aug_diff_leftovers)
-        self.charge_data.aug = new_aug
-        self.charge_data.aug_diff = new_aug_diff
+        new_aug = self.chgcar_data[self.chg_file_path].rebuild_string(new_aug_dict, new_aug_leftovers)
+        new_aug_diff = self.chgcar_data[self.chg_file_path].rebuild_string(new_aug_diff_dict, new_aug_diff_leftovers)
+        self.chgcar_data[self.chg_file_path].aug = new_aug
+        self.chgcar_data[self.chg_file_path].aug_diff = new_aug_diff
         print("done")
 
     def make_atoms_supercell(self, matrix, write_buffer=True):
@@ -817,10 +830,10 @@ class ChgcarVis(QWidget):
             os.rmdir("tmp")
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
-        self.charge_data._unit_cell_vectors = supercell.cell[:]
-        self.charge_data.atoms = supercell
-        self.charge_data._scale_factor = 1
-        self.charge_data._grid = np.shape(self.charge_data.all_numbers[0])
+        self.chgcar_data[self.chg_file_path]._unit_cell_vectors = supercell.cell[:]
+        self.chgcar_data[self.chg_file_path].atoms = supercell
+        self.chgcar_data[self.chg_file_path]._scale_factor = 1
+        self.chgcar_data[self.chg_file_path]._grid = np.shape(self.chgcar_data[self.chg_file_path].all_numbers[0])
         self.add_contours()
 
     def make_supercell(self):
@@ -840,10 +853,10 @@ class ChgcarVis(QWidget):
         print(f'index from chgcar tab {index}')
 
         idx = index + 1
-        if self.charge_data != None:
+        if self.chgcar_data[self.chg_file_path] is not None:
 
-            aug_dict, aug_leftovers = self.charge_data.read_augmentation(self.charge_data.aug)
-            aug_diff_dict, aug_diff_leftovers = self.charge_data.read_augmentation(self.charge_data.aug_diff)
+            aug_dict, aug_leftovers = self.chgcar_data[self.chg_file_path].read_augmentation(self.chgcar_data[self.chg_file_path].aug)
+            aug_diff_dict, aug_diff_leftovers = self.chgcar_data[self.chg_file_path].read_augmentation(self.chgcar_data[self.chg_file_path].aug_diff)
 
             del aug_dict[idx]
             del aug_leftovers[index]
@@ -854,18 +867,18 @@ class ChgcarVis(QWidget):
 
             new_aug_dict = new_dict(aug_dict)
             new_aug_diff_dict = new_dict(aug_diff_dict)
-            new_aug = self.charge_data.rebuild_string(new_aug_dict, aug_leftovers)
-            new_aug_diff = self.charge_data.rebuild_string(new_aug_diff_dict, aug_diff_leftovers)
+            new_aug = self.chgcar_data[self.chg_file_path].rebuild_string(new_aug_dict, aug_leftovers)
+            new_aug_diff = self.chgcar_data[self.chg_file_path].rebuild_string(new_aug_diff_dict, aug_diff_leftovers)
 
-            self.charge_data.aug = new_aug
-            self.charge_data.aug_diff = new_aug_diff
+            self.chgcar_data[self.chg_file_path].aug = new_aug
+            self.chgcar_data[self.chg_file_path].aug_diff = new_aug_diff
 
-    def create_header_when_deleted(self, str):
-        if self.charge_data != None:
+    def create_header_when_deleted(self):
+        if self.chgcar_data[self.chg_file_path] is not None:
             import io
             stream = io.StringIO()
             self.structure_variable_control.save_poscar(stream)
-            self.charge_data.create_new_header(stream)
+            self.chgcar_data[self.chg_file_path].create_new_header(stream)
             stream.close()
 
     def write_chgcar(self):
@@ -874,14 +887,14 @@ class ChgcarVis(QWidget):
         file_path, _ = file_dialog.getSaveFileName()
         if file_path:
             #if self.supercell_made is not None:
-            #    self.charge_data.create_new_header(self.buffer)
+            #    self.chgcar_data[self.chg_file_path].create_new_header(self.buffer)
 
-            self.charge_data.save_all_file(
+            self.chgcar_data[self.chg_file_path].save_all_file(
                 file_path,
-                [self.charge_data.all_numbers[0]],
-                [self.charge_data.all_numbers[1]],
-                self.charge_data.aug,
-                self.charge_data.aug_diff
+                [self.chgcar_data[self.chg_file_path].all_numbers[0]],
+                [self.chgcar_data[self.chg_file_path].all_numbers[1]],
+                self.chgcar_data[self.chg_file_path].aug,
+                self.chgcar_data[self.chg_file_path].aug_diff
             )
         print("done")
 
@@ -1044,31 +1057,109 @@ class DDECAtomSelector(QWidget):
         self.fragments_selected.emit(self.frag1_formatted_atoms, frag2)
         event.accept()
 
-class Volumetric_data_editing(QWidget):
-    pass
-
-if __name__ == "__main__":
-    """ just for building """
-    from pyvistaqt import QtInteractor
-    app = QApplication(sys.argv)
-    plotter = QtInteractor()
-    win = QMainWindow()
-    chg_widget = ChgcarVis(plotter)
-
-    central_widget = QWidget()
-    win.setCentralWidget(central_widget)
-    main_layout = QVBoxLayout(central_widget)
-
-    main_layout.addWidget(chg_widget)
-    main_layout.addWidget(plotter)
+import sys
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QComboBox, QLabel, QFileDialog, QScrollArea
+)
 
 
-    chg_widget.chg_file_path = r"D:\syncme\modelowanie DFT\CeO2\1.CeO2(100)\CeO2_100_half_Ce\2.large slab\1.1x1x1\1.HSE"
-    #chg_widget.chg_file_path = r"D:\syncme\test_for_doswizard\9.CHGCAR"
-    chg_widget.set_spin_type("spin")
-    chg_widget.select_chg_file()
-    chg_widget.setWindowTitle("Main Window")
-    #chg_widget.create_chgcar_data()
-    win.resize(1000, 850)
-    win.show()
-    sys.exit(app.exec_())
+class RowWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        layout = QHBoxLayout(self)
+
+        self.combo = QComboBox()
+        self.combo.addItems(["add", "subtract", "multiply", "divide"])
+
+        self.file_btn = QPushButton("Choose file")
+        self.file_label = QLabel("No file selected")
+
+        self.file_path = None
+
+        self.file_btn.clicked.connect(self.choose_file)
+
+        layout.addWidget(self.combo)
+        layout.addWidget(self.file_btn)
+        layout.addWidget(self.file_label)
+
+    def choose_file(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Select file")
+        if path:
+            self.file_path = path
+            self.file_label.setText(path.split("/")[-1])
+
+    def get_data(self):
+        return self.combo.currentText(), self.file_path
+
+
+class VolumetricDataEditingWindow(QWidget):
+    def __init__(self, parent=None):
+        super().__init__()
+        self.parent = parent
+        self.vol_editing_paths = []
+        self.setWindowTitle("File Math Processor")
+        self.resize(600, 400)
+
+        main_layout = QVBoxLayout(self)
+
+        # Scroll area for many rows
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+
+        self.container = QWidget()
+        self.rows_layout = QVBoxLayout(self.container)
+
+        self.scroll.setWidget(self.container)
+
+        main_layout.addWidget(self.scroll)
+
+        is_chgcar_loaded = self.check_main_outcar()
+        msg_layout = QHBoxLayout(self)
+        msg_text = QLabel(is_chgcar_loaded)
+        msg_layout.addWidget(msg_text)
+        main_layout.addLayout(msg_layout)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+
+        self.add_btn = QPushButton("+")
+        self.do_btn = QPushButton("Do Math")
+
+        btn_layout.addWidget(self.add_btn)
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.do_btn)
+
+        main_layout.addLayout(btn_layout)
+
+        self.rows = []
+
+        self.add_btn.clicked.connect(self.add_row)
+        self.do_btn.clicked.connect(self.process)
+
+        # Start with one row
+        self.add_row()
+
+    def check_main_outcar(self):
+        if self.parent.chgcar_data == {}:
+            msg = "No main CHGCAR data found! To manipulate grid density, load a CHGCAR first"
+        else:
+            msg = ""
+        return msg
+
+    def add_row(self):
+        row = RowWidget()
+        self.rows.append(row)
+        self.rows_layout.addWidget(row)
+
+    def process(self):
+        print("Processing:")
+        for i, row in enumerate(self.rows):
+            op, path = row.get_data()
+            self.vol_editing_paths.append(path)
+            print(f"Row {i}: Operation={op}, File={path}")
+            self.parent.process_chg_file(path, init=False)
+
+
+
