@@ -93,6 +93,7 @@ class ChgcarVis(QWidget):
         self.layout.addSpacerItem(spacer)
         self.init_bader_UI()
         self.init_DDEC_UI()
+        self.init_volumetric_edit_UI()
 
     def init_chgcar_UI(self):
         """ initialize GUI for this tab """
@@ -233,6 +234,19 @@ class ChgcarVis(QWidget):
         self.ddec_frame_layout.addWidget(self.DDEC_choose_window_btn)
 
         self.layout.addWidget(self.ddec_frame)
+
+    def init_volumetric_edit_UI(self):
+        self.volumetric_edit_data = []
+        self.vol_edit_frame = QGroupBox(self)
+        self.vol_edit_frame.setTitle("Volumetric data editing")
+        self.vol_edit_frame.setMaximumHeight(150)
+        self.vol_edit_frame_layout = QVBoxLayout(self.vol_edit_frame)
+
+        self.vol_edit_window_btn = QPushButton("Choose Volumetric editing data")
+        self.vol_edit_window_btn.clicked.connect(self.edit_volumetric_data)
+        self.vol_edit_frame_layout.addWidget(self.vol_edit_window_btn)
+
+        self.layout.addWidget(self.vol_edit_frame)
 
     def open_bader_file(self):
         """
@@ -421,6 +435,9 @@ class ChgcarVis(QWidget):
         with open(fragments_path, "r") as fragment_file:
             lines = fragment_file.readlines()
             print(lines[-1])
+
+    def edit_volumetric_data(self):
+        pass
 
     #@profile
     def create_chgcar_data(self):
@@ -1026,6 +1043,9 @@ class DDECAtomSelector(QWidget):
             frag2 = ""
         self.fragments_selected.emit(self.frag1_formatted_atoms, frag2)
         event.accept()
+
+class Volumetric_data_editing(QWidget):
+    pass
 
 if __name__ == "__main__":
     """ just for building """

@@ -5,30 +5,20 @@ import platform
 import os
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
-from sympy.physics.units import length
-
-from console_widget import PythonConsole
 import pyqtgraph as pg
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 
-from config import AppConfig
 tic = time.perf_counter()
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
-    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog, QHBoxLayout, QVBoxLayout, \
-    QGroupBox, QSlider, QMessageBox
-from PyQt5.QtGui import QIcon, QPixmap, QFont, QPalette, QColor
-from PyQt5.QtCore import Qt, QTimer, QEvent
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget,  QSplitter, QTabWidget, \
+    QFileDialog, QLabel, QHBoxLayout, QVBoxLayout, QGroupBox, QSlider, QMessageBox
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 from PyQt5 import QtCore
 
 from vtk import vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
-    vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper, vtkArrowSource, \
-vtkTransformPolyDataFilter, vtkTransform
-from vtkmodules.vtkCommonCore import (
-    vtkMath,
-    vtkMinimalStandardRandomSequence
-)
-from vtkmodules.vtkCommonMath import vtkMatrix4x4
+     vtkPolyDataMapper
+
 
 class SlowSlider(QtWidgets.QSlider):
     def __init__(self, orientation=Qt.Horizontal, parent=None):

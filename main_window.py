@@ -9,6 +9,7 @@ from console_widget import PythonConsole
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 
 from config import AppConfig
+AppConfig.load()
 tic = time.perf_counter()
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
     QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog

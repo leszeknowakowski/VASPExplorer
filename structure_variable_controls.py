@@ -16,6 +16,7 @@ from ase.io import read
 from ase.neighborlist import NeighborList, natural_cutoffs
 from ase.constraints import FixBondLength, FixLinearTriatomic
 from config import AppConfig
+AppConfig.load()
 from vtk import vtkNamedColors,  vtkActor, vtkPoints, vtkCellArray, vtkLine, vtkPolyData, vtkPolyDataMapper
 
 toc = time.perf_counter()

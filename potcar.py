@@ -9,6 +9,8 @@ from collections import defaultdict
 import sys
 import os
 import re
+from config import AppConfig
+AppConfig.load()
 
 class Potcar_tab(QWidget):
     def __init__(self, structure_variable_control):
@@ -43,9 +45,19 @@ class Potcar_tab(QWidget):
             return
         else:
             self.mendelev_symbols_as_in_poscar = self.data.poscar.mendelev_symbols(self.symbols_as_in_poscar)
-            potcar_dir = QFileDialog.getExistingDirectory(self, "Select POTCAR Base Directory")
+
+            if hasattr(AppConfig, "potcar_dir"):
+                potcar_dir_base = AppConfig.potcar_dir
+            else:
+                potcar_dir_base = "./"
+            potcar_dir = QFileDialog.getExistingDirectory(self,
+                                                          "Select POTCAR Base Directory",
+                                                          potcar_dir_base)
             if not potcar_dir:
                 return
+
+            AppConfig.potcar_dir = potcar_dir
+            AppConfig.save()
             dialog = PotcarSelectorDialog(self.mendelev_symbols_as_in_poscar, potcar_dir, self)
             if dialog.exec_() != QDialog.Accepted:
                 return
