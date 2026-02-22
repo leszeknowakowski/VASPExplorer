@@ -610,7 +610,7 @@ class ChgcarVis(QWidget):
         contour_filter.SetInputConnection(transform_filter.GetOutputPort())
 
         # Set isosurface values
-        if self.contour_type == "spin":
+        if self.contour_type == "spin" :
             if largest_value> 0.5:
                 contour_filter.SetValue(0, -self.eps * largest_value)
                 contour_filter.SetValue(1, self.eps * largest_value)
@@ -618,7 +618,8 @@ class ChgcarVis(QWidget):
                 print("there is no spin polarization. Your structure is non-magnetic")
                 contour_filter.SetValue(0, largest_value)
         else:
-            contour_filter.SetValue(0, self.eps * largest_value)
+            contour_filter.SetValue(0, -self.eps * largest_value)
+            contour_filter.SetValue(1, self.eps * largest_value)
 
         contour_filter.Update()
 
