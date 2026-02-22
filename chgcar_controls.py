@@ -97,6 +97,7 @@ class ChgcarVis(QWidget):
         self.init_bader_UI()
         self.init_DDEC_UI()
         self.init_volumetric_edit_UI()
+        self.init_averaging_UI()
 
     def init_chgcar_UI(self):
         """ initialize GUI for this tab """
@@ -250,6 +251,20 @@ class ChgcarVis(QWidget):
         self.vol_edit_frame_layout.addWidget(self.vol_edit_window_btn)
 
         self.layout.addWidget(self.vol_edit_frame)
+
+    def init_averaging_UI(self):
+        self.averaging_frame = QGroupBox(self)
+        self.averaging_frame.setTitle("Averaging")
+        self.averaging_frame.setMaximumHeight(150)
+        self.averaging_frame_layout = QVBoxLayout(self.averaging_frame)
+
+        self.averaging_btn = QPushButton("Perform plane or axis averaging")
+        self.averaging_btn.clicked.connect(self.perform_averaging)
+        self.averaging_frame_layout.addWidget(self.averaging_btn)
+
+        self.averaging_frame_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.averaging_frame_layout.addWidget(self.averaging_frame)
+        self.layout.addWidget(self.averaging_frame)
 
     def open_bader_file(self):
         """
@@ -442,6 +457,11 @@ class ChgcarVis(QWidget):
     def edit_volumetric_data(self):
         self.volume_editing_window = VolumetricDataEditingWindow(self)
         self.volume_editing_window.show()
+
+    def perform_averaging(self):
+        from charge_averaging_dialog import ChargeAveragingDialog
+        dlg = ChargeAveragingDialog(self)
+        dlg.exec_()
 
     #@profile
     def create_chgcar_data(self, file_path, init):
