@@ -440,7 +440,7 @@ class ChgcarVis(QWidget):
             print(lines[-1])
 
     def edit_volumetric_data(self):
-        self.volume_editing_window = VolumetricDataEditingWindow(parent=self)
+        self.volume_editing_window = VolumetricDataEditingWindow(self)
         self.volume_editing_window.show()
 
     #@profile
@@ -478,6 +478,9 @@ class ChgcarVis(QWidget):
 
         thread.deleteLater()
         self.chg_threads.remove(thread)
+
+        if hasattr(self, "volume_editing_window"):
+            self.volume_editing_window.notify_chgcar_loaded(thread.file_path)
 
     def update_eps(self):
         """ update isosurface value with slider """
@@ -667,8 +670,9 @@ class ChgcarVis(QWidget):
             file_dialog = QFileDialog()
             file_dialog.setDirectory(self.chg_file_path)
             file_path, _ = file_dialog.getOpenFileName(self, "choose charge density file")
-            self.chg_file_path = file_path
-            self.process_chg_file(self.chg_file_path)
+            if file_path:
+                self.chg_file_path = file_path
+                self.process_chg_file(self.chg_file_path)
         self.chg_button_counter += 1
 
     def process_chg_file(self, file_path, init=True):
@@ -808,32 +812,27 @@ class ChgcarVis(QWidget):
 
     def read_supercell_to_vaspy(self, matrix):
         from ase.io import write, read
+        import tempfile
+        chg_path = self.chg_file_path
         supercell = self.make_atoms_supercell(matrix, write_buffer=True)
-        if not os.path.exists("tmp"):
-            os.mkdir("tmp")
-        os.chdir("tmp")
-        write("POSCAR", supercell)
-        self.load_data.emit(os.getcwd())
-        folder = os.getcwd()
-        for filename in os.listdir(folder):
-            file_path = os.path.join(folder, filename)
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                print('Failed to delete %s. Reason: %s' % (file_path, e))
 
-        os.chdir("../")
-        try:
-            os.rmdir("tmp")
-        except Exception as e:
-            print('Failed to delete %s. Reason: %s' % (file_path, e))
-        self.chgcar_data[self.chg_file_path]._unit_cell_vectors = supercell.cell[:]
-        self.chgcar_data[self.chg_file_path].atoms = supercell
-        self.chgcar_data[self.chg_file_path]._scale_factor = 1
-        self.chgcar_data[self.chg_file_path]._grid = np.shape(self.chgcar_data[self.chg_file_path].all_numbers[0])
+        # create temporary directory automatically
+        tmpdir = tempfile.mkdtemp(prefix="vaspviewer_")
+
+        # write POSCAR there
+        write(os.path.join(tmpdir, "POSCAR"), supercell)
+
+        # emit path exactly as your app expects
+        self.load_data.emit(tmpdir)
+
+        self.chg_file_path = chg_path
+        # update internal CHGCAR data
+        chg = self.chgcar_data[self.chg_file_path]
+        chg._unit_cell_vectors = supercell.cell[:]
+        chg.atoms = supercell
+        chg._scale_factor = 1
+        chg._grid = np.shape(chg.all_numbers[0])
+
         self.add_contours()
 
     def make_supercell(self):
@@ -850,11 +849,10 @@ class ChgcarVis(QWidget):
 
 
     def delete_atom(self, index):
-        print(f'index from chgcar tab {index}')
+        #print(f'index from chgcar tab {index}')
 
         idx = index + 1
-        if self.chgcar_data[self.chg_file_path] is not None:
-
+        if self.chg_file_path in self.chgcar_data:
             aug_dict, aug_leftovers = self.chgcar_data[self.chg_file_path].read_augmentation(self.chgcar_data[self.chg_file_path].aug)
             aug_diff_dict, aug_diff_leftovers = self.chgcar_data[self.chg_file_path].read_augmentation(self.chgcar_data[self.chg_file_path].aug_diff)
 
@@ -874,7 +872,7 @@ class ChgcarVis(QWidget):
             self.chgcar_data[self.chg_file_path].aug_diff = new_aug_diff
 
     def create_header_when_deleted(self):
-        if self.chgcar_data[self.chg_file_path] is not None:
+        if self.chg_file_path in self.chgcar_data:
             import io
             stream = io.StringIO()
             self.structure_variable_control.save_poscar(stream)
@@ -1065,8 +1063,9 @@ from PyQt5.QtWidgets import (
 
 
 class RowWidget(QWidget):
-    def __init__(self):
+    def __init__(self, parent_window):
         super().__init__()
+        self.parent_window = parent_window  # reference to main window
 
         layout = QHBoxLayout(self)
 
@@ -1075,29 +1074,39 @@ class RowWidget(QWidget):
 
         self.file_btn = QPushButton("Choose file")
         self.file_label = QLabel("No file selected")
-
         self.file_path = None
 
+        self.remove_btn = QPushButton("−")  # remove button
+        self.remove_btn.setFixedWidth(30)
+
         self.file_btn.clicked.connect(self.choose_file)
+        self.remove_btn.clicked.connect(self.remove_row)
 
         layout.addWidget(self.combo)
         layout.addWidget(self.file_btn)
         layout.addWidget(self.file_label)
+        layout.addWidget(self.remove_btn)
 
     def choose_file(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select file")
+        path, _ = QFileDialog.getOpenFileName(self, "Select file", self.parent_window.parent.chg_file_path)
         if path:
+            import os
             self.file_path = path
-            self.file_label.setText(path.split("/")[-1])
+            self.file_label.setText(os.path.basename(path))
 
     def get_data(self):
         return self.combo.currentText(), self.file_path
 
+    def remove_row(self):
+        # Remove this widget from layout and main list
+        self.setParent(None)
+        self.parent_window.rows.remove(self)
+
 
 class VolumetricDataEditingWindow(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, chgcar_widget):
         super().__init__()
-        self.parent = parent
+        self.parent = chgcar_widget
         self.vol_editing_paths = []
         self.setWindowTitle("File Math Processor")
         self.resize(600, 400)
@@ -1149,17 +1158,79 @@ class VolumetricDataEditingWindow(QWidget):
         return msg
 
     def add_row(self):
-        row = RowWidget()
+        row = RowWidget(self)
         self.rows.append(row)
         self.rows_layout.addWidget(row)
 
+    import numpy as np
+
     def process(self):
-        print("Processing:")
-        for i, row in enumerate(self.rows):
+        if self.parent.chgcar_data == {}:
+            print("No main CHGCAR loaded!")
+            return
+
+        self.operations_queue = []  # store (operation, filepath)
+        self.pending_loads = 0
+
+        for row in self.rows:
             op, path = row.get_data()
-            self.vol_editing_paths.append(path)
-            print(f"Row {i}: Operation={op}, File={path}")
-            self.parent.process_chg_file(path, init=False)
+            if path:
+                self.operations_queue.append((op, path))
+                self.pending_loads += 1
+                self.parent.create_chgcar_data(path, init=False)
+
+        if self.pending_loads == 0:
+            print("Nothing to load")
+            return
+
+        print("Loading files asynchronously...")
+
+    def notify_chgcar_loaded(self, path):
+        self.pending_loads -= 1
+
+        if self.pending_loads == 0:
+            print("All files loaded — performing math")
+            self.perform_math()
+
+    def perform_math(self):
+        main_chg = self.parent.chgcar_data[self.parent.chg_file_path]
+
+        main_total = main_chg.all_numbers[0]
+        main_spin = main_chg.all_numbers[1]
+
+        for op, path in self.operations_queue:
+            thread = self.parent.chgcar_data[path]
+
+            grid_total = thread.all_numbers[0]
+            grid_spin = thread.all_numbers[1]
+
+            if grid_total.shape != main_total.shape:
+                print("Shape mismatch:", path)
+                continue
+
+            # ---- TOTAL CHANNEL ----
+            self.apply_operation(main_total, grid_total, op)
+
+            # ---- SPIN CHANNEL ----
+            self.apply_operation(main_spin, grid_spin, op)
+
+        # add contours
+        self.parent.add_contours()
+        print("Math completed.")
+
+    def apply_operation(self, target, other, op):
+        if op == "add":
+            target += other
+
+        elif op == "subtract":
+            target -= other
+
+        elif op == "multiply":
+            target *= other
+
+        elif op == "divide":
+            with np.errstate(divide='ignore', invalid='ignore'):
+                np.divide(target, other, out=target, where=other != 0)
 
 
 
