@@ -74,7 +74,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_frame = None
         self.render_frame_layout = None
         self.renderFrame = None
-        self.bond_threshold = 2.8
+        self.bond_threshold = 2.45
         self.sphere_radius = 0.5
         self.constrains = self.structure_plot_widget.data.constrains
         self.selected_actors = []

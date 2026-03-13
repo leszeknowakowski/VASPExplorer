@@ -382,7 +382,7 @@ class VaspChargeDensity(QObject):
             return True
         return False
 
-    def _read_chg(self, fobj, chg, volume, spin=False, debug=False):
+    def _read_chg(self, fobj, chg, volume, spin=False, debug=False, divide_by_volume=True):
         """Read charge from file object
 
         Utility method for reading the actual charge density (or
@@ -409,7 +409,8 @@ class VaspChargeDensity(QObject):
                     self.progress.emit(progress_half + 51)  # from 51 to 100
             for j, yy in enumerate(range(chg.shape[1])):
                 chg[:, yy, zz] = np.fromfile(fobj, count=chg.shape[0], sep=' ')
-        chg /= volume
+        if divide_by_volume:
+            chg /= volume
 
     def read(self, filename, debug=False):
         """Read CHG or CHGCAR file.
@@ -429,6 +430,10 @@ class VaspChargeDensity(QObject):
         """
         DEBUG = False
         import ase.io.vasp as aiv
+        if os.path.basename(filename) == 'LOCPOT':
+            DIVIDE_BY_VOLUME = False
+        else:
+            DIVIDE_BY_VOLUME = True
         with open(filename) as fd:
             self.atoms = []
             self.chg = []
@@ -457,7 +462,7 @@ class VaspChargeDensity(QObject):
                 chg = np.empty(ng)
                 self.change_label.emit("reading total density...")
                 tic = time.time()
-                self._read_chg(fd, chg, atoms.get_volume(), spin=False, debug=DEBUG)
+                self._read_chg(fd, chg, atoms.get_volume(), spin=False, debug=DEBUG, divide_by_volume=DIVIDE_BY_VOLUME)
                 toc = time.time()
                 print(f'reading total denisity: {toc - tic} s')
                 self.chg.append(chg)
@@ -468,9 +473,10 @@ class VaspChargeDensity(QObject):
                 # First check if the file has an augmentation charge part
                 # (CHGCAR file.)
                 line1 = fd.readline()
+                num_pattern = re.compile(r'^0\.\d{12}E[+-]\d+$')
                 if line1 == '':
                     break
-                elif line1.find('augmentation') != -1:
+                elif line1.find('augmentation') != -1 or all(num_pattern.match(x) for x in line1.split()):
                     augs = [line1]
                     while True:
                         line2 = fd.readline()
@@ -480,7 +486,7 @@ class VaspChargeDensity(QObject):
                             self.change_label.emit("Initializing matrices...")
                             chgdiff = np.empty(ng)
                             self.change_label.emit("reading spin density...")
-                            self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=DEBUG)
+                            self._read_chg(fd, chgdiff, atoms.get_volume(), spin=True, debug=DEBUG, divide_by_volume=DIVIDE_BY_VOLUME)
                             self.chgdiff.append(chgdiff)
                         elif line2 == '':
                             break

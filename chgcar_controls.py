@@ -361,8 +361,9 @@ class ChgcarVis(QWidget):
 
             bader_charges = [self.bader_data[index][4] for index in range(len(self.bader_data))]
             for i in range(len(indices)):
+                bader_charge = float(bader_charges[indices[i]])
                 coords.append(list(coordinates[indices[i]]))
-                baders.append(bader_charges[indices[i]])
+                baders.append(f"{bader_charge:.2f}")
             self.bader_charges_actor = self.chg_plotter.add_point_labels(coords, baders, font_size=30,
                                                                          show_points=False, always_visible=True,
                                                                          shape=None)
