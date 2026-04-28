@@ -299,7 +299,7 @@ class DosControlWidget(QWidget):
                     many_joined = "".join(many_splitted)
                 else:
                     many_joined = "".join(splitted)
-                if checkbox_text in many_joined:
+                if checkbox_text == many_joined:
                     checkbox.setChecked(check)
             checkbox.blockSignals(False)
         # update atom_up
