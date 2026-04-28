@@ -865,7 +865,7 @@ class StructureVariableControls(QWidget):
 
         print('MAGMOM = ' + compressed_string)
 
-    def set_magmoms(self):
+    def set_magmoms(self): # TODO: add function to create magmoms from current outcar mags
         def check_type(s):
             try:
                 int(s)

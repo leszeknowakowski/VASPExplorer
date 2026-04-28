@@ -724,7 +724,7 @@ class ChgcarVis(QWidget):
         grid_max = list(self.chgcar_data[self.chg_file_path].chgcar._grid)
         x_max, y_max, z_max = [min(v, l) for v, l in zip(grid_max, [x_max, y_max, z_max])]
 
-        data[z_min: z_max, y_min: y_max, x_min: x_max] *= factor
+        data[x_min: x_max, y_min: y_max, z_min: z_max] *= factor
         if add_contours:
             self.add_contours()
 
