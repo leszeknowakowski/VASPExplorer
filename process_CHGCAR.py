@@ -84,6 +84,8 @@ class CHGCARParser(QThread):
         self.atoms = self.chgcar.atoms[0]
         self.aug = self.chgcar.aug
         self.aug_diff = self.chgcar.augdiff
+        self._unit_cell_vectors = self.chgcar.atoms[0].cell[:]
+        self._grid = self.chgcar._grid
 
     def update_progress(self, progress):
         self.progress.emit(progress)
