@@ -612,6 +612,11 @@ if __name__ == '__main__':
             base = "/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/4.MLFF/2.production/3.massive_search/2.4x4/"
             dir = "1.spinel_4x4_ceria_XXX/2.Scan_optimal_Zdist/1.view"
             os.chdir(base + dir)
+            
+    #local Windows paths
+    #os.chdir(r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\4.MLFF\1.production\3.massive_search\1.3x3\1.spinel_3x3_ceria_mlff\2.good")
+    #os.chdir(r"D:\syncme\test_for_doswizard\xdatcar_viewer")
+
 
     window = MainWindow()
 
