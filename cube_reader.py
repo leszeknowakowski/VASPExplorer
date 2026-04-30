@@ -6,6 +6,9 @@ import numpy as np
 import os
 import json
 import vtk
+from PyQt5.QtGui import QPixmap,QFont, QColor, QPainter, QPen
+from PyQt5.QtWidgets import QSplashScreen
+from PyQt5.QtCore import Qt
 
 class CubeData:
     def __init__(self, filepath):
@@ -59,11 +62,27 @@ class CubeManager:
     # -------------------------
     # LOAD ALL FILES ONCE
     # -------------------------
-    def load_directory(self, folder):
+    def load_directory(self, folder, basename):
+        splash_pix = QPixmap(600,300)
+        splash_pix.fill(QColor(240,240,240))
+        # Draw border
+        painter = QPainter(splash_pix)
+        pen = QPen(Qt.black)
+        pen.setWidth(6)
+        painter.setPen(pen)
+        painter.drawRect(splash_pix.rect().adjusted(0, 0, -1, -1))
+        painter.end()
+
+        self.splash = QSplashScreen(splash_pix)
+        self.splash.setMask(splash_pix.mask())
+        self.splash.setFont(QFont("Arial", 18))
+        self.splash.show()
+        self.splash.showMessage("Initializing...", Qt.AlignCenter, Qt.black)
+
         for f in os.listdir(folder):
-            if f.endswith(".cube"):
+            if f.endswith(".cube") and f.startswith(basename):
                 path = os.path.join(folder, f)
-                print(f"Loading {path}")
+                self.splash.showMessage(f"Loading {f}", Qt.AlignCenter, Qt.black)
                 self.cubes[f] = CubeData(path)
 
     def make_cylinder(self, p1, p2, radius=0.08):
@@ -142,8 +161,8 @@ class CubeManager:
         max = np.max([data_max, np.abs(data_min)])
 
         self.isosurf_threshold = 0.05
-        contour_positive = grid.contour(self.isosurf_threshold*max)
-        contour_negative = grid.contour(-self.isosurf_threshold*max)
+        contour_positive = grid.contour([self.isosurf_threshold*max])
+        contour_negative = grid.contour([-self.isosurf_threshold*max])
 
         plotter.add_mesh(contour_positive, color="orange", opacity=1, smooth_shading=True)
         plotter.add_mesh(contour_negative, color="blue", opacity=1, smooth_shading=True)
@@ -210,11 +229,13 @@ class CubeManager:
     # -------------------------
     def render_all_screenshots(self):
         for name, cube in self.cubes.items():
+            self.splash.showMessage(f"building plotter for {name}",Qt.AlignCenter, Qt.black)
             plotter = self.build_plotter(cube, offscreen=True)
             self.add_to_plotter(cube, plotter)
             self.screenshots[name] = plotter.screenshot()
             plotter.clear()
             plotter.close()
+        self.splash.close()
 
     # -------------------------
     # GET READY-TO-VIEW SCENE

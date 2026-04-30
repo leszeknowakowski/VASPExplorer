@@ -108,7 +108,8 @@ class MODiagramViewModel(QtCore.QObject):
         self.diagram = LobsterModel.load(path)
         self.data_changed.emit()
         self.cube_manager = CubeManager()
-        self.cube_manager.load_directory(os.path.dirname(path))
+        basename = os.path.basename(path).split("_")[0]
+        self.cube_manager.load_directory(os.path.dirname(path), basename)
         self.cube_manager.render_all_screenshots()
         self.files = os.listdir(os.path.dirname(path))
 
