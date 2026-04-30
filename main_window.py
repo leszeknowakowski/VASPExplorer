@@ -219,6 +219,29 @@ class MainWindow(QMainWindow):
         styles_menu.addAction(change_styles_action)
         change_styles_action.triggered.connect(self.open_style_dialog)
 
+        lobster_menu = menubar.addMenu("Lobster")
+
+        mo_action = QAction("MO Diagram", self)
+        mo_action.triggered.connect(self.open_mo_diagram)
+
+        lobster_menu.addAction(mo_action)
+
+    def open_mo_diagram(self):
+        from mo_diagram import MODiagramView, MODiagramViewModel
+
+        vm = MODiagramViewModel()
+        self.mo_diagram_window = MODiagramView(vm)
+
+        if self.dir:
+            for file in os.listdir(self.dir):
+                if "MO_Diagram" in file:
+                    mo_file = os.path.join(self.dir, file)
+
+        self.mo_diagram_window.vm.load_file(mo_file)
+        self.mo_diagram_window.show()
+        self.mo_diagram_window.raise_()
+        self.mo_diagram_window.activateWindow()
+
     def create_python_console(self):
         self.console = PythonConsole(local_vars={'main_window': self})
         self.horizontal_splitter.addWidget(self.console)
@@ -329,7 +352,6 @@ class MainWindow(QMainWindow):
         self.blinking_label.setVisible(not self.blinking_label.isVisible())
         self.blink_counter += 1
 
-
     def log_program_launch(self):
         import os
         import csv
@@ -405,10 +427,6 @@ class MainWindow(QMainWindow):
             self.set_window_title(self.dir)
             AppConfig.dir = selected_dir
 
-        #except Exception as e:
-        #QMessageBox.critical(self, "Error Loading Data", str(e))
-        #print(e)
-
     def eventFilter(self, source, event):
         if event.type() == QEvent.KeyPress:
             if event.key() == Qt.Key_Shift:
@@ -450,17 +468,9 @@ class MainWindow(QMainWindow):
             if any(os.path.isfile(os.path.join(cwd, fname)) for fname in files_to_check):
                 dir = cwd
             else:
-                #dir = ("D:\\syncme\modelowanie DFT\\CeO2\\CeO2_bulk\\Ceria_bulk_vacancy\\0.Ceria_bulk_1vacancy\\scale_0.98")
-                #dir = ("D:\\syncme\\modelowanie DFT\\CeO2\\1.CeO2(100)\\CeO2_100_CeO4-t\\1.symmetric_small\\2.HSE large\\1.geo_opt")
-                dir = "D:\\syncme\\test_for_doswizard\\9.CHGCAR\\5.chgdiff\\3.full"
-                #dir = r"D:\syncme\modelowanie DFT\1.interface\2.interface_3x3\34.co3o4_3x3_ceria_mlff"
-                #dir = r'D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\2.interface\1.Co3O4_3x3\4.co3o4_3x3_ceria_mlff\1.cluster_separate\1.first\1.bader'
-                #dir = r'D:\syncme\test_for_doswizard\999.fast_atoms'
-                #dir = r"D:\syncme\test_for_doswizard\colorful_atoms"
-                #dir = r'D:\syncme\test_for_doswizard\5.only_POSCAR' # poscar with D1, D2, Ce1 etc.
-                #dir = r"D:\syncme\modelowanie DFT\2.all_from_lumi\6.interface\1.precursors_and_clusters\5.larger_513"
+                #dir = "D:\\syncme\\test_for_doswizard\\9.CHGCAR\\5.chgdiff\\3.full"
+                dir = r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small\1.mofe_o2"
 
-            #print("can't resolve operating system")
             self.dir = dir
         AppConfig.dir = dir
         return dir
