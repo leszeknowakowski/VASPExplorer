@@ -11,7 +11,9 @@ class CubeData:
     def __init__(self, filepath):
         self.filepath = filepath
 
-        with open(r"D:\OneDrive - Uniwersytet Jagielloński\Studia\python\2.Splitted_PyQtGraph\elementColorSchemes.json", "r") as f: #TODO: change later
+        script_dir = os.path.dirname(__file__)
+        colors_file = os.path.join(script_dir, 'elementColorSchemes.json')
+        with open(colors_file, "r") as f:
             self.all_colors = json.load(f)
 
         with open(filepath, "r") as f:
