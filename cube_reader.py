@@ -6,9 +6,11 @@ import numpy as np
 import os
 import json
 import vtk
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from PyQt5.QtGui import QPixmap,QFont, QColor, QPainter, QPen
 from PyQt5.QtWidgets import QSplashScreen
 from PyQt5.QtCore import Qt
+import time
 
 class CubeData:
     def __init__(self, filepath):
@@ -62,6 +64,11 @@ class CubeManager:
     # -------------------------
     # LOAD ALL FILES ONCE
     # -------------------------
+    @staticmethod
+    def _load_single_cube(item):
+        filename, path = item
+        return filename, CubeData(path)
+
     def load_directory(self, folder, basename):
         splash_pix = QPixmap(600,300)
         splash_pix.fill(QColor(240,240,240))
@@ -78,12 +85,62 @@ class CubeManager:
         self.splash.setFont(QFont("Arial", 18))
         self.splash.show()
         self.splash.showMessage("Initializing...", Qt.AlignCenter, Qt.black)
+        tic = time.perf_counter()
+        cube_files = [
+            f for f in os.listdir(folder)
+            if f.endswith(".cube") and f.startswith(basename)
+        ]
+        cube_files.sort()
 
-        for f in os.listdir(folder):
-            if f.endswith(".cube") and f.startswith(basename):
-                path = os.path.join(folder, f)
-                self.splash.showMessage(f"Loading {f}", Qt.AlignCenter, Qt.black)
-                self.cubes[f] = CubeData(path)
+        if not cube_files:
+            return
+
+        workers = min(len(cube_files), os.cpu_count() or 1, 8)
+        loaded = {}
+        errors = []
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(self._load_single_cube, (f, os.path.join(folder, f))): f
+                for f in cube_files
+            }
+
+            completed = 0
+            total = len(cube_files)
+            for future in as_completed(futures):
+                filename = futures[future]
+                completed += 1
+                self.splash.showMessage(
+                    f"Loading {filename} ({completed}/{total})",
+                    Qt.AlignCenter,
+                    Qt.black
+                )
+                try:
+                    loaded_name, cube = future.result()
+                    loaded[loaded_name] = cube
+                except Exception as exc:
+                    errors.append((filename, exc))
+
+        for f in cube_files:
+            if f in loaded:
+                self.cubes[f] = loaded[f]
+
+        if errors:
+            failed_files = ", ".join(name for name, _ in errors)
+            raise RuntimeError(f"Failed to load cube files: {failed_files}") from errors[0][1]
+
+        toc = time.perf_counter()
+        print(f"Loading time: {toc - tic:.2f} seconds")
+
+
+    def _render_single_screenshot(self, item):
+        name, cube = item
+        plotter = self.build_plotter(cube, offscreen=True)
+        self.add_to_plotter(cube, plotter)
+        screenshot = plotter.screenshot()
+        plotter.clear()
+        plotter.close()
+        return name, screenshot
 
     def make_cylinder(self, p1, p2, radius=0.08):
         direction = p2 - p1
@@ -228,14 +285,47 @@ class CubeManager:
     # BATCH SCREENSHOTS (KEY FEATURE)
     # -------------------------
     def render_all_screenshots(self):
-        for name, cube in self.cubes.items():
-            self.splash.showMessage(f"building plotter for {name}",Qt.AlignCenter, Qt.black)
-            plotter = self.build_plotter(cube, offscreen=True)
-            self.add_to_plotter(cube, plotter)
-            self.screenshots[name] = plotter.screenshot()
-            plotter.clear()
-            plotter.close()
-        self.splash.close()
+        cube_items = list(self.cubes.items())
+        if not cube_items:
+            self.splash.close()
+            return
+
+        workers = min(len(cube_items), os.cpu_count() or 1, 4)
+        rendered = {}
+        errors = []
+
+        try:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = {
+                    executor.submit(self._render_single_screenshot, item): item[0]
+                    for item in cube_items
+                }
+
+                completed = 0
+                total = len(cube_items)
+                for future in as_completed(futures):
+                    name = futures[future]
+                    completed += 1
+                    self.splash.showMessage(
+                        f"building plotter for {name} ({completed}/{total})",
+                        Qt.AlignCenter,
+                        Qt.black
+                    )
+                    try:
+                        rendered_name, image = future.result()
+                        rendered[rendered_name] = image
+                    except Exception as exc:
+                        errors.append((name, exc))
+
+            for name, _ in cube_items:
+                if name in rendered:
+                    self.screenshots[name] = rendered[name]
+
+            if errors:
+                failed_files = ", ".join(name for name, _ in errors)
+                raise RuntimeError(f"Failed to render screenshots: {failed_files}") from errors[0][1]
+        finally:
+            self.splash.close()
 
     # -------------------------
     # GET READY-TO-VIEW SCENE
