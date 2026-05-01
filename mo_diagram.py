@@ -10,6 +10,7 @@ import pyqtgraph as pg
 from cube_reader import CubeManager
 from pyvistaqt import QtInteractor
 
+ORB_LINE_WIDTH = 3.5
 
 @dataclass
 class SpinData:
@@ -58,21 +59,21 @@ class LobsterModel:
         mo_energies = np.array(rows[2][2:], dtype=float)
 
         atomic_rows = rows[3:]
-        labels = [str(r[0]) for r in atomic_rows]
+        ao_labels = [str(r[0]) for r in atomic_rows]
         ao_energies = np.array([r[1] for r in atomic_rows], dtype=float)
         coeff = np.array([r[2:] for r in atomic_rows], dtype=float)
 
         group_map = {}
         group_energies = {}
 
-        for lbl, e in zip(labels, ao_energies):
+        for lbl, e in zip(ao_labels, ao_energies):
             atom = lbl.split("_", 1)[0]
             group_map.setdefault(atom, []).append(lbl)
             group_energies.setdefault(atom, []).append(e)
 
         return SpinData(
             molecular_orbitals,
-            labels,
+            ao_labels,
             group_map,
             [np.array(v) for v in group_energies.values()],
             mo_energies,
@@ -144,13 +145,14 @@ class MODiagramViewModel(QtCore.QObject):
     @staticmethod
     def spread_positions(energies, x_center, tol=2):
         rounded = np.round(energies / tol) * tol
-        out = []
+        out = [None] * len(energies)
         for r in np.unique(rounded):
             idx = np.where(rounded == r)[0]
             offsets = [0.0] if len(idx) == 1 else np.linspace(-0.5, 0.5, len(idx))
             for i, dx in zip(idx, offsets):
-                out.append((energies[i], x_center + dx))
-        return sorted(out, key=lambda t: t[0])
+                out[i] = (energies[i], x_center + dx)
+
+        return out
 
 
 class MODiagramView(QtWidgets.QMainWindow):
@@ -187,7 +189,7 @@ class MODiagramView(QtWidgets.QMainWindow):
 
         self._build_toolbar()
 
-        self.vm.data_changed.connect(self.render)
+        self.vm.data_changed.connect(self.first_render)
 
     def _build_toolbar(self):
         tb = QtWidgets.QToolBar()
@@ -215,7 +217,7 @@ class MODiagramView(QtWidgets.QMainWindow):
         if path:
             self.vm.load_file(path)
 
-    def render(self):
+    def first_render(self):
         self.mo_items = []
         self.ao_items = []
         self.conn_items = []
@@ -239,12 +241,12 @@ class MODiagramView(QtWidgets.QMainWindow):
             labels = sd.atomic_groups[group_names[i]]
 
             for k, (e, x) in enumerate(pts):
-                item = self.plot.plot([x - 0.15, x + 0.15], [e, e], pen="k")
+                item = self.plot.plot([x - 0.15, x + 0.15], [e, e], pen="k", width=ORB_LINE_WIDTH)
                 item.ao_index = len(self.ao_items)
                 self.ao_items.append(item)
 
                 label = pg.TextItem(labels[k], anchor=(0.5, 0))
-                label.setPos(x, e - 0.5)
+                label.setPos(x, e - 0.1)
                 label.ao_index = len(self.ao_labels)
                 self.ao_labels.append(label)
                 self.plot.addItem(label)
@@ -253,12 +255,12 @@ class MODiagramView(QtWidgets.QMainWindow):
 
         mo_positions = self.vm.spread_positions(sd.mo_energies, mo_x)
         for j, (e, x) in enumerate(mo_positions):
-            item = self.plot.plot([x - 0.15, x + 0.15], [e, e], pen="b")
+            item = self.plot.plot([x - 0.15, x + 0.15], [e, e], pen="b", width=ORB_LINE_WIDTH)
             item.mo_index = j
             self.mo_items.append(item)
 
             label = pg.TextItem(sd.molecular_orbitals[j], anchor=(0.5, 0))
-            label.setPos(x, e - 0.5)
+            label.setPos(x, e - 0.1)
             label.mo_index = j
             self.mo_labels.append(label)
             self.plot.addItem(label)
@@ -281,21 +283,34 @@ class MODiagramView(QtWidgets.QMainWindow):
     def on_mouse_moved(self, evt):
         pos = evt[0]
         vb = self.plot.getViewBox()
-        mouse_point = vb.mapSceneToView(pos)
-
-        x = mouse_point.x()
-        y = mouse_point.y()
 
         closest_mo = None
-        min_dist = 0.3  # sensitivity
+        min_dist = 3  # pixels
 
-        # find closest MO
         for j, item in enumerate(self.mo_items):
             data = item.getData()
-            y_mo = data[1][0]
-            x_mo = np.mean(data[0])
+            x_vals = data[0]
+            y_val = data[1][0]
 
-            dist = abs(y - y_mo) + abs(x - x_mo)
+            x_min = np.min(x_vals)
+            x_max = np.max(x_vals)
+
+            # map segment endpoints to scene (pixel space)
+            p1 = vb.mapViewToScene(QtCore.QPointF(x_min, y_val))
+            p2 = vb.mapViewToScene(QtCore.QPointF(x_max, y_val))
+
+            px, py = pos.x(), pos.y()
+
+            # check if mouse is horizontally within the segment
+            if p1.x() <= px <= p2.x() or p2.x() <= px <= p1.x():
+                dx = 0
+            else:
+                dx = min(abs(px - p1.x()), abs(px - p2.x()))
+
+            dy = abs(py - p1.y())
+
+            dist = (dx ** 2 + dy ** 2) ** 0.5
+
             if dist < min_dist:
                 closest_mo = j
                 min_dist = dist
@@ -305,9 +320,9 @@ class MODiagramView(QtWidgets.QMainWindow):
     def highlight_mo(self, mo_index):
         # reset visuals (unchanged)
         for item in self.mo_items:
-            item.setPen("b")
+            item.setPen(pg.mkPen("b", width=ORB_LINE_WIDTH))
         for item in self.ao_items:
-            item.setPen("k")
+            item.setPen(pg.mkPen("k", width=ORB_LINE_WIDTH))
         for item in self.conn_items:
             item.setPen(pg.mkPen(width=1))
 
@@ -324,14 +339,14 @@ class MODiagramView(QtWidgets.QMainWindow):
             return
 
         # highlight MO
-        self.mo_items[mo_index].setPen(pg.mkPen("r", width=2))
+        self.mo_items[mo_index].setPen(pg.mkPen("r", width=ORB_LINE_WIDTH+1))
         self.mo_labels[mo_index].setColor("r")
 
         for item in self.conn_items:
             if item.mo_index == mo_index:
                 item.setPen(pg.mkPen("r", width=1.5))
                 ao_i = item.ao_index
-                self.ao_items[ao_i].setPen(pg.mkPen("r", width=2))
+                self.ao_items[ao_i].setPen(pg.mkPen("r", width=ORB_LINE_WIDTH+1))
                 self.ao_labels[ao_i].setColor("r")
 
         # -------------------------
@@ -345,6 +360,7 @@ class MODiagramView(QtWidgets.QMainWindow):
             shot = self.vm.cube_manager.screenshots.get(cube_name)
             if shot is not None:
                 self.hover_img.setImage(shot, axes={'x': 1, 'y': 0, 'c': 2})
+
 
                 # position near cursor / window
                 cursor_pos = QtGui.QCursor.pos()
@@ -439,8 +455,6 @@ class MODiagramView(QtWidgets.QMainWindow):
         dialog.finished.connect(cleanup)
 
 
-
-
 def main():
     app = QtWidgets.QApplication(sys.argv)
     pg.setConfigOptions(antialias=True)
@@ -448,8 +462,8 @@ def main():
     vm = MODiagramViewModel()
 
     view = MODiagramView(vm)
-    # pth = r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small\1.mofe_o2\O2_1.MO_Diagram.lobster"
-    # view.vm.load_file(pth)
+    pth = r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small\1.mofe_o2\O2_1.MO_Diagram.lobster"
+    view.vm.load_file(pth)
     view.show()
 
     sys.exit(app.exec_())

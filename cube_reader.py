@@ -164,8 +164,8 @@ class CubeManager:
         contour_positive = grid.contour([self.isosurf_threshold*max])
         contour_negative = grid.contour([-self.isosurf_threshold*max])
 
-        plotter.add_mesh(contour_positive, color="orange", opacity=1, smooth_shading=True)
-        plotter.add_mesh(contour_negative, color="blue", opacity=1, smooth_shading=True)
+        plotter.add_mesh(contour_positive, color=(255, 170, 0), opacity=0.7, smooth_shading=True)
+        plotter.add_mesh(contour_negative, color=(3, 146, 255), opacity=0.7, smooth_shading=True)
 
     def build_atoms(self, cube: CubeData, plotter: pv.Plotter):
         atom_meshes = []

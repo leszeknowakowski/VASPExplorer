@@ -469,7 +469,7 @@ class MainWindow(QMainWindow):
                 dir = cwd
             else:
                 #dir = "D:\\syncme\\test_for_doswizard\\9.CHGCAR\\5.chgdiff\\3.full"
-                dir = r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small\1.mofe_o2"
+                dir = r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small"
 
             self.dir = dir
         AppConfig.dir = dir
