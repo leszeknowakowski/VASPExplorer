@@ -160,7 +160,7 @@ class CubeManager:
     # -------------------------
     def build_plotter(self, cube: CubeData, offscreen=True):
         plotter = pv.Plotter(off_screen=offscreen)
-        plotter.enable_anti_aliasing()
+        plotter.enable_anti_aliasing('msaa', multi_samples=16)
         return plotter
 
     def add_to_plotter(self, cube: CubeData, plotter: pv.Plotter):

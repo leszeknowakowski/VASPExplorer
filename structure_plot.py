@@ -247,8 +247,9 @@ class StructureViewer(QWidget):
         self.plotter.camera.parallel_scale = scale
 
     def closeEvent(self, QCloseEvent):
-        super().closeEvent(QCloseEvent)
         self.plotter.Finalize()
+        super().closeEvent(QCloseEvent)
+
 
     def eventFilter(self, obj, event):
         rotation = self.camera_rotation_angle

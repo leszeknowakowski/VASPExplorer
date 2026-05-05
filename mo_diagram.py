@@ -8,7 +8,7 @@ import numpy as np
 import os
 import pyqtgraph as pg
 from cube_reader import CubeManager
-from pyvistaqt import QtInteractor
+from structure_plot import QtInteractor
 
 ORB_LINE_WIDTH = 3.5
 
@@ -128,7 +128,7 @@ class MODiagramViewModel(QtCore.QObject):
         return self.diagram.alpha if self.spin == "alpha" else self.diagram.beta
 
     def get_cube_for_mo(self, label):
-        sd = self.active()
+        spin_data = self.active()
 
         insertion = '1' if self.spin == "alpha" else '2'
 
@@ -224,11 +224,11 @@ class MODiagramView(QtWidgets.QMainWindow):
         self.mo_labels = []
         self.ao_labels = []
         self.plot.clear()
-        sd = self.vm.active()
-        if not sd:
+        spin_data = self.vm.active()
+        if not spin_data:
             return
 
-        group_names = list(sd.atomic_groups.keys())
+        group_names = list(spin_data.atomic_groups.keys())
         x_positions = [(i + 1) * 3 + 5 for i in range(len(group_names) + 1)]
 
         mo_x = x_positions.pop(len(group_names) // 2)
@@ -236,9 +236,9 @@ class MODiagramView(QtWidgets.QMainWindow):
 
         ao_positions = []
 
-        for i, energies in enumerate(sd.ao_energies_by_group):
+        for i, energies in enumerate(spin_data.ao_energies_by_group):
             pts = self.vm.spread_positions(energies, ao_x[i])
-            labels = sd.atomic_groups[group_names[i]]
+            labels = spin_data.atomic_groups[group_names[i]]
 
             for k, (e, x) in enumerate(pts):
                 item = self.plot.plot([x - 0.15, x + 0.15], [e, e], pen="k", width=ORB_LINE_WIDTH)
@@ -253,21 +253,21 @@ class MODiagramView(QtWidgets.QMainWindow):
 
             ao_positions.extend(pts)
 
-        mo_positions = self.vm.spread_positions(sd.mo_energies, mo_x)
+        mo_positions = self.vm.spread_positions(spin_data.mo_energies, mo_x)
         for j, (e, x) in enumerate(mo_positions):
             item = self.plot.plot([x - 0.15, x + 0.15], [e, e], pen="b", width=ORB_LINE_WIDTH)
             item.mo_index = j
             self.mo_items.append(item)
 
-            label = pg.TextItem(sd.molecular_orbitals[j], anchor=(0.5, 0))
+            label = pg.TextItem(spin_data.molecular_orbitals[j], anchor=(0.5, 0))
             label.setPos(x, e - 0.1)
             label.mo_index = j
             self.mo_labels.append(label)
             self.plot.addItem(label)
 
-        for i in range(sd.coefficient_matrix.shape[0]):
-            for j in range(sd.coefficient_matrix.shape[1]):
-                val = sd.coefficient_matrix[i, j]
+        for i in range(spin_data.coefficient_matrix.shape[0]):
+            for j in range(spin_data.coefficient_matrix.shape[1]):
+                val = spin_data.coefficient_matrix[i, j]
                 if abs(val) < self.vm.threshold:
                     continue
 
@@ -352,8 +352,8 @@ class MODiagramView(QtWidgets.QMainWindow):
         # -------------------------
         # show screenshot
         # -------------------------
-        sd = self.vm.active()
-        mo_label = sd.molecular_orbitals[mo_index]
+        spin_data = self.vm.active()
+        mo_label = spin_data.molecular_orbitals[mo_index]
         cube_name = self.vm.get_cube_for_mo(mo_label)
 
         if cube_name:
@@ -393,15 +393,26 @@ class MODiagramView(QtWidgets.QMainWindow):
             self.show_mo_popup(closest_mo)
 
     def show_mo_popup(self, mo_index):
-        sd = self.vm.active()
-        coeffs = sd.coefficient_matrix[:, mo_index]
-        mo_label = sd.molecular_orbitals[mo_index]
-
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle(f"MO {mo_label}")
+        dialog = MODialog(self, self.vm, mo_index)
         dialog.resize(900, 600)
+        dialog.exec_()
 
-        layout = QtWidgets.QHBoxLayout(dialog)
+
+class MODialog(QtWidgets.QDialog):
+    def __init__(self, parent, vm, mo_index):
+        super().__init__(parent)
+
+        self.vm = vm
+        self.mo_index = mo_index
+
+        spin_data = self.vm.active()
+        self.coeffs = spin_data.coefficient_matrix[:, mo_index]
+        self.mo_label = spin_data.molecular_orbitals[mo_index]
+
+        self.setWindowTitle(f"MO {self.mo_label}")
+        self.resize(900, 600)
+
+        layout = QtWidgets.QHBoxLayout(self)
 
         # -------------------------
         # LEFT: TABLE
@@ -409,10 +420,10 @@ class MODiagramView(QtWidgets.QMainWindow):
         table = QtWidgets.QTableWidget()
         table.setColumnCount(2)
         table.setHorizontalHeaderLabels(["Atomic Orbital", "Coefficient"])
-        table.setRowCount(len(coeffs))
+        table.setRowCount(len(self.coeffs))
 
-        for i, val in enumerate(coeffs):
-            ao_label = sd.atomic_orbital_labels[i]
+        for i, val in enumerate(self.coeffs):
+            ao_label = spin_data.atomic_orbital_labels[i]
             table.setItem(i, 0, QtWidgets.QTableWidgetItem(ao_label))
 
             item = QtWidgets.QTableWidgetItem(f"{val:.4f}")
@@ -430,29 +441,21 @@ class MODiagramView(QtWidgets.QMainWindow):
         # -------------------------
         # RIGHT: 3D VIEW
         # -------------------------
-        pv_widget = QtInteractor(dialog)
-        layout.addWidget(pv_widget, 2)
+        self.pv_widget = QtInteractor()
+        self.pv_widget.enable_anti_aliasing('msaa', multi_samples=16)
+        layout.addWidget(self.pv_widget, 2)
 
         # load cube
-        cube_name = self.vm.get_cube_for_mo(mo_label)
+        cube_name = self.vm.get_cube_for_mo(self.mo_label)
 
         if cube_name:
             cube = self.vm.cube_manager.cubes[cube_name]
-            self.vm.cube_manager.add_to_plotter(cube, pv_widget)
+            self.vm.cube_manager.add_to_plotter(cube, self.pv_widget)
+            self.pv_widget.reset_camera()
 
-            pv_widget.reset_camera()
-
-        dialog.exec_()
-
-        def cleanup():
-            try:
-                self.pv_widget.close()
-                self.pv_widget.interactor.Finalize()
-                self.pv_widget.deleteLater()
-            except Exception:
-                pass
-
-        dialog.finished.connect(cleanup)
+    def closeEvent(self, QCloseEvent):
+        self.pv_widget.Finalize()
+        super().closeEvent(QCloseEvent)
 
 
 def main():
