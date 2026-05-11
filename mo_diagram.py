@@ -112,6 +112,7 @@ class MODiagramViewModel(QtCore.QObject):
         basename = os.path.basename(path).split("_")[0]
         self.cube_manager.load_directory(os.path.dirname(path), basename)
         self.cube_manager.render_all_screenshots()
+        self.save_mo_images()
         self.files = os.listdir(os.path.dirname(path))
 
     def set_spin(self, spin: str):
@@ -138,7 +139,8 @@ class MODiagramViewModel(QtCore.QObject):
 
         for file in self.files:
             if cube_name in file:
-                return file
+                if file.endswith(".cube"):
+                    return file
 
         return None
 
@@ -153,6 +155,19 @@ class MODiagramViewModel(QtCore.QObject):
                 out[i] = (energies[i], x_center + dx)
 
         return out
+
+    def save_mo_images(self):
+        qm = QtWidgets.QMessageBox()
+        ret = qm.question(None, '', "Do You want to save MO images?", qm.Yes | qm.No)
+        if ret == qm.Yes:
+            from pyqtgraph.exporters import ImageExporter
+            for mo_name, mo_image in self.cube_manager.screenshots.items():
+                imv = pg.ImageView()
+                imv.setImage(mo_image)
+                imv.getView().addItem(pg.LabelItem(mo_name, color="b"))
+                ex = ImageExporter(imv.scene)
+                ex.parameters()['width'] = 5000
+                ex.export(mo_name+".jpg")
 
 
 class MODiagramView(QtWidgets.QMainWindow):
@@ -331,9 +346,7 @@ class MODiagramView(QtWidgets.QMainWindow):
         for label in self.ao_labels:
             label.setColor("k")
 
-        # -------------------------
         # hide window if nothing selected
-        # -------------------------
         if mo_index is None:
             self.hover_window.hide()
             return
@@ -349,9 +362,7 @@ class MODiagramView(QtWidgets.QMainWindow):
                 self.ao_items[ao_i].setPen(pg.mkPen("r", width=ORB_LINE_WIDTH+1))
                 self.ao_labels[ao_i].setColor("r")
 
-        # -------------------------
         # show screenshot
-        # -------------------------
         spin_data = self.vm.active()
         mo_label = spin_data.molecular_orbitals[mo_index]
         cube_name = self.vm.get_cube_for_mo(mo_label)
@@ -360,7 +371,6 @@ class MODiagramView(QtWidgets.QMainWindow):
             shot = self.vm.cube_manager.screenshots.get(cube_name)
             if shot is not None:
                 self.hover_img.setImage(shot, axes={'x': 1, 'y': 0, 'c': 2})
-
 
                 # position near cursor / window
                 cursor_pos = QtGui.QCursor.pos()
@@ -414,9 +424,7 @@ class MODialog(QtWidgets.QDialog):
 
         layout = QtWidgets.QHBoxLayout(self)
 
-        # -------------------------
-        # LEFT: TABLE
-        # -------------------------
+        # left panel: table
         table = QtWidgets.QTableWidget()
         table.setColumnCount(2)
         table.setHorizontalHeaderLabels(["Atomic Orbital", "Coefficient"])
@@ -438,9 +446,7 @@ class MODialog(QtWidgets.QDialog):
         table.resizeColumnsToContents()
         layout.addWidget(table, 1)
 
-        # -------------------------
-        # RIGHT: 3D VIEW
-        # -------------------------
+        # right: 3d view
         self.pv_widget = QtInteractor()
         self.pv_widget.enable_anti_aliasing('msaa', multi_samples=16)
         layout.addWidget(self.pv_widget, 2)

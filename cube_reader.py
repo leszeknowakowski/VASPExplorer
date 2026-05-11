@@ -61,9 +61,6 @@ class CubeManager:
         self.cubes = {}          # filename -> CubeData
         self.screenshots = {}    # filename -> image (numpy array)
 
-    # -------------------------
-    # LOAD ALL FILES ONCE
-    # -------------------------
     @staticmethod
     def _load_single_cube(item):
         filename, path = item
@@ -155,9 +152,6 @@ class CubeManager:
             resolution=24
         )
 
-    # -------------------------
-    # BUILD SCENE (NO UI)
-    # -------------------------
     def build_plotter(self, cube: CubeData, offscreen=True):
         plotter = pv.Plotter(off_screen=offscreen)
         plotter.enable_anti_aliasing('msaa', multi_samples=16)
@@ -165,8 +159,8 @@ class CubeManager:
 
     def add_to_plotter(self, cube: CubeData, plotter: pv.Plotter):
         isosurf_meshes = self.build_isosurfaces(cube, plotter)
-        atom_meshes = self.build_atoms(cube, plotter)
-        bond_meshes = self.build_bonds(cube, plotter)
+        atom_meshes = self.build_atoms(cube)
+        bond_meshes = self.build_bonds(cube)
 
         for mesh, color in atom_meshes:
             plotter.add_mesh(
@@ -199,7 +193,6 @@ class CubeManager:
 
         axes_actor.SetUserTransform(transform)
 
-
         return plotter
 
     def build_isosurfaces(self, cube: CubeData, plotter: pv.Plotter):
@@ -217,14 +210,28 @@ class CubeManager:
         data_min = np.min(cube.data)
         max = np.max([data_max, np.abs(data_min)])
 
-        self.isosurf_threshold = 0.05
+        self.isosurf_threshold = 0.01
         contour_positive = grid.contour([self.isosurf_threshold*max])
         contour_negative = grid.contour([-self.isosurf_threshold*max])
 
-        plotter.add_mesh(contour_positive, color=(255, 170, 0), opacity=0.7, smooth_shading=True)
-        plotter.add_mesh(contour_negative, color=(3, 146, 255), opacity=0.7, smooth_shading=True)
+        opacity = 0.85
+        specular = 0.4
+        specular_power = 20
+        diffuse = 0.7
 
-    def build_atoms(self, cube: CubeData, plotter: pv.Plotter):
+        for contour, color in zip([contour_positive, contour_negative], [(255, 170, 0),(3, 146, 255)]):
+            plotter.add_mesh(
+                contour,
+                color=color,
+                opacity=opacity,
+                specular=specular,
+                specular_power=specular_power,
+                diffuse=diffuse,
+                smooth_shading=True
+            )
+
+
+    def build_atoms(self, cube: CubeData):
         atom_meshes = []
         atoms = cube.atoms
 
@@ -260,7 +267,7 @@ class CubeManager:
             resolution=24
         )
 
-    def build_bonds(self, cube: CubeData, plotter: pv.Plotter):
+    def build_bonds(self, cube: CubeData):
         bond_meshes = []
         bonds = cube.bonds
         atoms = cube.atoms
@@ -281,9 +288,6 @@ class CubeManager:
             bond_meshes.append((cyl2, color2))
         return bond_meshes
 
-    # -------------------------
-    # BATCH SCREENSHOTS (KEY FEATURE)
-    # -------------------------
     def render_all_screenshots(self):
         cube_items = list(self.cubes.items())
         if not cube_items:
@@ -327,9 +331,6 @@ class CubeManager:
         finally:
             self.splash.close()
 
-    # -------------------------
-    # GET READY-TO-VIEW SCENE
-    # -------------------------
     def get_plotter(self, filename):
         cube = self.cubes[filename]
         return self.build_plotter(cube, offscreen=False)
