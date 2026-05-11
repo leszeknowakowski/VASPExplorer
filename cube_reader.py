@@ -1,3 +1,4 @@
+import PyQt5
 from ase.io.cube import read_cube
 from ase.neighborlist import NeighborList, natural_cutoffs
 from ase.data import covalent_radii
@@ -66,22 +67,24 @@ class CubeManager:
         filename, path = item
         return filename, CubeData(path)
 
-    def load_directory(self, folder, basename):
-        splash_pix = QPixmap(600,300)
-        splash_pix.fill(QColor(240,240,240))
-        # Draw border
-        painter = QPainter(splash_pix)
-        pen = QPen(Qt.black)
-        pen.setWidth(6)
-        painter.setPen(pen)
-        painter.drawRect(splash_pix.rect().adjusted(0, 0, -1, -1))
-        painter.end()
+    def load_directory(self, folder, basename, show_splash=True):
+        if show_splash:
+            splash_pix = QPixmap(600,300)
+            splash_pix.fill(QColor(240,240,240))
+            # Draw border
+            painter = QPainter(splash_pix)
+            pen = QPen(Qt.black)
+            pen.setWidth(6)
+            painter.setPen(pen)
+            painter.drawRect(splash_pix.rect().adjusted(0, 0, -1, -1))
+            painter.end()
 
-        self.splash = QSplashScreen(splash_pix)
-        self.splash.setMask(splash_pix.mask())
-        self.splash.setFont(QFont("Arial", 18))
-        self.splash.show()
-        self.splash.showMessage("Initializing...", Qt.AlignCenter, Qt.black)
+            self.splash = QSplashScreen(splash_pix)
+            self.splash.setMask(splash_pix.mask())
+            self.splash.setFont(QFont("Arial", 18))
+            self.splash.show()
+            self.splash.showMessage("Initializing...", Qt.AlignCenter, Qt.black)
+
         tic = time.perf_counter()
         cube_files = [
             f for f in os.listdir(folder)
@@ -107,11 +110,12 @@ class CubeManager:
             for future in as_completed(futures):
                 filename = futures[future]
                 completed += 1
-                self.splash.showMessage(
-                    f"Loading {filename} ({completed}/{total})",
-                    Qt.AlignCenter,
-                    Qt.black
-                )
+                if show_splash:
+                    self.splash.showMessage(
+                        f"Loading {filename} ({completed}/{total})",
+                        Qt.AlignCenter,
+                        Qt.black
+                    )
                 try:
                     loaded_name, cube = future.result()
                     loaded[loaded_name] = cube
@@ -179,7 +183,8 @@ class CubeManager:
                 specular=0.3
             )
 
-        plotter.add_light(pv.Light(position=(10, 10, 10), intensity=0.8))
+        plotter.add_light(pv.Light(position=(10, 10, 10), intensity=0.6))
+
         axes_actor = plotter.add_axes(
             line_width=5,
             cone_radius=0.6,
@@ -214,10 +219,10 @@ class CubeManager:
         contour_positive = grid.contour([self.isosurf_threshold*max])
         contour_negative = grid.contour([-self.isosurf_threshold*max])
 
-        opacity = 0.85
-        specular = 0.4
-        specular_power = 20
-        diffuse = 0.7
+        opacity = 0.95
+        specular = 0
+        specular_power = 50
+        diffuse = 0.9
 
         for contour, color in zip([contour_positive, contour_negative], [(255, 170, 0),(3, 146, 255)]):
             plotter.add_mesh(
@@ -288,7 +293,7 @@ class CubeManager:
             bond_meshes.append((cyl2, color2))
         return bond_meshes
 
-    def render_all_screenshots(self):
+    def render_all_screenshots(self, show_splash=True):
         cube_items = list(self.cubes.items())
         if not cube_items:
             self.splash.close()
@@ -310,11 +315,12 @@ class CubeManager:
                 for future in as_completed(futures):
                     name = futures[future]
                     completed += 1
-                    self.splash.showMessage(
-                        f"building plotter for {name} ({completed}/{total})",
-                        Qt.AlignCenter,
-                        Qt.black
-                    )
+                    if show_splash:
+                        self.splash.showMessage(
+                            f"building plotter for {name} ({completed}/{total})",
+                            Qt.AlignCenter,
+                            Qt.black
+                        )
                     try:
                         rendered_name, image = future.result()
                         rendered[rendered_name] = image
@@ -329,7 +335,8 @@ class CubeManager:
                 failed_files = ", ".join(name for name, _ in errors)
                 raise RuntimeError(f"Failed to render screenshots: {failed_files}") from errors[0][1]
         finally:
-            self.splash.close()
+            if show_splash:
+                self.splash.close()
 
     def get_plotter(self, filename):
         cube = self.cubes[filename]
@@ -345,8 +352,13 @@ class CubeViewer:
         plotter.show()
 
 if __name__ == "__main__":
+    import sys
+    app = PyQt5.QtWidgets.QApplication(sys.argv)
     manager = CubeManager()
-    manager.load_directory(r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small\1.mofe_o2")
-    manager.render_all_screenshots()
+    manager.load_directory(r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small\1.mofe_o2", "O2", show_splash=False)
+    manager.render_all_screenshots(show_splash=False)
     viewer = CubeViewer(manager)
-    viewer.show('O2_1_1_2e1g.cube')
+    plotter = viewer.manager.get_plotter('O2_1_1_2e1g.cube')
+    manager.add_to_plotter(manager.cubes['O2_1_1_2e1g.cube'], plotter)
+    plotter.show()
+    app.exec_()
