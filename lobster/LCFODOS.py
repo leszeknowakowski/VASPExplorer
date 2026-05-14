@@ -13,7 +13,14 @@ import pyqtgraph as pg
 
 from lobster.lobster_outputs import Doscar as DOSCAR
 from pymatgen.electronic_structure.core import Spin
-from dos_plot_widget import PDFExporter
+from dos_plot_widget import DosPlotWidget
+
+
+class _DosDataShim:
+    """Minimal stand-in so DosPlotWidget can be built before a DOSCAR is loaded.
+    Lobster DOSCAR energies are already shifted so Efermi sits at 0."""
+    def __init__(self, e_fermi=0.0):
+        self.e_fermi = e_fermi
 
 
 class DosWindow(QMainWindow):
@@ -30,8 +37,9 @@ class DosWindow(QMainWindow):
         self.entity_boxes = []
         self.orbital_boxes = []
 
-        self.plot_widget = pg.PlotWidget(background='white')
-        self.plot_widget.addLegend()
+        self.dos_plot = DosPlotWidget(_DosDataShim(e_fermi=0.0))
+        self.dos_plot.full_range_plot.addLegend()
+        self.dos_plot.bounded_plot.addLegend()
 
         load_button = QPushButton("Load DOSCAR.LCFO.lobster")
         load_button.clicked.connect(lambda: self.load_file(filename=None))
@@ -43,7 +51,7 @@ class DosWindow(QMainWindow):
         export_csv.clicked.connect(self.export_csv)
 
         export_pdf = QPushButton("Export PDF")
-        export_pdf.clicked.connect(lambda: self.export_pdf(plot_widget=self.plot_widget))
+        export_pdf.clicked.connect(lambda: self.dos_plot.export_to_pdf(self.dos_plot.bounded_plot))
 
         # Scroll areas
         self.entity_widget = QWidget()
@@ -74,7 +82,7 @@ class DosWindow(QMainWindow):
 
         main_layout = QHBoxLayout()
         main_layout.addWidget(left_widget, 1)
-        main_layout.addWidget(self.plot_widget, 3)
+        main_layout.addWidget(self.dos_plot, 3)
 
         container = QWidget()
         container.setLayout(main_layout)
@@ -150,7 +158,10 @@ class DosWindow(QMainWindow):
         if self.doscar is None:
             return
 
-        self.plot_widget.clear()
+        full_plot = self.dos_plot.full_range_plot
+        bounded_plot = self.dos_plot.bounded_plot
+        self.dos_plot.clear_plot_data(full_plot)
+        self.dos_plot.clear_plot_data(bounded_plot)
 
         energies = self.doscar.energies
         entities = self.doscar.entities
@@ -164,7 +175,7 @@ class DosWindow(QMainWindow):
         sum_up = np.zeros_like(energies)
         sum_down = np.zeros_like(energies)
 
-        for ent_num,ent in enumerate(selected_entities):
+        for ent_num, ent in enumerate(selected_entities):
 
             for orb_num, orb in enumerate(selected_orbitals):
 
@@ -175,34 +186,30 @@ class DosWindow(QMainWindow):
                     up = data[Spin.up]
                     sum_up += up
 
-                    self.plot_widget.plot(
-                        up, energies,
-                        pen=pg.mkPen(picked[orb_num], width=WIDTH),
-                        name=f"{entities[ent_num]}_{orb}"
-                    )
+                    pen = pg.mkPen(picked[orb_num], width=WIDTH)
+                    name = f"{entities[ent_num]}_{orb}"
+                    full_plot.plot(up, energies, pen=pen, name=name)
+                    bounded_plot.plot(up, energies, pen=pen, name=name)
 
                 if Spin.down in data:
 
                     down = -data[Spin.down]
                     sum_down += down
 
-                    self.plot_widget.plot(
-                        down, energies,
-                        pen=pg.mkPen(picked[orb_num], width=WIDTH)
-                    )
+                    pen = pg.mkPen(picked[orb_num], width=WIDTH)
+                    full_plot.plot(down, energies, pen=pen)
+                    bounded_plot.plot(down, energies, pen=pen)
 
         # plot summed DOS
-        self.plot_widget.plot(
-            sum_up, energies,
-            pen=pg.mkPen(width=0.8),
-            name="SUM"
-        )
+        sum_pen = pg.mkPen(width=0.8)
+        full_plot.plot(sum_up, energies, pen=sum_pen, name="SUM")
+        bounded_plot.plot(sum_up, energies, pen=sum_pen, name="SUM")
 
         if self.doscar.is_spin_polarized:
-            self.plot_widget.plot(
-                sum_down, energies,
-                pen=pg.mkPen(width=0.8),
-            )
+            full_plot.plot(sum_down, energies, pen=sum_pen)
+            bounded_plot.plot(sum_down, energies, pen=sum_pen)
+
+        self.dos_plot.update_bounded_plot_y_range()
 
     def export_csv(self):
 
@@ -254,20 +261,6 @@ class DosWindow(QMainWindow):
         with open(filename, "w") as f:
             for r in rows:
                 f.write(",".join(map(str, r)) + "\n")
-
-    def export_pdf(self, plot_widget):
-        filename, _ = QFileDialog.getSaveFileName(
-            plot_widget,
-            "Save plot data",
-            "",
-            "PDF Files (*.pdf);;All Files (*)"
-        )
-        if not filename:
-            return  # user cancelled
-        exporter = PDFExporter(plot_widget)
-        exporter.export(filename=filename)
-
-
 
 if __name__ == "__main__":
 
