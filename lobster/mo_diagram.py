@@ -456,6 +456,7 @@ class MODialog(QtWidgets.QDialog):
 
         if cube_name:
             cube = self.vm.cube_manager.cubes[cube_name]
+            self.vm.cube_manager.default_plotter_setup(self.pv_widget)
             self.vm.cube_manager.add_to_plotter(cube, self.pv_widget)
             self.pv_widget.reset_camera()
 

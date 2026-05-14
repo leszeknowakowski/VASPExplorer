@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from PyQt5.QtGui import QPixmap,QFont, QColor, QPainter, QPen
 from PyQt5.QtWidgets import QSplashScreen
 from PyQt5.QtCore import Qt
+from QtInteractor import QtInteractor
 import time
 
 class CubeData:
@@ -158,11 +159,60 @@ class CubeManager:
 
     def build_plotter(self, cube: CubeData, offscreen=True):
         plotter = pv.Plotter(off_screen=offscreen)
-        plotter.enable_anti_aliasing('msaa', multi_samples=16)
+        self.default_plotter_setup(plotter)
         return plotter
 
-    def add_to_plotter(self, cube: CubeData, plotter: pv.Plotter):
-        isosurf_meshes = self.build_isosurfaces(cube, plotter)
+    def default_plotter_setup(self, plotter):
+        plotter.enable_anti_aliasing('msaa', multi_samples=16)
+        #plotter.enable_depth_peeling()
+
+        light =pv.Light()
+        light.set_headlight()
+        light.intensity = 1.2
+        plotter.add_light(light)
+        camera = plotter.camera
+        camera.position = (
+            16.078198605680125,
+            -1.8552025676679595,
+            14.506940525682465
+        )
+
+        camera.focal_point = (
+            1.4686073117022271,
+            2.9457434770390876,
+            9.13248439494446
+        )
+
+        camera.up = (
+            -0.3560090964473408,
+            -0.03811576734952002,
+            0.933704831049998
+        )
+
+        camera.view_angle = 30.0
+
+        camera.clipping_range = (
+            9.088341900098145,
+            25.068910278505566
+        )
+
+        #plotter.iren.add_observer("EndInteractionEvent", self.on_camera_stop)
+        return plotter
+
+    def on_camera_stop(selfself, caller, event):
+        renderer = caller.GetRenderWindow().GetRenderers().GetFirstRenderer()
+        cam = renderer.GetActiveCamera()
+
+        print("\n=== CAMERA ===")
+
+        print("Position       :", cam.GetPosition())
+        print("Focal point    :", cam.GetFocalPoint())
+        print("View up        :", cam.GetViewUp())
+        print("View angle     :", cam.GetViewAngle())
+        print("Clipping range :", cam.GetClippingRange())
+
+    def add_to_plotter(self, cube: CubeData, plotter: pv.Plotter, **kwargs):
+        isosurf_meshes = self.build_isosurfaces(cube, plotter, **kwargs)
         atom_meshes = self.build_atoms(cube)
         bond_meshes = self.build_bonds(cube)
 
@@ -183,7 +233,6 @@ class CubeManager:
                 specular=0.3
             )
 
-        plotter.add_light(pv.Light(position=(10, 10, 10), intensity=0.6))
 
         axes_actor = plotter.add_axes(
             line_width=5,
@@ -200,7 +249,15 @@ class CubeManager:
 
         return plotter
 
-    def build_isosurfaces(self, cube: CubeData, plotter: pv.Plotter):
+    def build_isosurfaces(self,
+                          cube: CubeData,
+                          plotter: pv.Plotter,
+                          opacity = 0.99999,
+                          specular = 0,
+                          specular_power = 50,
+                          diffuse = 0.9,
+                          backface_params = {}
+                          ):
         grid = pv.ImageData()
         grid.dimensions = cube.data.shape
         grid.origin = cube.origin
@@ -215,14 +272,9 @@ class CubeManager:
         data_min = np.min(cube.data)
         max = np.max([data_max, np.abs(data_min)])
 
-        self.isosurf_threshold = 0.01
+        self.isosurf_threshold = 0.02
         contour_positive = grid.contour([self.isosurf_threshold*max])
         contour_negative = grid.contour([-self.isosurf_threshold*max])
-
-        opacity = 0.95
-        specular = 0
-        specular_power = 50
-        diffuse = 0.9
 
         for contour, color in zip([contour_positive, contour_negative], [(255, 170, 0),(3, 146, 255)]):
             plotter.add_mesh(
@@ -232,9 +284,9 @@ class CubeManager:
                 specular=specular,
                 specular_power=specular_power,
                 diffuse=diffuse,
-                smooth_shading=True
+                smooth_shading=True,
+                backface_params=backface_params
             )
-
 
     def build_atoms(self, cube: CubeData):
         atom_meshes = []
@@ -296,10 +348,11 @@ class CubeManager:
     def render_all_screenshots(self, show_splash=True):
         cube_items = list(self.cubes.items())
         if not cube_items:
-            self.splash.close()
-            return
+            if show_splash:
+                self.splash.close()
+                return
 
-        workers = min(len(cube_items), os.cpu_count() or 1, 4)
+        workers = min(len(cube_items), os.cpu_count() or 1, 8)
         rendered = {}
         errors = []
 
@@ -355,10 +408,21 @@ if __name__ == "__main__":
     import sys
     app = PyQt5.QtWidgets.QApplication(sys.argv)
     manager = CubeManager()
-    manager.load_directory(r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small\1.mofe_o2", "O2", show_splash=False)
-    manager.render_all_screenshots(show_splash=False)
+    path = r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small\1.mofe_o2"
+    path = "/net/storage/pr3/plgrid/plgg_zkln/1.LUMI/3.Co3O4/2.deep_reduction/1.octa-octa/1.gas_to_metaloxo/3.steps/03.02_small_almost_desorbed/1.befre_EF/1.8nodes/1.lobster/1.mofe_co2o2/"
+    #manager.load_directory(path, "CoHO2", show_splash=False)
+    mo = "Co2O2_1_1_10a.cube"
+    cubedata = manager._load_single_cube((path,path+mo))
+    #manager.render_all_screenshots(show_splash=False)
     viewer = CubeViewer(manager)
-    plotter = viewer.manager.get_plotter('O2_1_1_2e1g.cube')
-    manager.add_to_plotter(manager.cubes['O2_1_1_2e1g.cube'], plotter)
+
+    plotter = viewer.manager.build_plotter(cubedata, offscreen=False)
+    bparams = dict(opacity=1)
+    manager.add_to_plotter(cubedata[1], plotter,
+                        opacity = 0.99,
+                          specular = 0,
+                          specular_power = 50,
+                          diffuse = 0.9
+                           )
     plotter.show()
     app.exec_()

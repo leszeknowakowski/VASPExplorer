@@ -477,6 +477,7 @@ class PDFExporter(Exporter):
                                       'background': self.background,
                                       'painter': painter})
             painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setRenderHint(QPainter.NonCosmeticDefaultPen, True)
             if QtCore.QT_VERSION >= 0x050D00:
                 painter.setRenderHint(QPainter.LosslessImageRendering, True)
             self.getScene().render(painter,

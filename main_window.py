@@ -11,9 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 from config import AppConfig
 AppConfig.load()
 tic = time.perf_counter()
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QSplitter, QTabWidget, \
-    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QLabel, QStyleFactory, QDialog
-from PyQt5.QtGui import QIcon, QPixmap, QFont, QPalette, QColor
+from PyQt5.QtWidgets import QMainWindow, QSplitter, QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QStyleFactory
+from PyQt5.QtGui import QIcon, QPixmap, QFont
 from PyQt5.QtCore import Qt, QTimer, QEvent
 from STYLE_SHEET import *
 
@@ -227,7 +226,7 @@ class MainWindow(QMainWindow):
         lobster_menu.addAction(mo_action)
 
     def open_mo_diagram(self):
-        from mo_diagram import MODiagramView, MODiagramViewModel
+        from lobster.mo_diagram import MODiagramView, MODiagramViewModel
 
         vm = MODiagramViewModel()
         self.mo_diagram_window = MODiagramView(vm)
@@ -250,7 +249,6 @@ class MainWindow(QMainWindow):
         from dos_plot_widget import DosPlotWidget
         from dos_control_widget import DosControlWidget
         from structure_plot import StructureViewer
-        from console_widget import PythonConsole
         from structure_controls import StructureControlsWidget
         from structure_variable_controls import StructureVariableControls
         from kpoints_create import  Kpoints_tab
@@ -481,8 +479,8 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle(QStyleFactory.create("Fusion"))
     if "PYCHARM_HOSTED" in os.environ and platform.system() == 'Linux':
-        os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/3.Co3O4/2.deep_reduction/1.3rd_4th_electron_transfer/2.acidic/2.with_spectator/1.1_proton_and_oh_on_bottom/1.init/2.HSE/1.bader_dos_cohp")
-        #os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/3.LUMI/6.interface/2.interface/1.Co3O4_3x3/5.After_MLFF/1.spinel_3x3_ceria_mlff/4.vacancy/1.vacancy_ceria/1.V0/2.RB/4.diff_CHGCAR/1.spinel")
+        os.chdir("/net/scratch/hscra/plgrid/plglnowakowski/1.tests/2.VASPUI/4.lobster")
+
     window = MainWindow()
 
     window.log_program_launch()
