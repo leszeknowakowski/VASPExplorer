@@ -1,5 +1,3 @@
-import time
-
 if True:
     from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSplitter, QHBoxLayout,QGraphicsItem, QApplication, QAction, \
                                 QFileDialog
@@ -10,7 +8,6 @@ if True:
     from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
     import re
     import numpy as np
-    import sys
     from itertools import cycle
     from pyqtgraph.exporters.Exporter import Exporter
 
@@ -45,7 +42,7 @@ class DosPlotWidget(QWidget):
         """
         self.layout = QVBoxLayout(self)
 
-        # splitter for two parts of plot (original and zoomed  (bounded))
+        # splitter for two parts of plot (original and zoomed (bounded))
         plot_splitter = QSplitter(QtCore.Qt.Horizontal)
         self.full_range_plot = pg.PlotWidget()
         self.bounded_plot = pg.PlotWidget()
@@ -135,7 +132,7 @@ class DosPlotWidget(QWidget):
         """
         Updates the DOS plots with data for specified atoms and orbitals.
         First clear the whole plots, then update the selected atoms and orbitals.
-        method used only in DosControlWidget class
+        Method used only in DosControlWidget class
 
         Args:
               data:
@@ -390,7 +387,7 @@ class DosPlotWidget(QWidget):
             "PDF Files (*.pdf);;All Files (*)"
         )
         if not filename:
-            return  # user cancelled
+            return  # user canceled
         exporter = PDFExporter(plot_widget)
         exporter.export(filename=filename)
 
@@ -436,8 +433,7 @@ class MergedPlotDataItem(PlotDataItem):
 
 
 class PDFExporter(Exporter):
-    """A pdf exporter for pyqtgraph graphs. Based on pyqtgraph's
-     ImageExporter.
+    """A pdf exporter for pyqtgraph graphs. Based on pyqtgraph's ImageExporter.
      There is a bug in Qt<5.12 that makes Qt wrongly use a cosmetic pen
      (QTBUG-68537). Workaround: do not use completely opaque colors.
      There is also a bug in Qt<5.12 with bold fonts that then remain bold.
@@ -463,6 +459,7 @@ class PDFExporter(Exporter):
                         item.setFlag(QGraphicsItem.ItemClipsChildrenToShape, False)
         except:  # pylint: disable=bare-except
             pass
+
     def export(self, filename=None):
         pw = QPdfWriter(filename)
         dpi = int(QApplication.primaryScreen().logicalDotsPerInch())

@@ -223,7 +223,11 @@ class MainWindow(QMainWindow):
         mo_action = QAction("MO Diagram", self)
         mo_action.triggered.connect(self.open_mo_diagram)
 
+        lcfo_doscar_action = QAction("LCFO Doscar", self)
+        lcfo_doscar_action.triggered.connect(self.open_lcfo_doscar)
+
         lobster_menu.addAction(mo_action)
+        lobster_menu.addAction(lcfo_doscar_action)
 
     def open_mo_diagram(self):
         from lobster.mo_diagram import MODiagramView, MODiagramViewModel
@@ -240,6 +244,17 @@ class MainWindow(QMainWindow):
         self.mo_diagram_window.show()
         self.mo_diagram_window.raise_()
         self.mo_diagram_window.activateWindow()
+
+    def open_lcfo_doscar(self):
+        from lobster.LCFODOS import DosWindow
+        from pathlib import Path
+
+        self.lcfo_dos_window = DosWindow(parent=self)
+        file = "DOSCAR.LCFO.lobster"
+        if file in [file.name for file in Path.cwd().iterdir()]:
+            self.lcfo_dos_window.load_file(file)
+        self.lcfo_dos_window.resize(1200, 800)
+        self.lcfo_dos_window.show()
 
     def create_python_console(self):
         self.console = PythonConsole(local_vars={'main_window': self})
@@ -467,7 +482,7 @@ class MainWindow(QMainWindow):
                 dir = cwd
             else:
                 #dir = "D:\\syncme\\test_for_doswizard\\9.CHGCAR\\5.chgdiff\\3.full"
-                dir = r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\2.1_almost_desorbed_small"
+                dir = r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD\1.spin_up\HSE\1.gas_to_metaloxo\3.almost_desorbed"
 
             self.dir = dir
         AppConfig.dir = dir
