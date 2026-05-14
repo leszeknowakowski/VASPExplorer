@@ -89,6 +89,49 @@ class DosPlotWidget(QWidget):
         self.full_range_plot.addItem(self.inf_line_full)
         self.bounded_plot.addItem(self.inf_line_bounded)
 
+        self.full_range_plot.sigXRangeChanged.connect(lambda :self.update_ticks(self.full_range_plot))
+        self.bounded_plot.getViewBox().sigXRangeChanged.connect(lambda: self.update_ticks(self.bounded_plot))
+
+    def nice_spacing(self, raw_step):
+        """
+        Return a 'nice' tick spacing:
+        1, 2, 5, 10, 20, 50, ...
+        """
+        exponent = np.floor(np.log10(raw_step))
+        fraction = raw_step / 10 ** exponent
+
+        if fraction <= 1:
+            nice = 1
+        elif fraction <= 2:
+            nice = 2
+        elif fraction <= 5:
+            nice = 5
+        else:
+            nice = 10
+
+        return nice * 10 ** exponent
+
+    def update_ticks(self, plot_widget):
+        axis = plot_widget.getAxis("bottom")
+
+        xmin, xmax = plot_widget.viewRange()[0]
+        width = xmax - xmin
+
+        # max 5 major ticks
+        raw_spacing = width / 5
+        spacing = self.nice_spacing(raw_spacing)
+
+        # build ticks so that 0 is always included
+        start = np.floor(xmin / spacing) * spacing
+        stop = np.ceil(xmax / spacing) * spacing
+
+        values = np.arange(start, stop + spacing * 0.5, spacing)
+
+        ticks = [(v, f"{v:g}") for v in values]
+
+        # only major ticks, no minor ticks
+        axis.setTicks([ticks])
+
     def update_data(self, data):
         self.data = data
 
