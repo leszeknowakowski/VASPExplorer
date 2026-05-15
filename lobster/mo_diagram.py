@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from dataclasses import dataclass, field
+from typing import Dict, List, Sequence, Tuple
 import re
 import sys
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -7,7 +7,7 @@ from PyQt5.QtGui import QCloseEvent
 import numpy as np
 import os
 import pyqtgraph as pg
-from cube_reader import CubeManager
+from lobster.cube_reader import CubeManager
 from structure_plot import QtInteractor
 
 ORB_LINE_WIDTH = 3.5
@@ -20,6 +20,46 @@ class SpinData:
     ao_energies_by_group: List[np.ndarray]
     mo_energies: np.ndarray
     coefficient_matrix: np.ndarray
+
+
+@dataclass
+class OrbitalMatch:
+    source_file_index: int
+    target_file_index: int
+    source_mo_index: int
+    target_mo_index: int
+    source_mo_label: str
+    target_mo_label: str
+    score: float
+    compared_coefficients: int
+    matching_coefficients: int
+
+
+@dataclass
+class OrbitalTrackStep:
+    file_index: int
+    file_path: str
+    mo_index: int
+    mo_label: str
+    mo_energy: float
+
+
+@dataclass
+class OrbitalTrack:
+    track_id: int
+    steps: List[OrbitalTrackStep] = field(default_factory=list)
+
+
+@dataclass
+class TrackedDiagramSequence:
+    paths: List[str]
+    diagrams: List["ParsedDiagram"]
+    spin: str
+    tolerance: float
+    min_score: float
+    coefficient_cutoff: float
+    matches: List[List[OrbitalMatch]]
+    tracks: List[OrbitalTrack]
 
 
 class ParsedDiagram:
@@ -89,6 +129,248 @@ class LobsterModel:
         beta = cls._split_spin(rows[half:])
 
         return ParsedDiagram(alpha, beta)
+
+    @classmethod
+    def load_many(cls, paths: Sequence[str]) -> List[ParsedDiagram]:
+        return [cls.load(path) for path in paths]
+
+    @staticmethod
+    def spin_data(diagram: ParsedDiagram, spin: str) -> SpinData:
+        if spin == "alpha":
+            return diagram.alpha
+        if spin == "beta":
+            return diagram.beta
+        raise ValueError("spin must be 'alpha' or 'beta'")
+
+    @staticmethod
+    def _aligned_coefficients(
+            left: SpinData,
+            left_mo_index: int,
+            right: SpinData,
+            right_mo_index: int,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        right_label_to_index = {
+            label: i for i, label in enumerate(right.atomic_orbital_labels)
+        }
+
+        left_indices = []
+        right_indices = []
+        for left_i, label in enumerate(left.atomic_orbital_labels):
+            right_i = right_label_to_index.get(label)
+            if right_i is not None:
+                left_indices.append(left_i)
+                right_indices.append(right_i)
+
+        if not left_indices:
+            raise ValueError("No common atomic orbital labels found between diagrams")
+
+        return (
+            left.coefficient_matrix[left_indices, left_mo_index],
+            right.coefficient_matrix[right_indices, right_mo_index],
+        )
+
+    @classmethod
+    def coefficient_similarity(
+            cls,
+            left: SpinData,
+            left_mo_index: int,
+            right: SpinData,
+            right_mo_index: int,
+            tolerance: float = 0.20,
+            coefficient_cutoff: float = 0.0,
+            absolute_tolerance: float = 1e-12,
+    ) -> Tuple[float, int, int]:
+        left_coeff, right_coeff = cls._aligned_coefficients(
+            left, left_mo_index, right, right_mo_index
+        )
+
+        left_abs = np.abs(left_coeff)
+        right_abs = np.abs(right_coeff)
+
+        if coefficient_cutoff > 0:
+            mask = (left_abs >= coefficient_cutoff) | (right_abs >= coefficient_cutoff)
+            left_abs = left_abs[mask]
+            right_abs = right_abs[mask]
+
+        compared = len(left_abs)
+        if compared == 0:
+            return 0.0, 0, 0
+
+        close = np.isclose(
+            left_abs,
+            right_abs,
+            rtol=tolerance,
+            atol=absolute_tolerance,
+        )
+        matching = int(np.count_nonzero(close))
+        return matching / compared, compared, matching
+
+    @classmethod
+    def match_spin_data(
+            cls,
+            left: SpinData,
+            right: SpinData,
+            source_file_index: int = 0,
+            target_file_index: int = 1,
+            tolerance: float = 0.20,
+            min_score: float = 0.80,
+            coefficient_cutoff: float = 0.0,
+    ) -> List[OrbitalMatch]:
+        candidates = []
+        for left_mo_index, left_label in enumerate(left.molecular_orbitals):
+            for right_mo_index, right_label in enumerate(right.molecular_orbitals):
+                score, compared, matching = cls.coefficient_similarity(
+                    left,
+                    left_mo_index,
+                    right,
+                    right_mo_index,
+                    tolerance=tolerance,
+                    coefficient_cutoff=coefficient_cutoff,
+                )
+                if score >= min_score:
+                    candidates.append(OrbitalMatch(
+                        source_file_index=source_file_index,
+                        target_file_index=target_file_index,
+                        source_mo_index=left_mo_index,
+                        target_mo_index=right_mo_index,
+                        source_mo_label=left_label,
+                        target_mo_label=right_label,
+                        score=score,
+                        compared_coefficients=compared,
+                        matching_coefficients=matching,
+                    ))
+
+        candidates.sort(key=lambda match: match.score, reverse=True)
+        used_left = set()
+        used_right = set()
+        matches = []
+        for match in candidates:
+            if match.source_mo_index in used_left or match.target_mo_index in used_right:
+                continue
+            used_left.add(match.source_mo_index)
+            used_right.add(match.target_mo_index)
+            matches.append(match)
+
+        matches.sort(key=lambda match: match.source_mo_index)
+        return matches
+
+    @classmethod
+    def track_orbitals(
+            cls,
+            paths: Sequence[str],
+            spin: str = "alpha",
+            tolerance: float = 0.20,
+            min_score: float = 0.80,
+            coefficient_cutoff: float = 0.0,
+    ) -> TrackedDiagramSequence:
+        paths = list(paths)
+        diagrams = cls.load_many(paths)
+        spin_data_by_file = [cls.spin_data(diagram, spin) for diagram in diagrams]
+
+        matches_by_pair = []
+        for file_i in range(len(spin_data_by_file) - 1):
+            matches_by_pair.append(cls.match_spin_data(
+                spin_data_by_file[file_i],
+                spin_data_by_file[file_i + 1],
+                source_file_index=file_i,
+                target_file_index=file_i + 1,
+                tolerance=tolerance,
+                min_score=min_score,
+                coefficient_cutoff=coefficient_cutoff,
+            ))
+
+        tracks = cls._build_tracks(paths, spin_data_by_file, matches_by_pair)
+        return TrackedDiagramSequence(
+            paths=paths,
+            diagrams=diagrams,
+            spin=spin,
+            tolerance=tolerance,
+            min_score=min_score,
+            coefficient_cutoff=coefficient_cutoff,
+            matches=matches_by_pair,
+            tracks=tracks,
+        )
+
+    @staticmethod
+    def _track_step(
+            paths: Sequence[str],
+            spin_data_by_file: Sequence[SpinData],
+            file_index: int,
+            mo_index: int,
+    ) -> OrbitalTrackStep:
+        spin_data = spin_data_by_file[file_index]
+        return OrbitalTrackStep(
+            file_index=file_index,
+            file_path=paths[file_index],
+            mo_index=mo_index,
+            mo_label=spin_data.molecular_orbitals[mo_index],
+            mo_energy=float(spin_data.mo_energies[mo_index]),
+        )
+
+    @classmethod
+    def _build_tracks(
+            cls,
+            paths: Sequence[str],
+            spin_data_by_file: Sequence[SpinData],
+            matches_by_pair: Sequence[Sequence[OrbitalMatch]],
+    ) -> List[OrbitalTrack]:
+        active_tracks: Dict[int, OrbitalTrack] = {}
+        tracks: List[OrbitalTrack] = []
+        next_track_id = 1
+
+        if not spin_data_by_file:
+            return tracks
+
+        for mo_index in range(len(spin_data_by_file[0].molecular_orbitals)):
+            track = OrbitalTrack(track_id=next_track_id)
+            next_track_id += 1
+            track.steps.append(cls._track_step(paths, spin_data_by_file, 0, mo_index))
+            tracks.append(track)
+            active_tracks[mo_index] = track
+
+        for pair_i, matches in enumerate(matches_by_pair):
+            next_active_tracks = {}
+            matched_targets = set()
+
+            for match in matches:
+                track = active_tracks.get(match.source_mo_index)
+                if track is None:
+                    track = OrbitalTrack(track_id=next_track_id)
+                    next_track_id += 1
+                    track.steps.append(cls._track_step(
+                        paths,
+                        spin_data_by_file,
+                        pair_i,
+                        match.source_mo_index,
+                    ))
+                    tracks.append(track)
+
+                track.steps.append(cls._track_step(
+                    paths,
+                    spin_data_by_file,
+                    pair_i + 1,
+                    match.target_mo_index,
+                ))
+                next_active_tracks[match.target_mo_index] = track
+                matched_targets.add(match.target_mo_index)
+
+            for mo_index in range(len(spin_data_by_file[pair_i + 1].molecular_orbitals)):
+                if mo_index in matched_targets:
+                    continue
+                track = OrbitalTrack(track_id=next_track_id)
+                next_track_id += 1
+                track.steps.append(cls._track_step(
+                    paths,
+                    spin_data_by_file,
+                    pair_i + 1,
+                    mo_index,
+                ))
+                tracks.append(track)
+                next_active_tracks[mo_index] = track
+
+            active_tracks = next_active_tracks
+
+        return tracks
 
 
 class MODiagramViewModel(QtCore.QObject):
