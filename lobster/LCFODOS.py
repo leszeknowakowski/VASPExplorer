@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton,
     QLabel, QScrollArea, QMessageBox
 )
+from PyQt5 import QtCore
 
 import pyqtgraph as pg
 
@@ -36,10 +37,17 @@ class DosWindow(QMainWindow):
         self.doscar = None
         self.entity_boxes = []
         self.orbital_boxes = []
+        self.weighted_mean_lines = []
+        self.current_weighted_means = {}
+        self.updating_weighted_mean_lines = False
+        self.show_weighted_mean_on_plot = True
 
         self.dos_plot = DosPlotWidget(_DosDataShim(e_fermi=0.0))
         self.dos_plot.full_range_plot.addLegend()
         self.dos_plot.bounded_plot.addLegend()
+        self.dos_plot.region.sigRegionChanged.connect(self.refresh_weighted_mean)
+        self.dos_plot.full_range_plot.getViewBox().sigXRangeChanged.connect(self.update_weighted_mean_line_spans)
+        self.dos_plot.bounded_plot.getViewBox().sigXRangeChanged.connect(self.update_weighted_mean_line_spans)
 
         load_button = QPushButton("Load DOSCAR.LCFO.lobster")
         load_button.clicked.connect(lambda: self.load_file(filename=None))
@@ -47,11 +55,19 @@ class DosWindow(QMainWindow):
         plot_button = QPushButton("Plot")
         plot_button.clicked.connect(self.plot_selected)
 
+        self.weighted_mean_toggle = QPushButton("Mean values on plot: On")
+        self.weighted_mean_toggle.setCheckable(True)
+        self.weighted_mean_toggle.setChecked(True)
+        self.weighted_mean_toggle.clicked.connect(self.toggle_weighted_mean_on_plot)
+
         export_csv = QPushButton("Export CSV")
         export_csv.clicked.connect(self.export_csv)
 
         export_pdf = QPushButton("Export PDF")
         export_pdf.clicked.connect(lambda: self.dos_plot.export_to_pdf(self.dos_plot.bounded_plot))
+
+        self.weighted_mean_label = QLabel("Weighted mean: select one entity and at least one orbital")
+        self.weighted_mean_label.setWordWrap(True)
 
         # Scroll areas
         self.entity_widget = QWidget()
@@ -74,6 +90,8 @@ class DosWindow(QMainWindow):
         left_layout.addWidget(QLabel("Orbitals"))
         left_layout.addWidget(orbital_scroll)
         left_layout.addWidget(plot_button)
+        left_layout.addWidget(self.weighted_mean_label)
+        left_layout.addWidget(self.weighted_mean_toggle)
         left_layout.addWidget(export_csv)
         left_layout.addWidget(export_pdf)
 
@@ -162,6 +180,7 @@ class DosWindow(QMainWindow):
         bounded_plot = self.dos_plot.bounded_plot
         self.dos_plot.clear_plot_data(full_plot)
         self.dos_plot.clear_plot_data(bounded_plot)
+        self.clear_weighted_mean_lines()
 
         energies = self.doscar.energies
         entities = self.doscar.entities
@@ -175,7 +194,7 @@ class DosWindow(QMainWindow):
         sum_up = np.zeros_like(energies)
         sum_down = np.zeros_like(energies)
 
-        for ent_num, ent in enumerate(selected_entities):
+        for ent in selected_entities:
 
             for orb_num, orb in enumerate(selected_orbitals):
 
@@ -187,7 +206,7 @@ class DosWindow(QMainWindow):
                     sum_up += up
 
                     pen = pg.mkPen(picked[orb_num], width=WIDTH)
-                    name = f"{entities[ent_num]}_{orb}"
+                    name = f"{entities[ent]}_{orb}"
                     full_plot.plot(up, energies, pen=pen, name=name)
                     bounded_plot.plot(up, energies, pen=pen, name=name)
 
@@ -209,7 +228,161 @@ class DosWindow(QMainWindow):
             full_plot.plot(sum_down, energies, pen=sum_pen)
             bounded_plot.plot(sum_down, energies, pen=sum_pen)
 
+        self.refresh_weighted_mean()
         self.dos_plot.update_bounded_plot_y_range()
+
+    def toggle_weighted_mean_on_plot(self, checked=None):
+        self.show_weighted_mean_on_plot = self.weighted_mean_toggle.isChecked()
+        state = "On" if self.show_weighted_mean_on_plot else "Off"
+        self.weighted_mean_toggle.setText(f"Mean values on plot: {state}")
+        self.refresh_weighted_mean()
+
+    def refresh_weighted_mean(self):
+        self.clear_weighted_mean_lines()
+        if self.doscar is None:
+            self.current_weighted_means = {}
+            return
+
+        self.update_weighted_mean(self.get_selected_entities(), self.get_selected_orbitals())
+
+    def clear_weighted_mean_lines(self):
+        for line, plot in self.weighted_mean_lines:
+            plot.removeItem(line)
+        self.weighted_mean_lines = []
+
+    def update_weighted_mean(self, selected_entities, selected_orbitals):
+        if len(selected_entities) != 1 or not selected_orbitals:
+            self.current_weighted_means = {}
+            self.weighted_mean_label.setText("Weighted mean: select one entity and at least one orbital")
+            return
+
+        ent = selected_entities[0]
+        energies = self.doscar.energies
+        min_energy, max_energy = sorted(self.dos_plot.region.getRegion())
+        region_energies = self.get_region_energies(energies, min_energy, max_energy)
+        if region_energies is None:
+            self.current_weighted_means = {}
+            self.weighted_mean_label.setText("Weighted mean: selected region is too narrow")
+            return
+
+        spin_weights = {}
+
+        for orb in selected_orbitals:
+            data = self.doscar.pdos[ent][orb]
+            for spin in [Spin.up, Spin.down]:
+                if spin not in data:
+                    continue
+                if spin not in spin_weights:
+                    spin_weights[spin] = np.zeros_like(energies, dtype=float)
+                spin_weights[spin] += data[spin]
+
+        integrate = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+        orbital_label = "+".join(selected_orbitals)
+        means = {}
+
+        for spin, weights in spin_weights.items():
+            region_energies, region_weights = self.slice_to_region(energies, weights, min_energy, max_energy)
+            denominator = integrate(region_weights, region_energies)
+            if np.isclose(denominator, 0.0):
+                continue
+            means[spin] = integrate(region_energies * region_weights, region_energies) / denominator
+
+        if not means:
+            self.current_weighted_means = {}
+            self.weighted_mean_label.setText(
+                f"Weighted mean for {self.doscar.entities[ent]}_{orbital_label}: no DOS weight in selected region"
+            )
+            return
+
+        self.current_weighted_means = means
+
+        label_parts = []
+        for spin, spin_label in [(Spin.up, "up"), (Spin.down, "down")]:
+            if spin in means:
+                label_parts.append(f"{spin_label} {means[spin]:.4f} eV")
+
+        self.weighted_mean_label.setText(
+            f"Weighted mean for {self.doscar.entities[ent]}_{orbital_label} "
+            f"({min_energy:.2f} to {max_energy:.2f} eV): " + ", ".join(label_parts)
+        )
+
+        if self.show_weighted_mean_on_plot:
+            self.add_weighted_mean_lines(means)
+
+    @staticmethod
+    def get_region_energies(energies, min_energy, max_energy):
+        low = max(min_energy, np.min(energies))
+        high = min(max_energy, np.max(energies))
+        if not low < high:
+            return None
+        return np.array([low, high], dtype=float)
+
+    @staticmethod
+    def slice_to_region(energies, weights, min_energy, max_energy):
+        sort_order = np.argsort(energies)
+        sorted_energies = energies[sort_order]
+        sorted_weights = weights[sort_order]
+        low = max(min_energy, sorted_energies[0])
+        high = min(max_energy, sorted_energies[-1])
+
+        inside = (sorted_energies > low) & (sorted_energies < high)
+        region_energies = np.concatenate(([low], sorted_energies[inside], [high]))
+        region_weights = np.interp(region_energies, sorted_energies, sorted_weights)
+        return region_energies, region_weights
+
+    def add_weighted_mean_lines(self, means):
+        line_specs = {
+            Spin.up: ("#d62728", "up mean={value:0.2f} eV", 0.85),
+            Spin.down: ("#1f77b4", "down mean={value:0.2f} eV", 0.70),
+        }
+
+        self.updating_weighted_mean_lines = True
+        for spin, weighted_mean in means.items():
+
+            color, label, position = line_specs[spin]
+            pen = pg.mkPen(color=color, width=1.5, style=QtCore.Qt.DashLine)
+            for plot in [self.dos_plot.full_range_plot, self.dos_plot.bounded_plot]:
+                span = self.weighted_mean_line_span(plot, spin)
+                if span is None:
+                    continue
+                line = pg.InfiniteLine(
+                    pos=float(weighted_mean),
+                    angle=0,
+                    pen=pen,
+                    movable=False,
+                    label=label,
+                    labelOpts={"position": position, "color": color, "movable": True},
+                    span=span,
+                )
+                plot.addItem(line)
+                self.weighted_mean_lines.append((line, plot))
+        self.updating_weighted_mean_lines = False
+
+    def update_weighted_mean_line_spans(self, *args):
+        if self.updating_weighted_mean_lines or not self.show_weighted_mean_on_plot or not self.current_weighted_means:
+            return
+
+        self.clear_weighted_mean_lines()
+        self.add_weighted_mean_lines(self.current_weighted_means)
+
+    @staticmethod
+    def weighted_mean_line_span(plot, spin):
+        x_min, x_max = plot.viewRange()[0]
+        width = x_max - x_min
+        if width <= 0:
+            return None
+
+        zero_position = (0.0 - x_min) / width
+        zero_position = min(max(zero_position, 0.0), 1.0)
+
+        if spin == Spin.up:
+            if x_max <= 0:
+                return None
+            return zero_position, 1.0
+
+        if x_min >= 0:
+            return None
+        return 0.0, zero_position
 
     def export_csv(self):
 
