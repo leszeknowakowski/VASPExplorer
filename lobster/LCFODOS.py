@@ -38,16 +38,18 @@ class DosWindow(QMainWindow):
         self.entity_boxes = []
         self.orbital_boxes = []
         self.weighted_mean_lines = []
+        self.dos_threshold_regions = []
+        self.current_dos_threshold_intervals = {}
         self.current_weighted_means = {}
-        self.updating_weighted_mean_lines = False
+        self.updating_overlay_spans = False
         self.show_weighted_mean_on_plot = True
 
         self.dos_plot = DosPlotWidget(_DosDataShim(e_fermi=0.0))
         self.dos_plot.full_range_plot.addLegend()
         self.dos_plot.bounded_plot.addLegend()
         self.dos_plot.region.sigRegionChanged.connect(self.refresh_weighted_mean)
-        self.dos_plot.full_range_plot.getViewBox().sigXRangeChanged.connect(self.update_weighted_mean_line_spans)
-        self.dos_plot.bounded_plot.getViewBox().sigXRangeChanged.connect(self.update_weighted_mean_line_spans)
+        self.dos_plot.full_range_plot.getViewBox().sigXRangeChanged.connect(self.update_overlay_spans)
+        self.dos_plot.bounded_plot.getViewBox().sigXRangeChanged.connect(self.update_overlay_spans)
 
         load_button = QPushButton("Load DOSCAR.LCFO.lobster")
         load_button.clicked.connect(lambda: self.load_file(filename=None))
@@ -133,6 +135,10 @@ class DosWindow(QMainWindow):
             return
         struct_file = "CONTCAR" if os.path.exists("CONTCAR") else "POSCAR"
         self.doscar = DOSCAR(filename, False, struct_file)
+        self.clear_weighted_mean_lines()
+        self.clear_dos_threshold_regions()
+        self.current_weighted_means = {}
+        self.current_dos_threshold_intervals = {}
         self.populate_checkboxes()
 
     def populate_checkboxes(self):
@@ -181,6 +187,7 @@ class DosWindow(QMainWindow):
         self.dos_plot.clear_plot_data(full_plot)
         self.dos_plot.clear_plot_data(bounded_plot)
         self.clear_weighted_mean_lines()
+        self.clear_dos_threshold_regions()
 
         energies = self.doscar.energies
         entities = self.doscar.entities
@@ -229,6 +236,7 @@ class DosWindow(QMainWindow):
             bounded_plot.plot(sum_down, energies, pen=sum_pen)
 
         self.refresh_weighted_mean()
+        self.update_dos_threshold_regions(selected_entities, selected_orbitals)
         self.dos_plot.update_bounded_plot_y_range()
 
     def toggle_weighted_mean_on_plot(self, checked=None):
@@ -249,6 +257,11 @@ class DosWindow(QMainWindow):
         for line, plot in self.weighted_mean_lines:
             plot.removeItem(line)
         self.weighted_mean_lines = []
+
+    def clear_dos_threshold_regions(self):
+        for region, plot in self.dos_threshold_regions:
+            plot.removeItem(region)
+        self.dos_threshold_regions = []
 
     def update_weighted_mean(self, selected_entities, selected_orbitals):
         if len(selected_entities) != 1 or not selected_orbitals:
@@ -336,13 +349,13 @@ class DosWindow(QMainWindow):
             Spin.down: ("#1f77b4", "down mean={value:0.2f} eV", 0.70),
         }
 
-        self.updating_weighted_mean_lines = True
+        self.updating_overlay_spans = True
         for spin, weighted_mean in means.items():
 
             color, label, position = line_specs[spin]
             pen = pg.mkPen(color=color, width=1.5, style=QtCore.Qt.DashLine)
             for plot in [self.dos_plot.full_range_plot, self.dos_plot.bounded_plot]:
-                span = self.weighted_mean_line_span(plot, spin)
+                span = self.spin_side_span(plot, spin)
                 if span is None:
                     continue
                 line = pg.InfiniteLine(
@@ -356,17 +369,22 @@ class DosWindow(QMainWindow):
                 )
                 plot.addItem(line)
                 self.weighted_mean_lines.append((line, plot))
-        self.updating_weighted_mean_lines = False
+        self.updating_overlay_spans = False
 
-    def update_weighted_mean_line_spans(self, *args):
-        if self.updating_weighted_mean_lines or not self.show_weighted_mean_on_plot or not self.current_weighted_means:
+    def update_overlay_spans(self, *args):
+        if self.updating_overlay_spans:
             return
 
-        self.clear_weighted_mean_lines()
-        self.add_weighted_mean_lines(self.current_weighted_means)
+        if self.show_weighted_mean_on_plot and self.current_weighted_means:
+            self.clear_weighted_mean_lines()
+            self.add_weighted_mean_lines(self.current_weighted_means)
+
+        if self.current_dos_threshold_intervals:
+            self.clear_dos_threshold_regions()
+            self.add_dos_threshold_regions(self.current_dos_threshold_intervals)
 
     @staticmethod
-    def weighted_mean_line_span(plot, spin):
+    def spin_side_span(plot, spin):
         x_min, x_max = plot.viewRange()[0]
         width = x_max - x_min
         if width <= 0:
@@ -383,6 +401,102 @@ class DosWindow(QMainWindow):
         if x_min >= 0:
             return None
         return 0.0, zero_position
+
+    def update_dos_threshold_regions(self, selected_entities, selected_orbitals):
+        self.clear_dos_threshold_regions()
+        if len(selected_entities) != 1 or not selected_orbitals:
+            self.current_dos_threshold_intervals = {}
+            return
+
+        ent = selected_entities[0]
+        energies = self.doscar.energies
+        spin_intensities = {}
+
+        for orb in selected_orbitals:
+            data = self.doscar.pdos[ent][orb]
+            for spin in [Spin.up, Spin.down]:
+                if spin not in data:
+                    continue
+                if spin not in spin_intensities:
+                    spin_intensities[spin] = np.zeros_like(energies, dtype=float)
+                spin_intensities[spin] += data[spin]
+
+        intervals_by_spin = {}
+        for spin, intensity in spin_intensities.items():
+            max_intensity = np.max(intensity)
+            if np.isclose(max_intensity, 0.0):
+                continue
+            intervals_by_spin[spin] = self.threshold_intervals(energies, intensity, 0.1 * max_intensity)
+
+        self.current_dos_threshold_intervals = intervals_by_spin
+        if not intervals_by_spin:
+            return
+
+        self.add_dos_threshold_regions(intervals_by_spin)
+
+    @staticmethod
+    def threshold_intervals(energies, intensity, threshold):
+        sort_order = np.argsort(energies)
+        energies = energies[sort_order]
+        intensity = intensity[sort_order]
+        above = intensity > threshold
+        intervals = []
+
+        start = None
+        for idx, is_above in enumerate(above):
+            if is_above and start is None:
+                if idx == 0:
+                    start = energies[idx]
+                else:
+                    start = DosWindow.crossing_energy(
+                        energies[idx - 1], intensity[idx - 1], energies[idx], intensity[idx], threshold
+                    )
+            elif not is_above and start is not None:
+                end = DosWindow.crossing_energy(
+                    energies[idx - 1], intensity[idx - 1], energies[idx], intensity[idx], threshold
+                )
+                intervals.append((start, end))
+                start = None
+
+        if start is not None:
+            intervals.append((start, energies[-1]))
+
+        return intervals
+
+    @staticmethod
+    def crossing_energy(energy_a, intensity_a, energy_b, intensity_b, threshold):
+        if np.isclose(intensity_a, intensity_b):
+            return energy_a
+        fraction = (threshold - intensity_a) / (intensity_b - intensity_a)
+        fraction = min(max(fraction, 0.0), 1.0)
+        return energy_a + fraction * (energy_b - energy_a)
+
+    def add_dos_threshold_regions(self, intervals_by_spin):
+        region_specs = {
+            Spin.up: (pg.mkBrush(214, 39, 40, 45), pg.mkPen(214, 39, 40, 90)),
+            Spin.down: (pg.mkBrush(31, 119, 180, 45), pg.mkPen(31, 119, 180, 90)),
+        }
+
+        self.updating_overlay_spans = True
+        for spin, intervals in intervals_by_spin.items():
+            brush, pen = region_specs[spin]
+            for start, end in intervals:
+                for plot in [self.dos_plot.full_range_plot, self.dos_plot.bounded_plot]:
+                    span = self.spin_side_span(plot, spin)
+                    if span is None:
+                        continue
+                    region = pg.LinearRegionItem(
+                        values=(float(start), float(end)),
+                        orientation=pg.LinearRegionItem.Horizontal,
+                        brush=brush,
+                        pen=pen,
+                        movable=False,
+                        span=span,
+                    )
+                    region.setZValue(-10)
+                    plot.addItem(region)
+                    self.dos_threshold_regions.append((region, plot))
+        self.updating_overlay_spans = False
 
     def export_csv(self):
 
