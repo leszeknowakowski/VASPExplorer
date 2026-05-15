@@ -19,7 +19,7 @@ class CubeData:
         self.filepath = filepath
 
         script_dir = os.path.dirname(__file__)
-        colors_file = os.path.join(os.path.dirname(script_dir), 'elementColorSchemes.json')
+        colors_file = os.path.join(script_dir, 'elementColorSchemes.json')
         with open(colors_file, "r") as f:
             self.all_colors = json.load(f)
 
