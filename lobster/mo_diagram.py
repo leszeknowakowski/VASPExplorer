@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import re
 import sys
 from pathlib import Path
@@ -8,6 +8,7 @@ from PyQt5.QtGui import QCloseEvent
 import numpy as np
 import os
 import pyqtgraph as pg
+from pymatgen.electronic_structure.core import Spin
 from lobster.cube_reader import CubeManager
 from structure_plot import QtInteractor
 
@@ -69,6 +70,78 @@ class OrbitalTrackingSequence:
     spin: str
     tracks: List[OrbitalTrack]
     transition_matches: List[List[OrbitalMatch]]
+
+
+@dataclass(frozen=True)
+class AtomicOrbitalContribution:
+    file_index: int
+    path: str
+    spin: str
+    atomic_orbital_label: str
+    atomic_orbital_index: int
+    mo_index: int
+    mo_label: str
+    mo_energy: float
+    coefficient: float
+    abs_coefficient: float
+
+
+@dataclass
+class AtomicOrbitalTrack:
+    spin: str
+    atomic_orbital_label: str
+    start_atomic_orbital_index: int
+    contributions: List[AtomicOrbitalContribution]
+
+
+@dataclass
+class AtomicOrbitalTrackingSequence:
+    paths: List[str]
+    spin: str
+    atomic_orbital_labels: Tuple[str, ...]
+    tracks: List[AtomicOrbitalTrack]
+
+
+@dataclass(frozen=True)
+class FlowChartFrame:
+    file_index: int
+    path: str
+    lcfo_path: str
+    spin: str
+    mo_index: int
+    mo_label: str
+    mo_energy: float
+    contributions: Tuple[AtomicOrbitalContribution, ...]
+    dos_orbital_label: str
+    entity_labels: Tuple[str, ...]
+    energies: np.ndarray
+    dos_values: np.ndarray
+    intervals: Tuple[Tuple[float, float], ...]
+
+
+@dataclass
+class FlowChartData:
+    paths: List[str]
+    atomic_orbital_labels: Tuple[str, ...]
+    ao_coefficient_threshold: float
+    dos_threshold_fraction: float
+    frames: List[FlowChartFrame]
+    errors: List[str] = field(default_factory=list)
+
+    def molecular_orbitals(self) -> List[str]:
+        return list(dict.fromkeys(frame.mo_label for frame in self.frames))
+
+    def frames_for(self, mo_label: str, spin: Optional[str] = None) -> List[FlowChartFrame]:
+        return [
+            frame for frame in self.frames
+            if frame.mo_label == mo_label and (spin is None or frame.spin == spin)
+        ]
+
+    def frames_by_file(self) -> Dict[int, List[FlowChartFrame]]:
+        grouped = {index: [] for index in range(len(self.paths))}
+        for frame in self.frames:
+            grouped.setdefault(frame.file_index, []).append(frame)
+        return grouped
 
 
 class LobsterModel:
@@ -179,6 +252,87 @@ class LobsterModel:
         if 0 <= mo_index < len(spin_data.mo_energies):
             return float(spin_data.mo_energies[mo_index])
         return float("nan")
+
+    @staticmethod
+    def _ao_atom(label: str) -> str:
+        return label.split("_", 1)[0]
+
+    @staticmethod
+    def _ao_name(label: str) -> str:
+        parts = label.split("_", 1)
+        return parts[1] if len(parts) == 2 else label
+
+    @staticmethod
+    def _normalize_string_sequence(values):
+        if values is None:
+            return None
+        if isinstance(values, str):
+            return [values]
+        return list(values)
+
+    @classmethod
+    def atomic_orbital_labels(
+            cls,
+            spin_data: SpinData,
+            atom: Optional[str] = None,
+            orbital_names: Optional[Sequence[str]] = None,
+    ) -> List[str]:
+        names = cls._normalize_string_sequence(orbital_names)
+        name_set = set(names) if names is not None else None
+
+        labels = []
+        for label in spin_data.atomic_orbital_labels:
+            if atom is not None and cls._ao_atom(label) != atom:
+                continue
+            if name_set is not None and label not in name_set and cls._ao_name(label) not in name_set:
+                continue
+            labels.append(label)
+        return labels
+
+    @classmethod
+    def atomic_orbital_contributions(
+            cls,
+            spin_data: SpinData,
+            atomic_orbital_label: str,
+            file_index: int = 0,
+            path: str = "",
+            spin: str = "alpha",
+            coefficient_threshold: float = 0.0,
+    ) -> List[AtomicOrbitalContribution]:
+        cls._validate_similarity_options(0.0, coefficient_threshold)
+
+        coeff = np.asarray(spin_data.coefficient_matrix, dtype=float)
+        labels = spin_data.atomic_orbital_labels
+
+        if coeff.ndim != 2:
+            raise ValueError("coefficient_matrix must be a 2D array")
+        if len(labels) != coeff.shape[0]:
+            raise ValueError("atomic_orbital_labels length must match coefficient_matrix rows")
+
+        try:
+            ao_index = labels.index(atomic_orbital_label)
+        except ValueError as exc:
+            raise ValueError(f"atomic orbital label not found: {atomic_orbital_label}") from exc
+
+        contributions = []
+        for mo_index, coefficient in enumerate(coeff[ao_index, :]):
+            coefficient = float(coefficient)
+            abs_coefficient = abs(coefficient)
+            if abs_coefficient + 1e-12 < coefficient_threshold:
+                continue
+            contributions.append(AtomicOrbitalContribution(
+                file_index=file_index,
+                path=path,
+                spin=spin,
+                atomic_orbital_label=atomic_orbital_label,
+                atomic_orbital_index=ao_index,
+                mo_index=mo_index,
+                mo_label=cls._mo_label(spin_data, mo_index),
+                mo_energy=cls._mo_energy(spin_data, mo_index),
+                coefficient=coefficient,
+                abs_coefficient=abs_coefficient,
+            ))
+        return contributions
 
     @staticmethod
     def _select_spin_data(diagram: ParsedDiagram, spin: str) -> SpinData:
@@ -486,6 +640,362 @@ class LobsterModel:
 
         return OrbitalTrackingSequence(path_list, spin, tracks, transition_matches)
 
+    @classmethod
+    def track_atomic_orbitals(
+            cls,
+            paths: Sequence[str],
+            spin: str = "alpha",
+            atomic_orbital_labels: Optional[Sequence[str]] = None,
+            atom: Optional[str] = None,
+            orbital_names: Optional[Sequence[str]] = None,
+            coefficient_threshold: float = 0.0,
+    ) -> AtomicOrbitalTrackingSequence:
+        cls._validate_similarity_options(0.0, coefficient_threshold)
+
+        path_list = [str(path) for path in paths]
+        diagrams = cls.load_many(path_list)
+        if not diagrams:
+            return AtomicOrbitalTrackingSequence(path_list, spin, (), [])
+
+        spin_data_by_file = [cls._select_spin_data(diagram, spin) for diagram in diagrams]
+        first_spin_data = spin_data_by_file[0]
+
+        if atomic_orbital_labels is None:
+            selected_labels = cls.atomic_orbital_labels(
+                first_spin_data,
+                atom=atom,
+                orbital_names=orbital_names,
+            )
+        else:
+            selected_labels = cls._normalize_string_sequence(atomic_orbital_labels)
+
+        selected_labels = list(dict.fromkeys(selected_labels or []))
+        if not selected_labels:
+            raise ValueError("No atomic orbitals selected")
+
+        missing_first_file = [
+            label for label in selected_labels
+            if label not in first_spin_data.atomic_orbital_labels
+        ]
+        if missing_first_file:
+            raise ValueError(
+                "atomic_orbital_labels not found in the first file: "
+                + ", ".join(missing_first_file)
+            )
+
+        tracks = []
+        for label in selected_labels:
+            start_index = first_spin_data.atomic_orbital_labels.index(label)
+            contributions = []
+            for file_index, spin_data in enumerate(spin_data_by_file):
+                if label not in spin_data.atomic_orbital_labels:
+                    continue
+                contributions.extend(cls.atomic_orbital_contributions(
+                    spin_data,
+                    label,
+                    file_index=file_index,
+                    path=path_list[file_index],
+                    spin=spin,
+                    coefficient_threshold=coefficient_threshold,
+                ))
+            tracks.append(AtomicOrbitalTrack(
+                spin=spin,
+                atomic_orbital_label=label,
+                start_atomic_orbital_index=start_index,
+                contributions=contributions,
+            ))
+
+        return AtomicOrbitalTrackingSequence(
+            paths=path_list,
+            spin=spin,
+            atomic_orbital_labels=tuple(selected_labels),
+            tracks=tracks,
+        )
+
+    @classmethod
+    def dos_threshold_intervals(
+            cls,
+            energies,
+            intensity,
+            threshold_fraction: float = 0.1,
+    ) -> Tuple[Tuple[float, float], ...]:
+        if threshold_fraction < 0:
+            raise ValueError("threshold_fraction must be non-negative")
+
+        energies = np.asarray(energies, dtype=float)
+        intensity = np.abs(np.asarray(intensity, dtype=float))
+        if energies.shape != intensity.shape:
+            raise ValueError("energies and intensity must have the same shape")
+        if energies.size == 0:
+            return ()
+
+        finite = np.isfinite(energies) & np.isfinite(intensity)
+        energies = energies[finite]
+        intensity = intensity[finite]
+        if energies.size == 0:
+            return ()
+
+        order = np.argsort(energies)
+        energies = energies[order]
+        intensity = intensity[order]
+
+        max_intensity = float(np.max(intensity))
+        if np.isclose(max_intensity, 0.0):
+            return ()
+
+        threshold = float(threshold_fraction) * max_intensity
+        above = intensity > threshold
+        intervals = []
+        start = None
+
+        for idx, is_above in enumerate(above):
+            if is_above and start is None:
+                if idx == 0:
+                    start = float(energies[idx])
+                else:
+                    start = cls._threshold_crossing_energy(
+                        energies[idx - 1],
+                        intensity[idx - 1],
+                        energies[idx],
+                        intensity[idx],
+                        threshold,
+                    )
+            elif not is_above and start is not None:
+                end = cls._threshold_crossing_energy(
+                    energies[idx - 1],
+                    intensity[idx - 1],
+                    energies[idx],
+                    intensity[idx],
+                    threshold,
+                )
+                intervals.append((float(start), float(end)))
+                start = None
+
+        if start is not None:
+            intervals.append((float(start), float(energies[-1])))
+
+        return tuple(intervals)
+
+    @staticmethod
+    def _threshold_crossing_energy(energy_a, intensity_a, energy_b, intensity_b, threshold) -> float:
+        energy_a = float(energy_a)
+        intensity_a = float(intensity_a)
+        energy_b = float(energy_b)
+        intensity_b = float(intensity_b)
+        if np.isclose(intensity_a, intensity_b):
+            return energy_a
+        fraction = (float(threshold) - intensity_a) / (intensity_b - intensity_a)
+        fraction = min(max(fraction, 0.0), 1.0)
+        return energy_a + fraction * (energy_b - energy_a)
+
+    @staticmethod
+    def default_lcfo_path(mo_diagram_path: str) -> str:
+        directory = Path(mo_diagram_path).parent
+        exact = directory / "DOSCAR.LCFO.lobster"
+        if exact.exists():
+            return str(exact)
+
+        for path in (directory.iterdir() if directory.is_dir() else []):
+            if path.is_file() and path.name.lower() == "doscar.lcfo.lobster":
+                return str(path)
+        return str(exact)
+
+    @staticmethod
+    def default_structure_path(lcfo_path: str) -> str:
+        directory = Path(lcfo_path).parent
+        for name in ("CONTCAR", "POSCAR"):
+            candidate = directory / name
+            if candidate.exists():
+                return str(candidate)
+        raise FileNotFoundError(f"No CONTCAR or POSCAR found next to {lcfo_path}")
+
+    @classmethod
+    def default_lcfo_doscar_loader(cls, lcfo_path: str):
+        from lobster.lobster_outputs import Doscar as DOSCAR
+
+        path = Path(lcfo_path)
+        if not path.exists():
+            raise FileNotFoundError(f"LCFO DOSCAR not found: {lcfo_path}")
+        return DOSCAR(str(path), False, cls.default_structure_path(str(path)))
+
+    @staticmethod
+    def _spin_to_dos_spin(spin: str):
+        if spin == "alpha":
+            return Spin.up
+        if spin == "beta":
+            return Spin.down
+        raise ValueError("spin must be 'alpha' or 'beta'")
+
+    @staticmethod
+    def _find_pdos_orbital_key(pdos, mo_label: str):
+        if mo_label in pdos:
+            return mo_label
+
+        def normalized(value):
+            return re.sub(r"[^a-z0-9]+", "", str(value).lower())
+
+        target = normalized(mo_label)
+        for key in pdos:
+            if normalized(key) == target:
+                return key
+
+        for key in pdos:
+            key_text = str(key)
+            if key_text.endswith(mo_label) or mo_label.endswith(key_text):
+                return key
+        return None
+
+    @classmethod
+    def _lcfo_dos_for_molecular_orbital(cls, doscar, mo_label: str, spin: str):
+        dos_spin = cls._spin_to_dos_spin(spin)
+        energies = np.asarray(doscar.energies, dtype=float)
+        values = np.zeros_like(energies, dtype=float)
+        entity_labels = []
+        dos_orbital_label = None
+
+        entities = getattr(doscar, "entities", [])
+        for entity_index, pdos in enumerate(doscar.pdos):
+            orbital_key = cls._find_pdos_orbital_key(pdos, mo_label)
+            if orbital_key is None:
+                continue
+            spin_data = pdos[orbital_key]
+            if dos_spin not in spin_data:
+                continue
+
+            data = np.asarray(spin_data[dos_spin], dtype=float)
+            if data.shape != energies.shape:
+                raise ValueError(
+                    f"DOS shape for {mo_label} in entity {entity_index} does not match energies"
+                )
+            values += data
+            dos_orbital_label = str(orbital_key)
+            if entity_index < len(entities):
+                entity_labels.append(str(entities[entity_index]))
+            else:
+                entity_labels.append(str(entity_index))
+
+        if dos_orbital_label is None:
+            return None
+        return dos_orbital_label, tuple(entity_labels), energies, values
+
+    @classmethod
+    def build_flow_chart_data(
+            cls,
+            paths: Sequence[str],
+            atomic_orbital_labels: Sequence[str],
+            ao_coefficient_threshold: float = 0.3,
+            dos_threshold_fraction: float = 0.1,
+            doscar_loader: Optional[Callable[[str], object]] = None,
+            lcfo_path_resolver: Optional[Callable[[str], str]] = None,
+            spins: Sequence[str] = ("alpha", "beta"),
+            strict: bool = True,
+    ) -> FlowChartData:
+        cls._validate_similarity_options(0.0, ao_coefficient_threshold)
+        if dos_threshold_fraction < 0:
+            raise ValueError("dos_threshold_fraction must be non-negative")
+
+        path_list = [str(path) for path in paths]
+        selected_labels = cls._normalize_string_sequence(atomic_orbital_labels)
+        selected_labels = list(dict.fromkeys(selected_labels or []))
+        if not selected_labels:
+            raise ValueError("No atomic orbitals selected")
+
+        if isinstance(spins, str):
+            spin_values = [spins]
+        else:
+            spin_values = list(spins)
+        for spin in spin_values:
+            if spin not in {"alpha", "beta"}:
+                raise ValueError("spins must contain only 'alpha' and/or 'beta'")
+
+        diagrams = cls.load_many(path_list)
+        doscar_loader = doscar_loader or cls.default_lcfo_doscar_loader
+        lcfo_path_resolver = lcfo_path_resolver or cls.default_lcfo_path
+
+        frames = []
+        errors = []
+        doscar_cache = {}
+
+        for file_index, diagram in enumerate(diagrams):
+            path = path_list[file_index]
+            lcfo_path = lcfo_path_resolver(path)
+            doscar = None
+
+            for spin in spin_values:
+                spin_data = cls._select_spin_data(diagram, spin)
+                contributions_by_mo = {}
+
+                for label in selected_labels:
+                    if label not in spin_data.atomic_orbital_labels:
+                        continue
+                    for contribution in cls.atomic_orbital_contributions(
+                            spin_data,
+                            label,
+                            file_index=file_index,
+                            path=path,
+                            spin=spin,
+                            coefficient_threshold=ao_coefficient_threshold,
+                    ):
+                        contributions_by_mo.setdefault(contribution.mo_index, []).append(contribution)
+
+                if not contributions_by_mo:
+                    continue
+
+                try:
+                    if lcfo_path not in doscar_cache:
+                        doscar_cache[lcfo_path] = doscar_loader(lcfo_path)
+                    doscar = doscar_cache[lcfo_path]
+                except Exception as exc:
+                    message = f"{Path(path).name}: {exc}"
+                    if strict:
+                        raise
+                    errors.append(message)
+                    continue
+
+                for mo_index, contributions in sorted(contributions_by_mo.items()):
+                    mo_label = cls._mo_label(spin_data, mo_index)
+                    try:
+                        dos_result = cls._lcfo_dos_for_molecular_orbital(doscar, mo_label, spin)
+                    except Exception as exc:
+                        message = f"{Path(path).name} {mo_label} {spin}: {exc}"
+                        if strict:
+                            raise
+                        errors.append(message)
+                        continue
+                    if dos_result is None:
+                        errors.append(f"{Path(path).name}: no LCFO DOS for {mo_label} ({spin})")
+                        continue
+
+                    dos_orbital_label, entity_labels, energies, dos_values = dos_result
+                    frames.append(FlowChartFrame(
+                        file_index=file_index,
+                        path=path,
+                        lcfo_path=lcfo_path,
+                        spin=spin,
+                        mo_index=mo_index,
+                        mo_label=mo_label,
+                        mo_energy=cls._mo_energy(spin_data, mo_index),
+                        contributions=tuple(contributions),
+                        dos_orbital_label=dos_orbital_label,
+                        entity_labels=entity_labels,
+                        energies=energies,
+                        dos_values=dos_values,
+                        intervals=cls.dos_threshold_intervals(
+                            energies,
+                            dos_values,
+                            threshold_fraction=dos_threshold_fraction,
+                        ),
+                    ))
+
+        return FlowChartData(
+            paths=path_list,
+            atomic_orbital_labels=tuple(selected_labels),
+            ao_coefficient_threshold=float(ao_coefficient_threshold),
+            dos_threshold_fraction=float(dos_threshold_fraction),
+            frames=frames,
+            errors=errors,
+        )
+
 
 class MODiagramViewModel(QtCore.QObject):
     """Application logic + state."""
@@ -497,11 +1007,15 @@ class MODiagramViewModel(QtCore.QObject):
         self.diagram = None
         self.spin = "alpha"
         self.threshold = 0.3
+        self.path = None
+        self.files = []
+        self.cube_manager = None
 
     def load_file(self, path: str):
         from pathlib import Path
         if not Path(path).exists():
             return
+        self.path = str(path)
         self.diagram = LobsterModel.load(path)
         self.data_changed.emit()
         self.cube_manager = CubeManager()
@@ -510,6 +1024,26 @@ class MODiagramViewModel(QtCore.QObject):
         self.cube_manager.render_all_screenshots()
         self.save_mo_images()
         self.files = os.listdir(os.path.dirname(path))
+
+    @staticmethod
+    def is_mo_diagram_file(path: Path) -> bool:
+        return path.is_file() and path.name.lower().endswith("mo_diagram.lobster")
+
+    @classmethod
+    def find_mo_diagram_paths(cls, directory: str) -> List[str]:
+        root = Path(directory)
+        if not root.is_dir():
+            return []
+        return sorted(str(path) for path in root.rglob("*") if cls.is_mo_diagram_file(path))
+
+    def mo_diagram_paths_in_loaded_dir(self) -> List[str]:
+        if not self.path:
+            return []
+        directory = os.path.dirname(self.path)
+        if not os.path.isdir(directory):
+            return [self.path]
+        paths = self.find_mo_diagram_paths(directory)
+        return sorted(paths) or [self.path]
 
     def set_spin(self, spin: str):
         self.spin = spin
@@ -621,12 +1155,40 @@ class MODiagramView(QtWidgets.QMainWindow):
         self.slider.valueChanged.connect(self.vm.set_threshold)
         tb.addWidget(self.slider)
 
+        track_ao_btn = QtWidgets.QPushButton("Track AO")
+        track_ao_btn.clicked.connect(self.track_atomic_orbitals)
+        tb.addWidget(track_ao_btn)
+
     def open_file(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self, "Open", os.getcwd()
         )
         if path:
             self.vm.load_file(path)
+
+    def track_atomic_orbitals(self):
+        if not self.vm.diagram:
+            QtWidgets.QMessageBox.warning(self, "Track AO", "Open an MO diagram file first.")
+            return
+
+        setup_dialog = AOTrackingSetupDialog(self, self.vm)
+        if setup_dialog.exec_() != QtWidgets.QDialog.Accepted:
+            return
+
+        try:
+            sequence = LobsterModel.track_atomic_orbitals(
+                setup_dialog.selected_paths(),
+                spin=self.vm.spin,
+                atomic_orbital_labels=setup_dialog.selected_labels(),
+                coefficient_threshold=setup_dialog.coefficient_threshold(),
+            )
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(self, "Track AO", str(exc))
+            return
+
+        result_dialog = AOTrackingResultDialog(self, sequence)
+        result_dialog.resize(900, 600)
+        result_dialog.exec_()
 
     def first_render(self):
         self.mo_items = []
@@ -802,6 +1364,254 @@ class MODiagramView(QtWidgets.QMainWindow):
         dialog = MODialog(self, self.vm, mo_index)
         dialog.resize(900, 600)
         dialog.exec_()
+
+
+class AOTrackingSetupDialog(QtWidgets.QDialog):
+    def __init__(self, parent, vm):
+        super().__init__(parent)
+        self.vm = vm
+        self.spin_data = vm.active()
+        self.setWindowTitle("Track Atomic Orbitals")
+        self.resize(650, 520)
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        files_label = QtWidgets.QLabel("MO diagram files")
+        layout.addWidget(files_label)
+
+        self.file_list = QtWidgets.QListWidget()
+        layout.addWidget(self.file_list, 2)
+
+        file_buttons = QtWidgets.QHBoxLayout()
+        add_directory_btn = QtWidgets.QPushButton("Choose Directory")
+        add_directory_btn.clicked.connect(self.add_directory)
+        add_files_btn = QtWidgets.QPushButton("Add Files")
+        add_files_btn.clicked.connect(self.add_files)
+        select_all_btn = QtWidgets.QPushButton("Select All")
+        select_all_btn.clicked.connect(lambda: self.set_all_files_checked(True))
+        clear_btn = QtWidgets.QPushButton("Clear")
+        clear_btn.clicked.connect(self.file_list.clear)
+        file_buttons.addWidget(add_directory_btn)
+        file_buttons.addWidget(add_files_btn)
+        file_buttons.addWidget(select_all_btn)
+        file_buttons.addWidget(clear_btn)
+        layout.addLayout(file_buttons)
+
+        for path in self.vm.mo_diagram_paths_in_loaded_dir():
+            self.add_path(path, checked=True)
+
+        form = QtWidgets.QFormLayout()
+        self.atom_combo = QtWidgets.QComboBox()
+        self.atom_combo.addItems(list(self.spin_data.atomic_groups.keys()))
+        self.atom_combo.currentTextChanged.connect(self.populate_orbitals)
+        form.addRow("Atom", self.atom_combo)
+
+        self.threshold = QtWidgets.QDoubleSpinBox()
+        self.threshold.setRange(0.0, 10.0)
+        self.threshold.setDecimals(3)
+        self.threshold.setSingleStep(0.05)
+        self.threshold.setValue(self.vm.threshold)
+        form.addRow("Minimum |coefficient|", self.threshold)
+        layout.addLayout(form)
+
+        orbitals_label = QtWidgets.QLabel("Atomic orbitals")
+        layout.addWidget(orbitals_label)
+
+        self.orbital_list = QtWidgets.QListWidget()
+        layout.addWidget(self.orbital_list, 1)
+
+        orbital_buttons = QtWidgets.QHBoxLayout()
+        select_atom_btn = QtWidgets.QPushButton("Select Atom Orbitals")
+        select_atom_btn.clicked.connect(lambda: self.set_all_orbitals_checked(True))
+        clear_orbitals_btn = QtWidgets.QPushButton("Clear Orbitals")
+        clear_orbitals_btn.clicked.connect(lambda: self.set_all_orbitals_checked(False))
+        orbital_buttons.addWidget(select_atom_btn)
+        orbital_buttons.addWidget(clear_orbitals_btn)
+        layout.addLayout(orbital_buttons)
+
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        if self.atom_combo.count():
+            self.populate_orbitals(self.atom_combo.currentText())
+
+    def add_path(self, path: str, checked: bool = True):
+        path = str(path)
+        for row in range(self.file_list.count()):
+            if self.file_list.item(row).data(QtCore.Qt.UserRole) == path:
+                return
+
+        item = QtWidgets.QListWidgetItem(self.path_label(path))
+        item.setData(QtCore.Qt.UserRole, path)
+        item.setToolTip(path)
+        item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+        item.setCheckState(QtCore.Qt.Checked if checked else QtCore.Qt.Unchecked)
+        self.file_list.addItem(item)
+
+    @staticmethod
+    def path_label(path: str) -> str:
+        file_path = Path(path)
+        parent = file_path.parent.name
+        if parent:
+            return f"{parent} / {file_path.name}"
+        return file_path.name
+
+    def add_directory(self):
+        start_dir = os.path.dirname(self.vm.path) if self.vm.path else os.getcwd()
+        directory = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Choose directory with MO diagrams",
+            start_dir,
+        )
+        if not directory:
+            return
+
+        paths = self.vm.find_mo_diagram_paths(directory)
+        if not paths:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Track AO",
+                "No *MO_Diagram.lobster files found in the selected directory.",
+            )
+            return
+
+        for path in paths:
+            self.add_path(path, checked=True)
+
+    def add_files(self):
+        start_dir = os.path.dirname(self.vm.path) if self.vm.path else os.getcwd()
+        paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
+            self,
+            "Add MO diagram files",
+            start_dir,
+            "LOBSTER files (*.lobster);;All files (*)",
+        )
+        for path in paths:
+            self.add_path(path, checked=True)
+
+    def set_all_files_checked(self, checked: bool):
+        state = QtCore.Qt.Checked if checked else QtCore.Qt.Unchecked
+        for row in range(self.file_list.count()):
+            self.file_list.item(row).setCheckState(state)
+
+    def populate_orbitals(self, atom: str):
+        self.orbital_list.clear()
+        labels = self.spin_data.atomic_groups.get(atom, [])
+        for row, label in enumerate(labels):
+            item = QtWidgets.QListWidgetItem(label)
+            item.setData(QtCore.Qt.UserRole, label)
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            checked = row == 0 and len(labels) == 1
+            item.setCheckState(QtCore.Qt.Checked if checked else QtCore.Qt.Unchecked)
+            self.orbital_list.addItem(item)
+
+    def set_all_orbitals_checked(self, checked: bool):
+        state = QtCore.Qt.Checked if checked else QtCore.Qt.Unchecked
+        for row in range(self.orbital_list.count()):
+            self.orbital_list.item(row).setCheckState(state)
+
+    def selected_paths(self) -> List[str]:
+        paths = []
+        for row in range(self.file_list.count()):
+            item = self.file_list.item(row)
+            if item.checkState() == QtCore.Qt.Checked:
+                paths.append(item.data(QtCore.Qt.UserRole))
+        return paths
+
+    def selected_labels(self) -> List[str]:
+        labels = []
+        for row in range(self.orbital_list.count()):
+            item = self.orbital_list.item(row)
+            if item.checkState() == QtCore.Qt.Checked:
+                labels.append(item.data(QtCore.Qt.UserRole))
+        return labels
+
+    def coefficient_threshold(self) -> float:
+        return float(self.threshold.value())
+
+    def accept(self):
+        if not self.selected_paths():
+            QtWidgets.QMessageBox.warning(self, "Track AO", "Select at least one MO diagram file.")
+            return
+        if not self.selected_labels():
+            QtWidgets.QMessageBox.warning(self, "Track AO", "Select at least one atomic orbital.")
+            return
+        super().accept()
+
+
+class AOTrackingResultDialog(QtWidgets.QDialog):
+    def __init__(self, parent, sequence: AtomicOrbitalTrackingSequence):
+        super().__init__(parent)
+        self.sequence = sequence
+        self.setWindowTitle("Atomic Orbital Tracking")
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        selected = ", ".join(sequence.atomic_orbital_labels)
+        title = QtWidgets.QLabel(f"{sequence.spin} spin: {selected}")
+        layout.addWidget(title)
+
+        self.table = QtWidgets.QTableWidget()
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels([
+            "File",
+            "AO",
+            "MO",
+            "Energy",
+            "Coefficient",
+            "|Coefficient|",
+        ])
+        layout.addWidget(self.table, 1)
+
+        self.populate_table()
+
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def populate_table(self):
+        rows = []
+        for track in self.sequence.tracks:
+            rows.extend(track.contributions)
+        rows.sort(key=lambda item: (
+            item.file_index,
+            item.atomic_orbital_label,
+            -item.abs_coefficient,
+            item.mo_index,
+        ))
+
+        self.table.setRowCount(len(rows))
+        for row_index, contribution in enumerate(rows):
+            file_item = QtWidgets.QTableWidgetItem(AOTrackingSetupDialog.path_label(contribution.path))
+            file_item.setToolTip(contribution.path)
+            file_item.setData(QtCore.Qt.UserRole, contribution.file_index)
+            self.table.setItem(row_index, 0, file_item)
+
+            self.table.setItem(row_index, 1, QtWidgets.QTableWidgetItem(contribution.atomic_orbital_label))
+            self.table.setItem(row_index, 2, QtWidgets.QTableWidgetItem(contribution.mo_label))
+
+            energy_item = QtWidgets.QTableWidgetItem(f"{contribution.mo_energy:.4f}")
+            energy_item.setData(QtCore.Qt.UserRole, contribution.mo_energy)
+            self.table.setItem(row_index, 3, energy_item)
+
+            coefficient_item = QtWidgets.QTableWidgetItem(f"{contribution.coefficient:.4f}")
+            coefficient_item.setData(QtCore.Qt.UserRole, contribution.coefficient)
+            if contribution.coefficient < 0:
+                coefficient_item.setForeground(QtCore.Qt.darkBlue)
+            else:
+                coefficient_item.setForeground(QtCore.Qt.darkRed)
+            self.table.setItem(row_index, 4, coefficient_item)
+
+            abs_item = QtWidgets.QTableWidgetItem(f"{contribution.abs_coefficient:.4f}")
+            abs_item.setData(QtCore.Qt.UserRole, contribution.abs_coefficient)
+            self.table.setItem(row_index, 5, abs_item)
+
+        self.table.setSortingEnabled(True)
+        self.table.resizeColumnsToContents()
 
 
 class MODialog(QtWidgets.QDialog):
