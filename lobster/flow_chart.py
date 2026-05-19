@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from lobster.mo_diagram import FlowChartFrame, LobsterModel, MODiagramViewModel
 
@@ -23,10 +23,11 @@ class _FitWidthScrollArea(QtWidgets.QScrollArea):
 
 
 class _FlowChartPanel(QtWidgets.QWidget):
-    def __init__(self, path: str, frames):
+    def __init__(self, path: str, frames, coefficient_threshold: float):
         super().__init__()
         self.path = path
         self.frames = list(frames)
+        self.coefficient_threshold = float(coefficient_threshold)
         self.region_items = []
 
         self.setMinimumWidth(0)
@@ -47,7 +48,9 @@ class _FlowChartPanel(QtWidgets.QWidget):
         self.mo_combo.setMinimumContentsLength(8)
         self.mo_combo.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.mo_combo.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
-        self.mo_combo.currentIndexChanged.connect(self.plot_current_frame)
+        self.default_combo_font = QtGui.QFont(self.mo_combo.font())
+        self.default_combo_palette = QtGui.QPalette(self.mo_combo.palette())
+        self.mo_combo.currentIndexChanged.connect(self.on_current_frame_changed)
         layout.addWidget(self.mo_combo)
 
         self.plot = pg.PlotWidget(background="w")
@@ -81,25 +84,54 @@ class _FlowChartPanel(QtWidgets.QWidget):
             f"{item.atomic_orbital_label} {item.coefficient:+.3f}"
             for item in frame.contributions
         )
-        return f"{frame.mo_label} ({frame.spin}, E={frame.mo_energy:.3f}, {coefficients})"
+        details = f"{frame.spin[0]}, E={frame.mo_energy:.1f}"
+        if coefficients:
+            details += f", {coefficients}"
+        return f"{frame.mo_label.split("_")[-1]} ({details})"
+
+    def frame_is_above_threshold(self, frame: FlowChartFrame) -> bool:
+        return any(
+            item.abs_coefficient + 1e-12 >= self.coefficient_threshold
+            for item in frame.contributions
+        )
 
     def populate_combo(self):
         self.mo_combo.blockSignals(True)
         self.mo_combo.clear()
         if not self.frames:
-            self.mo_combo.addItem("No matching MO")
+            self.mo_combo.addItem("No MO DOS traces")
             self.mo_combo.setEnabled(False)
         else:
             self.mo_combo.setEnabled(True)
             for frame in self.frames:
                 self.mo_combo.addItem(self.frame_label(frame), frame)
+                index = self.mo_combo.count() - 1
+                if self.frame_is_above_threshold(frame):
+                    font = self.mo_combo.font()
+                    font.setBold(True)
+                    self.mo_combo.setItemData(index, QtGui.QBrush(QtCore.Qt.red), QtCore.Qt.ForegroundRole)
+                    self.mo_combo.setItemData(index, font, QtCore.Qt.FontRole)
         self.mo_combo.blockSignals(False)
-        self.plot_current_frame()
+        self.on_current_frame_changed()
 
     def current_frame(self):
         if not self.frames:
             return None
         return self.mo_combo.currentData()
+
+    def on_current_frame_changed(self):
+        frame = self.current_frame()
+        font = QtGui.QFont(self.default_combo_font)
+        font.setBold(bool(frame and self.frame_is_above_threshold(frame)))
+        self.mo_combo.setFont(font)
+
+        palette = QtGui.QPalette(self.default_combo_palette)
+        if frame and self.frame_is_above_threshold(frame):
+            palette.setColor(QtGui.QPalette.Text, QtCore.Qt.red)
+            palette.setColor(QtGui.QPalette.ButtonText, QtCore.Qt.red)
+        self.mo_combo.setPalette(palette)
+
+        self.plot_current_frame()
 
     def plot_current_frame(self):
         self.plot.clear()
@@ -508,15 +540,27 @@ class FlowChart(QtWidgets.QMainWindow):
 
         frames_by_file = self.flow_data.frames_by_file()
         for file_index, path in enumerate(self.paths):
-            panel = _FlowChartPanel(path, frames_by_file.get(file_index, []))
+            panel = _FlowChartPanel(
+                path,
+                frames_by_file.get(file_index, []),
+                coefficient_threshold=float(self.ao_threshold.value()),
+            )
             self.panel_layout.addWidget(panel, 1)
 
+        highlighted_frames = [
+            frame for frame in self.flow_data.frames
+            if any(
+                item.abs_coefficient + 1e-12 >= float(self.ao_threshold.value())
+                for item in frame.contributions
+            )
+        ]
         if self.flow_data.frames:
             self.status_label.setText(
-                f"{len(self.flow_data.frames)} matching MO DOS trace(s) for {atomic_orbital}."
+                f"{len(self.flow_data.frames)} MO DOS trace(s) available; "
+                f"{len(highlighted_frames)} above threshold for {atomic_orbital}."
             )
         else:
-            self.status_label.setText(f"No LCFO DOS traces matched {atomic_orbital}.")
+            self.status_label.setText("No LCFO DOS traces were found.")
 
         if self.flow_data.errors and show_errors:
             details = "\n".join(self.flow_data.errors[:8])

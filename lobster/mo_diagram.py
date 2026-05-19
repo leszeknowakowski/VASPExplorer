@@ -13,6 +13,7 @@ from lobster.cube_reader import CubeManager
 from structure_plot import QtInteractor
 
 ORB_LINE_WIDTH = 3.5
+MO_IMAGE_EXPORT_HEIGHT = 1200
 
 @dataclass
 class SpinData:
@@ -827,7 +828,19 @@ class LobsterModel:
         raise ValueError("spin must be 'alpha' or 'beta'")
 
     @staticmethod
-    def _find_pdos_orbital_key(pdos, mo_label: str):
+    def _label_suffix_match(value: str, suffix: str) -> bool:
+        value = str(value).strip().lower()
+        suffix = str(suffix).strip().lower()
+        if not suffix or not value.endswith(suffix):
+            return False
+
+        prefix_length = len(value) - len(suffix)
+        if prefix_length == 0:
+            return True
+        return not value[prefix_length - 1].isalnum()
+
+    @classmethod
+    def _find_pdos_orbital_key(cls, pdos, mo_label: str):
         if mo_label in pdos:
             return mo_label
 
@@ -841,7 +854,7 @@ class LobsterModel:
 
         for key in pdos:
             key_text = str(key)
-            if key_text.endswith(mo_label) or mo_label.endswith(key_text):
+            if cls._label_suffix_match(key_text, mo_label) or cls._label_suffix_match(mo_label, key_text):
                 return key
         return None
 
@@ -934,12 +947,9 @@ class LobsterModel:
                             file_index=file_index,
                             path=path,
                             spin=spin,
-                            coefficient_threshold=ao_coefficient_threshold,
+                            coefficient_threshold=0.0,
                     ):
                         contributions_by_mo.setdefault(contribution.mo_index, []).append(contribution)
-
-                if not contributions_by_mo:
-                    continue
 
                 try:
                     if lcfo_path not in doscar_cache:
@@ -952,7 +962,7 @@ class LobsterModel:
                     errors.append(message)
                     continue
 
-                for mo_index, contributions in sorted(contributions_by_mo.items()):
+                for mo_index in range(cls._mo_count(spin_data)):
                     mo_label = cls._mo_label(spin_data, mo_index)
                     try:
                         dos_result = cls._lcfo_dos_for_molecular_orbital(doscar, mo_label, spin)
@@ -975,7 +985,7 @@ class LobsterModel:
                         mo_index=mo_index,
                         mo_label=mo_label,
                         mo_energy=cls._mo_energy(spin_data, mo_index),
-                        contributions=tuple(contributions),
+                        contributions=tuple(contributions_by_mo.get(mo_index, ())),
                         dos_orbital_label=dos_orbital_label,
                         entity_labels=entity_labels,
                         energies=energies,
@@ -1090,14 +1100,130 @@ class MODiagramViewModel(QtCore.QObject):
         qm = QtWidgets.QMessageBox()
         ret = qm.question(None, '', "Do You want to save MO images?", qm.Yes | qm.No)
         if ret == qm.Yes:
-            from pyqtgraph.exporters import ImageExporter
             for mo_name, mo_image in self.cube_manager.screenshots.items():
-                imv = pg.ImageView()
-                imv.setImage(mo_image)
-                imv.getView().addItem(pg.LabelItem(mo_name, color="b"))
-                ex = ImageExporter(imv.scene)
-                ex.parameters()['width'] = 5000
-                ex.export(mo_name+".jpg")
+                clean_name = self.clean_mo_image_name(mo_name)
+                output_path = self.mo_image_output_path(clean_name)
+                self.save_mo_image_array(
+                    mo_image,
+                    output_path,
+                    height=MO_IMAGE_EXPORT_HEIGHT,
+                    label=clean_name,
+                )
+
+    @classmethod
+    def save_mo_image_array(
+            cls,
+            image,
+            output_path: Path,
+            height: int = MO_IMAGE_EXPORT_HEIGHT,
+            label: Optional[str] = None,
+    ):
+        qimage = cls.qimage_from_array(image)
+        if qimage.isNull():
+            raise ValueError("Cannot save an empty MO image")
+
+        source_width = qimage.width()
+        source_height = qimage.height()
+        if source_width <= 0 or source_height <= 0:
+            raise ValueError("Cannot save an empty MO image")
+
+        target_height = int(height)
+        if target_height <= 0:
+            raise ValueError("MO image export height must be positive")
+        target_width = max(1, round(target_height * source_width / source_height))
+        target_size = QtCore.QSize(target_width, target_height)
+
+        scaled = qimage.scaled(
+            target_size,
+            QtCore.Qt.KeepAspectRatioByExpanding,
+            QtCore.Qt.SmoothTransformation,
+        )
+        if scaled.size() != target_size:
+            left = max(0, (scaled.width() - target_width) // 2)
+            top = max(0, (scaled.height() - target_height) // 2)
+            scaled = scaled.copy(left, top, target_width, target_height)
+
+        if label:
+            cls.draw_mo_image_label(scaled, str(label))
+
+        if not scaled.save(str(output_path)):
+            raise OSError(f"Could not save MO image: {output_path}")
+
+    @staticmethod
+    def draw_mo_image_label(image: QtGui.QImage, label: str):
+        painter = QtGui.QPainter(image)
+        try:
+            painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+            painter.setRenderHint(QtGui.QPainter.TextAntialiasing, True)
+
+            band_height = max(40, round(image.height() * 0.06))
+            margin = max(12, round(image.height() * 0.015))
+            band_rect = QtCore.QRect(0, image.height() - band_height, image.width(), band_height)
+            painter.fillRect(band_rect, QtGui.QColor(0, 0, 0, 0))
+
+            font = QtGui.QFont("Arial")
+            font.setBold(True)
+            font.setPixelSize(max(20, round(band_height * 0.45)))
+            painter.setFont(font)
+            painter.setPen(QtGui.QColor(0,0,0))
+
+            text_rect = band_rect.adjusted(margin, 0, -margin, 0)
+            metrics = QtGui.QFontMetrics(font)
+            elided_label = metrics.elidedText(label, QtCore.Qt.ElideMiddle, text_rect.width())
+            painter.drawText(text_rect, QtCore.Qt.AlignCenter, elided_label)
+        finally:
+            painter.end()
+
+    @staticmethod
+    def qimage_from_array(image) -> QtGui.QImage:
+        array = np.asarray(image)
+        if array.ndim == 2:
+            array = np.stack((array, array, array), axis=-1)
+        if array.ndim != 3 or array.shape[2] not in (3, 4):
+            raise ValueError("MO image array must be grayscale, RGB, or RGBA")
+
+        if array.dtype != np.uint8:
+            array = np.clip(array, 0, 255).astype(np.uint8)
+        array = np.ascontiguousarray(array)
+
+        height, width, channels = array.shape
+        bytes_per_line = channels * width
+        if channels == 3:
+            image_format = QtGui.QImage.Format_RGB888
+        else:
+            image_format = QtGui.QImage.Format_RGBA8888
+
+        return QtGui.QImage(
+            array.data,
+            width,
+            height,
+            bytes_per_line,
+            image_format,
+        ).copy()
+
+    def mo_image_output_path(self, clean_name: str) -> Path:
+        output_dir = Path(self.path).parent if self.path else Path.cwd()
+        return output_dir / f"{clean_name}.jpg"
+
+    def clean_mo_image_name(self, mo_name: str) -> str:
+        stem = Path(str(mo_name)).stem
+
+        labels = []
+        if self.diagram is not None:
+            for spin_data, insertion in ((self.diagram.alpha, "1"), (self.diagram.beta, "2")):
+                for label in spin_data.molecular_orbitals:
+                    labels.append(str(label))
+                    parts = str(label).split("_")
+                    parts.insert(2, insertion)
+                    labels.append("_".join(parts))
+
+        for label in sorted(set(labels), key=len, reverse=True):
+            if stem == label:
+                return label
+            if stem.startswith(label) and not stem[len(label):len(label) + 1].isalnum():
+                return label
+
+        return stem.split("-", 1)[0]
 
 
 class MODiagramView(QtWidgets.QMainWindow):

@@ -80,6 +80,9 @@ class CubeManager:
     default_camera_up = None
     default_camera_view_angle = None
     default_camera_clipping_range = None
+    default_camera_parallel_projection = None
+    default_camera_parallel_scale = None
+    default_camera_window_size = None
 
     def __init__(self):
         self.cubes = {}          # filename -> CubeData
@@ -162,7 +165,9 @@ class CubeManager:
         plotter = self.build_plotter(cube, offscreen=True)
         plotter.enable_depth_peeling()
         self.add_to_plotter(cube, plotter)
-        screenshot = plotter.screenshot()
+        plotter.hide_axes()
+        self.apply_default_camera(plotter)
+        screenshot = plotter.screenshot(scale=5)
         plotter.clear()
         plotter.close()
         return name, screenshot
@@ -181,7 +186,15 @@ class CubeManager:
         )
 
     def build_plotter(self, cube: CubeData, offscreen=True):
-        plotter = pv.Plotter(off_screen=offscreen)
+        window_size = None
+        if offscreen and self.has_default_camera():
+            window_size = type(self).default_camera_window_size
+
+        kwargs = {"off_screen": offscreen}
+        if window_size is not None:
+            kwargs["window_size"] = window_size
+
+        plotter = pv.Plotter(**kwargs)
         self.default_plotter_setup(plotter)
         return plotter
 
@@ -233,18 +246,54 @@ class CubeManager:
             cls.default_camera_up,
             cls.default_camera_view_angle,
             cls.default_camera_clipping_range,
+            cls.default_camera_parallel_projection,
+            cls.default_camera_parallel_scale,
         )
         return all(value is not None for value in camera_parameters)
 
+    @staticmethod
+    def _plotter_active_camera(plotter):
+        renderer = getattr(plotter, "renderer", None)
+        if renderer is not None:
+            try:
+                return renderer.GetActiveCamera()
+            except AttributeError:
+                pass
+        return plotter.camera
+
+    @staticmethod
+    def _plotter_window_size(plotter):
+        try:
+            width, height = plotter.window_size
+            width, height = int(width), int(height)
+            if width > 0 and height > 0:
+                return width, height
+        except Exception:
+            pass
+
+        render_window = getattr(plotter, "ren_win", None)
+        if render_window is not None:
+            try:
+                width, height = render_window.GetSize()
+                width, height = int(width), int(height)
+                if width > 0 and height > 0:
+                    return width, height
+            except Exception:
+                pass
+        return None
+
     def save_default_camera(self, plotter, show_status=True):
-        camera = plotter.camera
+        camera = self._plotter_active_camera(plotter)
         cls = type(self)
 
-        cls.default_camera_position = tuple(float(value) for value in camera.position)
-        cls.default_camera_focal_point = tuple(float(value) for value in camera.focal_point)
-        cls.default_camera_up = tuple(float(value) for value in camera.up)
-        cls.default_camera_view_angle = float(camera.view_angle)
-        cls.default_camera_clipping_range = tuple(float(value) for value in camera.clipping_range)
+        cls.default_camera_position = tuple(float(value) for value in camera.GetPosition())
+        cls.default_camera_focal_point = tuple(float(value) for value in camera.GetFocalPoint())
+        cls.default_camera_up = tuple(float(value) for value in camera.GetViewUp())
+        cls.default_camera_view_angle = float(camera.GetViewAngle())
+        cls.default_camera_clipping_range = tuple(float(value) for value in camera.GetClippingRange())
+        cls.default_camera_parallel_projection = bool(camera.GetParallelProjection())
+        cls.default_camera_parallel_scale = float(camera.GetParallelScale())
+        cls.default_camera_window_size = self._plotter_window_size(plotter)
 
         print("\nSaved default cube camera:")
         print("Position       :", cls.default_camera_position)
@@ -252,6 +301,9 @@ class CubeManager:
         print("View up        :", cls.default_camera_up)
         print("View angle     :", cls.default_camera_view_angle)
         print("Clipping range :", cls.default_camera_clipping_range)
+        print("Parallel       :", cls.default_camera_parallel_projection)
+        print("Parallel scale :", cls.default_camera_parallel_scale)
+        print("Window size    :", cls.default_camera_window_size)
 
         if not show_status:
             return
@@ -269,9 +321,6 @@ class CubeManager:
             pass
 
     def set_default_camera_before_screenshots(self, item):
-        if self.has_default_camera():
-            return
-
         name, cube = item
         print(f"Set default screenshot camera using {name}")
         dialog = CubeIsosurfaceControlWindow(self, cube)
@@ -285,12 +334,24 @@ class CubeManager:
             return False
 
         cls = type(self)
-        camera = plotter.camera
-        camera.position = cls.default_camera_position
-        camera.focal_point = cls.default_camera_focal_point
-        camera.up = cls.default_camera_up
-        camera.view_angle = cls.default_camera_view_angle
-        camera.clipping_range = cls.default_camera_clipping_range
+        camera = self._plotter_active_camera(plotter)
+        try:
+            plotter.camera_position = (
+                cls.default_camera_position,
+                cls.default_camera_focal_point,
+                cls.default_camera_up,
+            )
+            camera = self._plotter_active_camera(plotter)
+        except Exception:
+            pass
+        camera.SetPosition(*cls.default_camera_position)
+        camera.SetFocalPoint(*cls.default_camera_focal_point)
+        camera.SetViewUp(*cls.default_camera_up)
+        camera.SetViewAngle(cls.default_camera_view_angle)
+        camera.SetClippingRange(*cls.default_camera_clipping_range)
+        camera.SetParallelProjection(1 if cls.default_camera_parallel_projection else 0)
+        camera.SetParallelScale(cls.default_camera_parallel_scale)
+        camera.Modified()
 
         try:
             plotter.render()
