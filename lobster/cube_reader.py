@@ -1,4 +1,5 @@
 import PyQt5
+import pyqtgraph as pg
 from ase.io.cube import read_cube
 from ase.neighborlist import NeighborList, natural_cutoffs
 from ase.data import covalent_radii
@@ -8,11 +9,26 @@ import os
 import json
 import vtk
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from PyQt5.QtGui import QPixmap,QFont, QColor, QPainter, QPen
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QSplashScreen
 from PyQt5.QtCore import Qt
 from QtInteractor import QtInteractor
 import time
+
+
+@dataclass
+class IsosurfaceSettings:
+    positive_fraction: float = 0.02
+    negative_fraction: float = 0.02
+    opacity: float = 0.8
+    specular: float = 0.0
+    specular_power: float = 50.0
+    diffuse: float = 0.9
+    positive_color: tuple = (255, 170, 0)
+    negative_color: tuple = (3, 146, 255)
+    backface_params: dict = field(default_factory=dict)
 
 class CubeData:
     def __init__(self, filepath):
@@ -59,9 +75,16 @@ class CubeData:
 
 
 class CubeManager:
+    default_camera_position = None
+    default_camera_focal_point = None
+    default_camera_up = None
+    default_camera_view_angle = None
+    default_camera_clipping_range = None
+
     def __init__(self):
         self.cubes = {}          # filename -> CubeData
         self.screenshots = {}    # filename -> image (numpy array)
+        self.isosurface_settings = IsosurfaceSettings()
 
     @staticmethod
     def _load_single_cube(item):
@@ -134,10 +157,10 @@ class CubeManager:
         toc = time.perf_counter()
         print(f"Loading time: {toc - tic:.2f} seconds")
 
-
     def _render_single_screenshot(self, item):
         name, cube = item
         plotter = self.build_plotter(cube, offscreen=True)
+        plotter.enable_depth_peeling()
         self.add_to_plotter(cube, plotter)
         screenshot = plotter.screenshot()
         plotter.clear()
@@ -162,42 +185,119 @@ class CubeManager:
         self.default_plotter_setup(plotter)
         return plotter
 
-    def default_plotter_setup(self, plotter):
+    def default_plotter_setup(self, plotter, show_save_camera_control=True):
         plotter.enable_anti_aliasing('msaa', multi_samples=16)
         #plotter.enable_depth_peeling()
 
-        light =pv.Light()
+        light = pv.Light()
         light.set_headlight()
         light.intensity = 1.2
         plotter.add_light(light)
-        camera = plotter.camera
-        camera.position = (
-            16.078198605680125,
-            -1.8552025676679595,
-            14.506940525682465
-        )
-
-        camera.focal_point = (
-            1.4686073117022271,
-            2.9457434770390876,
-            9.13248439494446
-        )
-
-        camera.up = (
-            -0.3560090964473408,
-            -0.03811576734952002,
-            0.933704831049998
-        )
-
-        camera.view_angle = 30.0
-
-        camera.clipping_range = (
-            9.088341900098145,
-            25.068910278505566
-        )
-
-        #plotter.iren.add_observer("EndInteractionEvent", self.on_camera_stop)
+        if show_save_camera_control:
+            self.add_save_default_camera_control(plotter)
         return plotter
+
+    def add_save_default_camera_control(self, plotter):
+        if getattr(plotter, "off_screen", False):
+            return
+
+        def save_camera_default(*_):
+            self.save_default_camera(plotter)
+
+        try:
+            plotter.add_checkbox_button_widget(
+                save_camera_default,
+                value=False,
+                position=(10.0, 10.0),
+                size=32,
+                border_size=2,
+                color_on=(0.2, 0.6, 0.2),
+                color_off=(0.35, 0.35, 0.35),
+                background_color=(1.0, 1.0, 1.0),
+            )
+            plotter.add_text(
+                "Save default camera",
+                position=(50, 16),
+                font_size=10,
+                color="black",
+                name="save_default_camera_label",
+            )
+        except Exception as exc:
+            print(f"Could not add camera save button: {exc}")
+
+    def has_default_camera(self):
+        cls = type(self)
+        camera_parameters = (
+            cls.default_camera_position,
+            cls.default_camera_focal_point,
+            cls.default_camera_up,
+            cls.default_camera_view_angle,
+            cls.default_camera_clipping_range,
+        )
+        return all(value is not None for value in camera_parameters)
+
+    def save_default_camera(self, plotter, show_status=True):
+        camera = plotter.camera
+        cls = type(self)
+
+        cls.default_camera_position = tuple(float(value) for value in camera.position)
+        cls.default_camera_focal_point = tuple(float(value) for value in camera.focal_point)
+        cls.default_camera_up = tuple(float(value) for value in camera.up)
+        cls.default_camera_view_angle = float(camera.view_angle)
+        cls.default_camera_clipping_range = tuple(float(value) for value in camera.clipping_range)
+
+        print("\nSaved default cube camera:")
+        print("Position       :", cls.default_camera_position)
+        print("Focal point    :", cls.default_camera_focal_point)
+        print("View up        :", cls.default_camera_up)
+        print("View angle     :", cls.default_camera_view_angle)
+        print("Clipping range :", cls.default_camera_clipping_range)
+
+        if not show_status:
+            return
+
+        try:
+            plotter.add_text(
+                "Camera defaults saved",
+                position="lower_left",
+                font_size=10,
+                color="black",
+                name="camera_defaults_saved_status",
+            )
+            plotter.render()
+        except Exception:
+            pass
+
+    def set_default_camera_before_screenshots(self, item):
+        if self.has_default_camera():
+            return
+
+        name, cube = item
+        print(f"Set default screenshot camera using {name}")
+        dialog = CubeIsosurfaceControlWindow(self, cube)
+        dialog.exec_()
+
+        if not self.has_default_camera():
+            print("Default screenshot camera was not saved.")
+
+    def apply_default_camera(self, plotter):
+        if not self.has_default_camera():
+            return False
+
+        cls = type(self)
+        camera = plotter.camera
+        camera.position = cls.default_camera_position
+        camera.focal_point = cls.default_camera_focal_point
+        camera.up = cls.default_camera_up
+        camera.view_angle = cls.default_camera_view_angle
+        camera.clipping_range = cls.default_camera_clipping_range
+
+        try:
+            plotter.render()
+        except Exception:
+            pass
+
+        return True
 
     def on_camera_stop(selfself, caller, event):
         renderer = caller.GetRenderWindow().GetRenderers().GetFirstRenderer()
@@ -212,7 +312,8 @@ class CubeManager:
         print("Clipping range :", cam.GetClippingRange())
 
     def add_to_plotter(self, cube: CubeData, plotter: pv.Plotter, **kwargs):
-        isosurf_meshes = self.build_isosurfaces(cube, plotter, **kwargs)
+        isosurf_actors = self.build_isosurfaces(cube, plotter, **kwargs)
+        setattr(plotter, "_cube_isosurface_actors", isosurf_actors)
         atom_meshes = self.build_atoms(cube)
         bond_meshes = self.build_bonds(cube)
 
@@ -243,21 +344,16 @@ class CubeManager:
             label_size=(0.4, 0.16),
         )
         transform = vtk.vtkTransform()
-        transform.RotateZ(-45)  # degrees
+        transform.RotateZ(-45)   # TODO: do not hardcode it :)
 
         axes_actor.SetUserTransform(transform)
 
+        if not self.apply_default_camera(plotter):
+            plotter.reset_camera()
+
         return plotter
 
-    def build_isosurfaces(self,
-                          cube: CubeData,
-                          plotter: pv.Plotter,
-                          opacity = 0.99999,
-                          specular = 0,
-                          specular_power = 50,
-                          diffuse = 0.9,
-                          backface_params = {}
-                          ):
+    def build_grid(self, cube: CubeData):
         grid = pv.ImageData()
         grid.dimensions = cube.data.shape
         grid.origin = cube.origin
@@ -266,18 +362,48 @@ class CubeManager:
             cube.spacing[1][1],
             cube.spacing[2][2],
         )
-
         grid.point_data["values"] = cube.data.flatten(order="F")
+        return grid
+
+    def build_isosurfaces(self,
+                          cube: CubeData,
+                          plotter: pv.Plotter,
+                          opacity=None,
+                          specular=None,
+                          specular_power=None,
+                          diffuse=None,
+                          positive_fraction=None,
+                          negative_fraction=None,
+                          positive_color=None,
+                          negative_color=None,
+                          backface_params=None
+                          ):
+        settings = self.isosurface_settings
+        opacity = settings.opacity if opacity is None else opacity
+        specular = settings.specular if specular is None else specular
+        specular_power = settings.specular_power if specular_power is None else specular_power
+        diffuse = settings.diffuse if diffuse is None else diffuse
+        positive_fraction = settings.positive_fraction if positive_fraction is None else positive_fraction
+        negative_fraction = settings.negative_fraction if negative_fraction is None else negative_fraction
+        positive_color = settings.positive_color if positive_color is None else positive_color
+        negative_color = settings.negative_color if negative_color is None else negative_color
+        backface_params = settings.backface_params if backface_params is None else backface_params
+
+        grid = self.build_grid(cube)
         data_max = np.max(cube.data)
         data_min = np.min(cube.data)
-        max = np.max([data_max, np.abs(data_min)])
+        value_scale = np.max([data_max, np.abs(data_min)])
+        if value_scale == 0:
+            return []
 
-        self.isosurf_threshold = 0.02
-        contour_positive = grid.contour([self.isosurf_threshold*max])
-        contour_negative = grid.contour([-self.isosurf_threshold*max])
+        contour_positive = grid.contour([positive_fraction * value_scale])
+        contour_negative = grid.contour([-negative_fraction * value_scale])
 
-        for contour, color in zip([contour_positive, contour_negative], [(255, 170, 0),(3, 146, 255)]):
-            plotter.add_mesh(
+        actors = []
+        for contour, color in zip([contour_positive, contour_negative], [positive_color, negative_color]):
+            if contour.n_points == 0:
+                continue
+            actor = plotter.add_mesh(
                 contour,
                 color=color,
                 opacity=opacity,
@@ -287,6 +413,8 @@ class CubeManager:
                 smooth_shading=True,
                 backface_params=backface_params
             )
+            actors.append(actor)
+        return actors
 
     def build_atoms(self, cube: CubeData):
         atom_meshes = []
@@ -352,6 +480,20 @@ class CubeManager:
                 self.splash.close()
                 return
 
+        splash = getattr(self, "splash", None)
+        if show_splash and splash is not None:
+            splash.hide()
+        try:
+            self.set_default_camera_before_screenshots(cube_items[0])
+        finally:
+            if show_splash and splash is not None:
+                splash.show()
+                splash.showMessage(
+                    "Rendering screenshots...",
+                    Qt.AlignCenter,
+                    Qt.black
+                )
+
         workers = min(len(cube_items), os.cpu_count() or 1, 8)
         rendered = {}
         errors = []
@@ -393,7 +535,202 @@ class CubeManager:
 
     def get_plotter(self, filename):
         cube = self.cubes[filename]
-        return self.build_plotter(cube, offscreen=False)
+        plotter = self.build_plotter(cube, offscreen=False)
+        self.add_to_plotter(cube, plotter)
+        return plotter
+
+
+class CubeIsosurfaceControlWindow(QtWidgets.QDialog):
+    """Interactive cube preview used to choose screenshot camera and surface style."""
+
+    def __init__(self, manager: CubeManager, cube: CubeData, parent=None):
+        super().__init__(parent)
+        self.manager = manager
+        self.cube = cube
+        self.isosurface_actors = []
+        self._updating = False
+        self._plotter_closed = False
+
+        self.setWindowTitle("Cube camera and isosurfaces")
+        self.resize(1200, 760)
+
+        layout = QtWidgets.QHBoxLayout(self)
+
+        self.plotter = QtInteractor(self)
+        self.plotter.enable_depth_peeling()
+        self.manager.default_plotter_setup(self.plotter, show_save_camera_control=False)
+        self.manager.add_to_plotter(self.cube, self.plotter)
+        self.isosurface_actors = list(getattr(self.plotter, "_cube_isosurface_actors", []))
+        layout.addWidget(self.plotter, 1)
+
+        controls = QtWidgets.QWidget(self)
+        controls.setFixedWidth(310)
+        controls_layout = QtWidgets.QVBoxLayout(controls)
+        controls_layout.setContentsMargins(12, 12, 12, 12)
+        controls_layout.setSpacing(10)
+
+        settings = self.manager.isosurface_settings
+        controls_layout.addWidget(QtWidgets.QLabel("Positive color"))
+        self.positive_color_button = pg.ColorButton(color=settings.positive_color)
+        self.positive_color_button.sigColorChanged.connect(self.update_isosurfaces)
+        self.positive_color_button.sigColorChanging.connect(self.update_isosurfaces)
+        controls_layout.addWidget(self.positive_color_button)
+
+        controls_layout.addWidget(QtWidgets.QLabel("Negative color"))
+        self.negative_color_button = pg.ColorButton(color=settings.negative_color)
+        self.negative_color_button.sigColorChanged.connect(self.update_isosurfaces)
+        self.negative_color_button.sigColorChanging.connect(self.update_isosurfaces)
+        controls_layout.addWidget(self.negative_color_button)
+
+        self.positive_iso_slider, self.positive_iso_value = self.add_slider(
+            controls_layout,
+            "Positive isovalue",
+            1,
+            100,
+            int(settings.positive_fraction * 1000),
+            self.format_iso_value,
+        )
+        self.negative_iso_slider, self.negative_iso_value = self.add_slider(
+            controls_layout,
+            "Negative isovalue",
+            1,
+            100,
+            int(settings.negative_fraction * 1000),
+            self.format_iso_value,
+        )
+        self.opacity_slider, self.opacity_value = self.add_slider(
+            controls_layout,
+            "Opacity",
+            0,
+            100,
+            int(settings.opacity * 100),
+            self.format_unit_value,
+        )
+        self.specular_slider, self.specular_value = self.add_slider(
+            controls_layout,
+            "Specular",
+            0,
+            100,
+            int(settings.specular * 100),
+            self.format_unit_value,
+        )
+        self.specular_power_slider, self.specular_power_value = self.add_slider(
+            controls_layout,
+            "Specular power",
+            0,
+            100,
+            int(settings.specular_power),
+            lambda value: f"{value:d}",
+        )
+        self.diffuse_slider, self.diffuse_value = self.add_slider(
+            controls_layout,
+            "Diffuse",
+            0,
+            100,
+            int(settings.diffuse * 100),
+            self.format_unit_value,
+        )
+
+        controls_layout.addStretch(1)
+
+        button_layout = QtWidgets.QHBoxLayout()
+        save_button = QtWidgets.QPushButton("Save")
+        save_button.clicked.connect(self.accept)
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(self.reject)
+        button_layout.addWidget(save_button)
+        button_layout.addWidget(close_button)
+        controls_layout.addLayout(button_layout)
+
+        layout.addWidget(controls)
+
+    def add_slider(self, layout, label, minimum, maximum, value, formatter):
+        caption = QtWidgets.QLabel(label)
+        value_label = QtWidgets.QLabel(formatter(value))
+        value_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        header = QtWidgets.QHBoxLayout()
+        header.addWidget(caption)
+        header.addWidget(value_label)
+        layout.addLayout(header)
+
+        slider = QtWidgets.QSlider(Qt.Horizontal)
+        slider.setRange(minimum, maximum)
+        slider.setValue(max(minimum, min(maximum, value)))
+        slider.valueChanged.connect(lambda slider_value: value_label.setText(formatter(slider_value)))
+        slider.valueChanged.connect(self.update_isosurfaces)
+        layout.addWidget(slider)
+
+        return slider, value_label
+
+    @staticmethod
+    def format_unit_value(value):
+        return f"{value / 100:.2f}"
+
+    @staticmethod
+    def format_iso_value(value):
+        return f"{value / 10:.1f}%"
+
+    def current_settings(self):
+        return IsosurfaceSettings(
+            positive_fraction=self.positive_iso_slider.value() / 1000,
+            negative_fraction=self.negative_iso_slider.value() / 1000,
+            opacity=self.opacity_slider.value() / 100,
+            specular=self.specular_slider.value() / 100,
+            specular_power=float(self.specular_power_slider.value()),
+            diffuse=self.diffuse_slider.value() / 100,
+            positive_color=self.positive_color_button.color().getRgb()[:3],
+            negative_color=self.negative_color_button.color().getRgb()[:3],
+            backface_params=self.manager.isosurface_settings.backface_params,
+        )
+
+    def remove_isosurface_actors(self):
+        for actor in self.isosurface_actors:
+            try:
+                self.plotter.remove_actor(actor, reset_camera=False)
+            except TypeError:
+                self.plotter.remove_actor(actor)
+            except Exception:
+                pass
+        self.isosurface_actors = []
+
+    def update_isosurfaces(self, *_):
+        if self._updating:
+            return
+
+        self._updating = True
+        try:
+            self.manager.isosurface_settings = self.current_settings()
+            self.remove_isosurface_actors()
+            self.isosurface_actors = self.manager.build_isosurfaces(self.cube, self.plotter)
+            setattr(self.plotter, "_cube_isosurface_actors", self.isosurface_actors)
+            self.plotter.render()
+        finally:
+            self._updating = False
+
+    def save_and_close_plotter(self):
+        if self._plotter_closed:
+            return
+
+        self.manager.isosurface_settings = self.current_settings()
+        self.manager.save_default_camera(self.plotter, show_status=False)
+        try:
+            self.plotter.Finalize()
+        except Exception:
+            pass
+        self._plotter_closed = True
+
+    def accept(self):
+        self.save_and_close_plotter()
+        super().accept()
+
+    def reject(self):
+        self.save_and_close_plotter()
+        super().reject()
+
+    def closeEvent(self, event):
+        self.save_and_close_plotter()
+        super().closeEvent(event)
 
 
 class CubeViewer:

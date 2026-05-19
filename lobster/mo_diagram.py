@@ -1654,6 +1654,7 @@ class MODialog(QtWidgets.QDialog):
 
         # right: 3d view
         self.pv_widget = QtInteractor()
+        self.pv_widget.enable_depth_peeling()
         self.pv_widget.enable_anti_aliasing('msaa', multi_samples=16)
         layout.addWidget(self.pv_widget, 2)
 
@@ -1664,7 +1665,6 @@ class MODialog(QtWidgets.QDialog):
             cube = self.vm.cube_manager.cubes[cube_name]
             self.vm.cube_manager.default_plotter_setup(self.pv_widget)
             self.vm.cube_manager.add_to_plotter(cube, self.pv_widget)
-            self.pv_widget.reset_camera()
 
     def closeEvent(self, QCloseEvent):
         self.pv_widget.Finalize()
