@@ -7,6 +7,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from lobster.mo_diagram import FlowChartFrame, LobsterModel, MODiagramViewModel
 
+MO_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tif", ".tiff")
+
 
 class _FitWidthScrollArea(QtWidgets.QScrollArea):
     def sizeHint(self):
@@ -29,6 +31,7 @@ class _FlowChartPanel(QtWidgets.QWidget):
         self.frames = list(frames)
         self.coefficient_threshold = float(coefficient_threshold)
         self.region_items = []
+        self.current_mo_pixmap = None
 
         self.setMinimumWidth(0)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
@@ -62,13 +65,25 @@ class _FlowChartPanel(QtWidgets.QWidget):
         self.plot.showGrid(x=True, y=True, alpha=0.25)
         layout.addWidget(self.plot, 1)
 
+        self.mo_image_label = QtWidgets.QLabel()
+        self.mo_image_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.mo_image_label.setMinimumHeight(0)
+        self.mo_image_label.setFixedHeight(230)
+        self.mo_image_label.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        self.mo_image_label.hide()
+        layout.addWidget(self.mo_image_label)
+
         self.populate_combo()
 
     def sizeHint(self):
-        return QtCore.QSize(240, 600)
+        return QtCore.QSize(240, 730)
 
     def minimumSizeHint(self):
         return QtCore.QSize(0, 0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_mo_image_pixmap()
 
     @staticmethod
     def path_label(path: str) -> str:
@@ -87,7 +102,54 @@ class _FlowChartPanel(QtWidgets.QWidget):
         details = f"{frame.spin[0]}, E={frame.mo_energy:.1f}"
         if coefficients:
             details += f", {coefficients}"
-        return f"{frame.mo_label.split("_")[-1]} ({details})"
+        return f"{frame.mo_label.split('_')[-1]} ({details})"
+
+    @staticmethod
+    def normalized_image_key(value: str) -> str:
+        return "".join(char.lower() for char in str(value) if char.isalnum())
+
+    @staticmethod
+    def image_name_candidates(frame: FlowChartFrame):
+        labels = [
+            frame.mo_label,
+            frame.dos_orbital_label,
+            frame.mo_label.split("_")[-1],
+        ]
+
+        insertion = "1" if frame.spin == "alpha" else "2"
+        for label in (frame.mo_label, frame.dos_orbital_label):
+            parts = str(label).split("_")
+            if len(parts) >= 2:
+                parts.insert(2, insertion)
+                labels.append("_".join(parts))
+
+        candidates = []
+        for label in labels:
+            label = str(label).strip()
+            if label and label not in candidates:
+                candidates.append(label)
+        return candidates
+
+    @classmethod
+    def find_mo_image(cls, frame: FlowChartFrame):
+        directory = Path(frame.path).parent
+        if not directory.is_dir():
+            return None
+
+        candidates = cls.image_name_candidates(frame)
+        for candidate in candidates:
+            for suffix in MO_IMAGE_EXTENSIONS:
+                image_path = directory / f"{candidate}{suffix}"
+                if image_path.is_file():
+                    return image_path
+
+        normalized_candidates = {cls.normalized_image_key(candidate) for candidate in candidates}
+        for image_path in directory.iterdir():
+            if image_path.suffix.lower() not in MO_IMAGE_EXTENSIONS:
+                continue
+            if cls.normalized_image_key(image_path.stem) in normalized_candidates:
+                return image_path
+        return None
 
     def frame_is_above_threshold(self, frame: FlowChartFrame) -> bool:
         return any(
@@ -132,6 +194,44 @@ class _FlowChartPanel(QtWidgets.QWidget):
         self.mo_combo.setPalette(palette)
 
         self.plot_current_frame()
+        self.update_mo_image()
+
+    def update_mo_image(self):
+        self.current_mo_pixmap = None
+        self.mo_image_label.clear()
+        self.mo_image_label.hide()
+
+        frame = self.current_frame()
+        if frame is None:
+            return
+
+        image_path = self.find_mo_image(frame)
+        if image_path is None:
+            return
+
+        pixmap = QtGui.QPixmap(str(image_path))
+        if pixmap.isNull():
+            return
+
+        self.current_mo_pixmap = pixmap
+        self.mo_image_label.setToolTip(str(image_path))
+        self.mo_image_label.show()
+        self.update_mo_image_pixmap()
+
+    def update_mo_image_pixmap(self):
+        if self.current_mo_pixmap is None or self.current_mo_pixmap.isNull():
+            return
+
+        size = self.mo_image_label.contentsRect().size()
+        if size.width() <= 0 or size.height() <= 0:
+            return
+
+        scaled = self.current_mo_pixmap.scaled(
+            size,
+            QtCore.Qt.KeepAspectRatio,
+            QtCore.Qt.SmoothTransformation,
+        )
+        self.mo_image_label.setPixmap(scaled)
 
     def plot_current_frame(self):
         self.plot.clear()
@@ -257,8 +357,8 @@ class _CoefficientsDialog(QtWidgets.QDialog):
     @staticmethod
     def _mo_header(row):
         return (
-            f"{_FlowChartPanel.path_label(row['path'])}\n"
-            f"{row['spin']} {row['mo_label']}\n"
+            f"{_FlowChartPanel.path_label(row['path'])}".split("/")[0] + f"{row['spin']}\n"
+            f"{row['mo_label']}\n"
             f"E={row['mo_energy']:.3f} eV"
         )
 
