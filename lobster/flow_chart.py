@@ -1,13 +1,16 @@
 import os
+import re
 from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from lobster.cube_reader import CubeData, CubeIsosurfaceControlWindow, CubeManager
 from lobster.mo_diagram import FlowChartFrame, LobsterModel, MODiagramViewModel
 
 MO_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tif", ".tiff")
+CUBE_EXTENSIONS = (".cube",)
 
 
 class _FitWidthScrollArea(QtWidgets.QScrollArea):
@@ -24,6 +27,17 @@ class _FitWidthScrollArea(QtWidgets.QScrollArea):
             widget.setFixedWidth(self.viewport().width())
 
 
+class _ClickableImageLabel(QtWidgets.QLabel):
+    clicked = QtCore.pyqtSignal()
+
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton and self.pixmap() is not None:
+            self.clicked.emit()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 class _FlowChartPanel(QtWidgets.QWidget):
     def __init__(self, path: str, frames, coefficient_threshold: float):
         super().__init__()
@@ -32,6 +46,8 @@ class _FlowChartPanel(QtWidgets.QWidget):
         self.coefficient_threshold = float(coefficient_threshold)
         self.region_items = []
         self.current_mo_pixmap = None
+        self.current_mo_image_path = None
+        self.current_cube_path = None
 
         self.setMinimumWidth(0)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
@@ -65,11 +81,13 @@ class _FlowChartPanel(QtWidgets.QWidget):
         self.plot.showGrid(x=True, y=True, alpha=0.25)
         layout.addWidget(self.plot, 1)
 
-        self.mo_image_label = QtWidgets.QLabel()
+        self.mo_image_label = _ClickableImageLabel()
         self.mo_image_label.setAlignment(QtCore.Qt.AlignCenter)
         self.mo_image_label.setMinimumHeight(0)
         self.mo_image_label.setFixedHeight(230)
         self.mo_image_label.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        self.mo_image_label.setCursor(QtCore.Qt.PointingHandCursor)
+        self.mo_image_label.clicked.connect(self.open_current_cube_plotter)
         self.mo_image_label.hide()
         layout.addWidget(self.mo_image_label)
 
@@ -108,6 +126,20 @@ class _FlowChartPanel(QtWidgets.QWidget):
     def normalized_image_key(value: str) -> str:
         return "".join(char.lower() for char in str(value) if char.isalnum())
 
+    @classmethod
+    def filename_matches_candidate(cls, stem: str, candidate: str) -> bool:
+        candidate = str(candidate).strip()
+        if not candidate:
+            return False
+
+        stem_text = str(stem).lower()
+        candidate_text = candidate.lower()
+        if cls.normalized_image_key(stem_text) == cls.normalized_image_key(candidate_text):
+            return True
+
+        pattern = rf"(?<![a-z0-9]){re.escape(candidate_text)}(?![a-z0-9])"
+        return re.search(pattern, stem_text) is not None
+
     @staticmethod
     def image_name_candidates(frame: FlowChartFrame):
         labels = [
@@ -132,23 +164,34 @@ class _FlowChartPanel(QtWidgets.QWidget):
 
     @classmethod
     def find_mo_image(cls, frame: FlowChartFrame):
+        return cls.find_matching_file(frame, MO_IMAGE_EXTENSIONS)
+
+    @classmethod
+    def find_mo_cube(cls, frame: FlowChartFrame):
+        return cls.find_matching_file(frame, CUBE_EXTENSIONS)
+
+    @classmethod
+    def find_matching_file(cls, frame: FlowChartFrame, extensions):
         directory = Path(frame.path).parent
         if not directory.is_dir():
             return None
 
         candidates = cls.image_name_candidates(frame)
         for candidate in candidates:
-            for suffix in MO_IMAGE_EXTENSIONS:
-                image_path = directory / f"{candidate}{suffix}"
-                if image_path.is_file():
-                    return image_path
+            for suffix in extensions:
+                match_path = directory / f"{candidate}{suffix}"
+                if match_path.is_file():
+                    return match_path
 
         normalized_candidates = {cls.normalized_image_key(candidate) for candidate in candidates}
-        for image_path in directory.iterdir():
-            if image_path.suffix.lower() not in MO_IMAGE_EXTENSIONS:
+        for match_path in directory.iterdir():
+            if match_path.suffix.lower() not in extensions:
                 continue
-            if cls.normalized_image_key(image_path.stem) in normalized_candidates:
-                return image_path
+            normalized_stem = cls.normalized_image_key(match_path.stem)
+            if normalized_stem in normalized_candidates:
+                return match_path
+            if any(cls.filename_matches_candidate(match_path.stem, candidate) for candidate in candidates):
+                return match_path
         return None
 
     def frame_is_above_threshold(self, frame: FlowChartFrame) -> bool:
@@ -198,6 +241,8 @@ class _FlowChartPanel(QtWidgets.QWidget):
 
     def update_mo_image(self):
         self.current_mo_pixmap = None
+        self.current_mo_image_path = None
+        self.current_cube_path = None
         self.mo_image_label.clear()
         self.mo_image_label.hide()
 
@@ -214,9 +259,41 @@ class _FlowChartPanel(QtWidgets.QWidget):
             return
 
         self.current_mo_pixmap = pixmap
-        self.mo_image_label.setToolTip(str(image_path))
+        self.current_mo_image_path = image_path
+        self.current_cube_path = self.find_mo_cube(frame)
+        if self.current_cube_path is None:
+            self.mo_image_label.setToolTip(f"{image_path}\nNo matching cube file found.")
+        else:
+            self.mo_image_label.setToolTip(f"{image_path}\nClick to open {self.current_cube_path.name}")
         self.mo_image_label.show()
         self.update_mo_image_pixmap()
+
+    def open_current_cube_plotter(self):
+        frame = self.current_frame()
+        if frame is None:
+            return
+
+        cube_path = self.current_cube_path or self.find_mo_cube(frame)
+        if cube_path is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Cube Viewer",
+                f"No matching cube file was found for {frame.mo_label} ({frame.spin}).",
+            )
+            return
+
+        try:
+            manager = CubeManager()
+            cube = CubeData(str(cube_path))
+            dialog = CubeIsosurfaceControlWindow(manager, cube, self)
+            dialog.setWindowTitle(f"Cube: {cube_path.name}")
+            dialog.exec_()
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Cube Viewer",
+                f"Could not open cube file:\n{cube_path}\n\n{exc}",
+            )
 
     def update_mo_image_pixmap(self):
         if self.current_mo_pixmap is None or self.current_mo_pixmap.isNull():

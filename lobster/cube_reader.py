@@ -22,10 +22,10 @@ import time
 class IsosurfaceSettings:
     positive_fraction: float = 0.02
     negative_fraction: float = 0.02
-    opacity: float = 0.8
-    specular: float = 0.0
+    opacity: float = 0.7
+    specular: float = 0.1
     specular_power: float = 50.0
-    diffuse: float = 0.9
+    diffuse: float = 0.7
     positive_color: tuple = (255, 170, 0)
     negative_color: tuple = (3, 146, 255)
     backface_params: dict = field(default_factory=dict)
