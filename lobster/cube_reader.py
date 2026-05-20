@@ -163,7 +163,6 @@ class CubeManager:
     def _render_single_screenshot(self, item):
         name, cube = item
         plotter = self.build_plotter(cube, offscreen=True)
-        plotter.enable_depth_peeling()
         self.add_to_plotter(cube, plotter)
         plotter.hide_axes()
         self.apply_default_camera(plotter)
@@ -195,13 +194,12 @@ class CubeManager:
             kwargs["window_size"] = window_size
 
         plotter = pv.Plotter(**kwargs)
+        plotter.disable_anti_aliasing()
+        plotter.enable_depth_peeling(number_of_peels=8, occlusion_ratio=0.0)
         self.default_plotter_setup(plotter)
         return plotter
 
     def default_plotter_setup(self, plotter, show_save_camera_control=True):
-        plotter.enable_anti_aliasing('msaa', multi_samples=16)
-        #plotter.enable_depth_peeling()
-
         light = pv.Light()
         light.set_headlight()
         light.intensity = 1.2
@@ -618,7 +616,8 @@ class CubeIsosurfaceControlWindow(QtWidgets.QDialog):
         layout = QtWidgets.QHBoxLayout(self)
 
         self.plotter = QtInteractor(self)
-        self.plotter.enable_depth_peeling()
+        self.plotter.disable_anti_aliasing()
+        self.plotter.enable_depth_peeling(number_of_peels=8, occlusion_ratio=0.0)
         self.manager.default_plotter_setup(self.plotter, show_save_camera_control=False)
         self.manager.add_to_plotter(self.cube, self.plotter)
         self.isosurface_actors = list(getattr(self.plotter, "_cube_isosurface_actors", []))

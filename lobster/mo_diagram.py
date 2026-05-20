@@ -1780,8 +1780,8 @@ class MODialog(QtWidgets.QDialog):
 
         # right: 3d view
         self.pv_widget = QtInteractor()
-        self.pv_widget.enable_depth_peeling()
-        self.pv_widget.enable_anti_aliasing('msaa', multi_samples=16)
+        self.pv_widget.disable_anti_aliasing()
+        self.pv_widget.enable_depth_peeling(number_of_peels=8, occlusion_ratio=0.0)
         layout.addWidget(self.pv_widget, 2)
 
         # load cube
