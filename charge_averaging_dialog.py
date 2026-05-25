@@ -1,9 +1,10 @@
 import numpy as np
 import pyqtgraph as pg
 
+from PyQt5 import QtCore
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout,
-    QLabel, QComboBox, QPushButton
+    QLabel, QComboBox, QPushButton, QSlider
 )
 
 
@@ -56,6 +57,33 @@ def plane_average_real(data, lattice_vectors, axis):
     return plane, (L1, L2)
 
 
+def plane_slice_real(data, lattice_vectors, axis, index):
+    """
+    Slice the volumetric data with physical plane dimensions.
+
+    axis = axis perpendicular to plane
+    index = grid index along that axis
+    """
+
+    max_index = data.shape[axis] - 1
+    index = int(np.clip(index, 0, max_index))
+    plane = np.take(data, index, axis=axis)
+
+    axes = [0, 1, 2]
+    axes.remove(axis)
+
+    vec1 = lattice_vectors[axes[0]]
+    vec2 = lattice_vectors[axes[1]]
+
+    L1 = np.linalg.norm(vec1)
+    L2 = np.linalg.norm(vec2)
+
+    axis_length = np.linalg.norm(lattice_vectors[axis])
+    axis_coords = np.linspace(0, axis_length, data.shape[axis])
+
+    return plane, (L1, L2), axis_coords[index], index
+
+
 # =========================================================
 # DIALOG
 # =========================================================
@@ -86,7 +114,7 @@ class ChargeAveragingDialog(QDialog):
 
         # Mode selector
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["Axis average", "Plane average"])
+        self.mode_combo.addItems(["Axis average", "Plane average", "Plane slice"])
 
         # Axis selector
         self.axis_combo = QComboBox()
@@ -110,6 +138,23 @@ class ChargeAveragingDialog(QDialog):
 
         main_layout.addLayout(controls)
 
+        # Plane slice controls
+        self.slice_controls = QHBoxLayout()
+        self.slice_label = QLabel("Slice:")
+        self.slice_slider = QSlider(QtCore.Qt.Horizontal)
+        self.slice_slider.setMinimum(0)
+        self.slice_slider.setMaximum(0)
+        self.slice_slider.setValue(0)
+        self.slice_slider.setTickInterval(1)
+        self.slice_slider.setSingleStep(1)
+        self.slice_position_label = QLabel("0")
+
+        self.slice_controls.addWidget(self.slice_label)
+        self.slice_controls.addWidget(self.slice_slider)
+        self.slice_controls.addWidget(self.slice_position_label)
+
+        main_layout.addLayout(self.slice_controls)
+
         # ================= PLOT AREA =================
 
         self.plot_widget = pg.GraphicsLayoutWidget()
@@ -118,6 +163,13 @@ class ChargeAveragingDialog(QDialog):
         self.setLayout(main_layout)
 
         self.plot_btn.clicked.connect(self.make_plot)
+        self.mode_combo.currentTextChanged.connect(self.on_plot_controls_changed)
+        self.axis_combo.currentIndexChanged.connect(self.on_plot_controls_changed)
+        self.data_combo.currentIndexChanged.connect(self.on_plot_controls_changed)
+        self.channel_combo.currentIndexChanged.connect(self.on_plot_controls_changed)
+        self.slice_slider.valueChanged.connect(self.on_slice_slider_changed)
+
+        self.update_slice_controls()
 
     # =====================================================
     # GET DATA FROM YOUR EXISTING STRUCTURE
@@ -143,6 +195,87 @@ class ChargeAveragingDialog(QDialog):
             return data_obj.beta
 
         return None
+
+    def on_plot_controls_changed(self, *_args):
+        self.update_slice_controls()
+        if self.mode_combo.currentText() == "Plane slice":
+            self.make_plot()
+
+    def on_slice_slider_changed(self, *_args):
+        if self.mode_combo.currentText() == "Plane slice":
+            self.update_slice_label()
+            self.make_plot()
+
+    def update_slice_controls(self):
+        is_slice_mode = self.mode_combo.currentText() == "Plane slice"
+
+        self.slice_label.setVisible(is_slice_mode)
+        self.slice_slider.setVisible(is_slice_mode)
+        self.slice_position_label.setVisible(is_slice_mode)
+
+        if not is_slice_mode:
+            return
+
+        path = self.data_combo.currentText()
+        channel = self.channel_combo.currentText()
+        axis = self.axis_combo.currentIndex()
+        data = self.get_volumetric_data(path, channel)
+
+        if data is None:
+            self.slice_position_label.setText("No data")
+            return
+
+        max_index = data.shape[axis] - 1
+        current_index = min(self.slice_slider.value(), max_index)
+
+        self.slice_slider.blockSignals(True)
+        self.slice_slider.setMaximum(max_index)
+        self.slice_slider.setValue(current_index)
+        self.slice_slider.blockSignals(False)
+
+        self.update_slice_label(data=data, axis=axis)
+
+    def update_slice_label(self, data=None, axis=None):
+        if data is None or axis is None:
+            path = self.data_combo.currentText()
+            channel = self.channel_combo.currentText()
+            axis = self.axis_combo.currentIndex()
+            data = self.get_volumetric_data(path, channel)
+
+        if data is None:
+            self.slice_position_label.setText("No data")
+            return
+
+        index = min(self.slice_slider.value(), data.shape[axis] - 1)
+        self.slice_position_label.setText(f"{index + 1}/{data.shape[axis]}")
+
+    def plot_plane_image(self, plane, Lx, Ly):
+        # Create a ViewBox for the image
+        view = self.plot_widget.addViewBox()
+        view.setAspectLocked(True)
+
+        # Image item
+        img = pg.ImageItem(plane.T, axisOrder='row-major')
+        img.setRect(0, 0, Lx, Ly)
+        view.addItem(img)
+
+        # Create color bar
+        colormap = pg.colormap.get(self.current_colormap_name)
+        colormapmenu = pg.ColorMapMenu(showColorMapSubMenus=True, showGradientSubMenu=True)
+        bar = pg.ColorBarItem(colorMap=colormap, colorMapMenu=colormapmenu)
+        bar.setImageItem(img)
+
+        # Add colorbar to the right of the plot
+        self.plot_widget.addItem(bar)
+
+        def on_colormap_changed(*_args):
+            # get current colormap from colorbar
+            cmap = bar.colorMap()
+            # gradient.colorMap().name gives the string name if available
+            if hasattr(cmap, "name") and cmap.name:
+                self.current_colormap_name = cmap.name
+
+        bar.colorMapMenu.sigColorMapTriggered.connect(on_colormap_changed)
 
     # =====================================================
     # MAIN PLOTTING FUNCTION
@@ -181,37 +314,28 @@ class ChargeAveragingDialog(QDialog):
 
         # ================= PLANE AVERAGE =================
 
-        else:
+        elif mode == "Plane average":
 
             # plane, Lx, Ly from plane_average_real(...)
             plane, (Lx, Ly) = plane_average_real(data, lattice, axis)
 
-            # Clear previous plot
-            self.plot_widget.clear()
+            self.plot_plane_image(plane, Lx, Ly)
 
-            # Create a ViewBox for the image
-            view = self.plot_widget.addViewBox()
-            view.setAspectLocked(True)
+        # ================= PLANE SLICE =================
 
-            # Image item
-            img = pg.ImageItem(plane.T, axisOrder='row-major')
-            img.setRect(0, 0, Lx, Ly)
-            view.addItem(img)
+        else:
 
-            # Create color bar
-            colormap = pg.colormap.get(self.current_colormap_name)
-            colormapmenu = pg.ColorMapMenu(showColorMapSubMenus=True, showGradientSubMenu=True)
-            bar = pg.ColorBarItem(colorMap=colormap, colorMapMenu=colormapmenu)
-            bar.setImageItem(img)
+            plane, (Lx, Ly), position, index = plane_slice_real(
+                data, lattice, axis, self.slice_slider.value()
+            )
 
-            # Add colorbar to the right of the plot
-            self.plot_widget.addItem(bar)
+            if index != self.slice_slider.value():
+                self.slice_slider.blockSignals(True)
+                self.slice_slider.setValue(index)
+                self.slice_slider.blockSignals(False)
 
-            def on_colormap_changed():
-                # get current colormap from colorbar
-                cmap = bar.colorMap()
-                # gradient.colorMap().name gives the string name if available
-                if hasattr(cmap, "name") and cmap.name:
-                    self.current_colormap_name = cmap.name
+            self.slice_position_label.setText(
+                f"{index + 1}/{data.shape[axis]}  ({position:.4f})"
+            )
 
-            bar.colorMapMenu.sigColorMapTriggered.connect(on_colormap_changed)
+            self.plot_plane_image(plane, Lx, Ly)

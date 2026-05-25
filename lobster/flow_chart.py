@@ -126,6 +126,15 @@ class _FlowChartPanel(QtWidgets.QWidget):
     def normalized_image_key(value: str) -> str:
         return "".join(char.lower() for char in str(value) if char.isalnum())
 
+    @staticmethod
+    def unique_labels(labels):
+        candidates = []
+        for label in labels:
+            label = str(label).strip()
+            if label and label not in candidates:
+                candidates.append(label)
+        return candidates
+
     @classmethod
     def filename_matches_candidate(cls, stem: str, candidate: str) -> bool:
         candidate = str(candidate).strip()
@@ -141,26 +150,96 @@ class _FlowChartPanel(QtWidgets.QWidget):
         return re.search(pattern, stem_text) is not None
 
     @staticmethod
-    def image_name_candidates(frame: FlowChartFrame):
-        labels = [
+    def spin_insertion(spin: str) -> str:
+        return "1" if spin == "alpha" else "2"
+
+    @staticmethod
+    def opposite_spin_insertion(spin: str) -> str:
+        return "2" if spin == "alpha" else "1"
+
+    @staticmethod
+    def raw_name_labels(frame: FlowChartFrame):
+        return [
             frame.mo_label,
             frame.dos_orbital_label,
             frame.mo_label.split("_")[-1],
         ]
 
-        insertion = "1" if frame.spin == "alpha" else "2"
+    @classmethod
+    def spin_qualified_name_candidates(cls, frame: FlowChartFrame, insertion: str):
+        labels = []
+        diagram_prefix = Path(frame.path).name.split("_", 1)[0]
+
         for label in (frame.mo_label, frame.dos_orbital_label):
+            label = str(label).strip()
+            if not label:
+                continue
+
             parts = str(label).split("_")
             if len(parts) >= 2:
-                parts.insert(2, insertion)
-                labels.append("_".join(parts))
+                inserted_after_prefix = list(parts)
+                inserted_after_prefix.insert(2, insertion)
+                labels.append("_".join(inserted_after_prefix))
 
-        candidates = []
-        for label in labels:
-            label = str(label).strip()
-            if label and label not in candidates:
-                candidates.append(label)
-        return candidates
+                inserted_before_orbital = list(parts)
+                inserted_before_orbital.insert(len(inserted_before_orbital) - 1, insertion)
+                labels.append("_".join(inserted_before_orbital))
+
+            if diagram_prefix and not label.lower().startswith(f"{diagram_prefix.lower()}_"):
+                labels.append(f"{diagram_prefix}_{insertion}_{label}")
+                labels.append(f"{diagram_prefix}_{label}_{insertion}")
+
+        return cls.unique_labels(labels)
+
+    @classmethod
+    def image_name_candidates(cls, frame: FlowChartFrame):
+        labels = cls.spin_qualified_name_candidates(frame, cls.spin_insertion(frame.spin))
+        labels.extend(cls.raw_name_labels(frame))
+        return cls.unique_labels(labels)
+
+    @staticmethod
+    def name_tokens(value: str):
+        return re.findall(r"[a-z0-9]+", str(value).lower())
+
+    @classmethod
+    def spin_marker_before_candidate(cls, stem: str, candidate: str):
+        stem_tokens = cls.name_tokens(stem)
+        candidate_tokens = cls.name_tokens(candidate)
+        if not stem_tokens or not candidate_tokens:
+            return None
+
+        candidate_length = len(candidate_tokens)
+        for index in range(0, len(stem_tokens) - candidate_length + 1):
+            if stem_tokens[index:index + candidate_length] != candidate_tokens:
+                continue
+            if index > 0 and stem_tokens[index - 1] in {"1", "2"}:
+                return stem_tokens[index - 1]
+        return None
+
+    @classmethod
+    def filename_matches_frame_spin(cls, stem: str, frame: FlowChartFrame, candidates):
+        desired_marker = cls.spin_insertion(frame.spin)
+        opposite_marker = cls.opposite_spin_insertion(frame.spin)
+
+        desired_candidates = cls.spin_qualified_name_candidates(frame, desired_marker)
+        if any(cls.filename_matches_candidate(stem, candidate) for candidate in desired_candidates):
+            return True
+
+        opposite_candidates = cls.spin_qualified_name_candidates(frame, opposite_marker)
+        if any(cls.filename_matches_candidate(stem, candidate) for candidate in opposite_candidates):
+            return False
+
+        markers = [
+            marker
+            for candidate in candidates
+            for marker in [cls.spin_marker_before_candidate(stem, candidate)]
+            if marker is not None
+        ]
+        if desired_marker in markers:
+            return True
+        if opposite_marker in markers:
+            return False
+        return True
 
     @classmethod
     def find_mo_image(cls, frame: FlowChartFrame):
@@ -180,7 +259,7 @@ class _FlowChartPanel(QtWidgets.QWidget):
         for candidate in candidates:
             for suffix in extensions:
                 match_path = directory / f"{candidate}{suffix}"
-                if match_path.is_file():
+                if match_path.is_file() and cls.filename_matches_frame_spin(match_path.stem, frame, candidates):
                     return match_path
 
         normalized_candidates = {cls.normalized_image_key(candidate) for candidate in candidates}
@@ -189,9 +268,12 @@ class _FlowChartPanel(QtWidgets.QWidget):
                 continue
             normalized_stem = cls.normalized_image_key(match_path.stem)
             if normalized_stem in normalized_candidates:
-                return match_path
+                if cls.filename_matches_frame_spin(match_path.stem, frame, candidates):
+                    return match_path
+                continue
             if any(cls.filename_matches_candidate(match_path.stem, candidate) for candidate in candidates):
-                return match_path
+                if cls.filename_matches_frame_spin(match_path.stem, frame, candidates):
+                    return match_path
         return None
 
     def frame_is_above_threshold(self, frame: FlowChartFrame) -> bool:

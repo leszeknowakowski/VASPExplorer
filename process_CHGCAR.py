@@ -80,7 +80,10 @@ class CHGCARParser(QThread):
         self.chgcar.change_label.connect(self.update_label)
         self.chgcar.run()
         common_divisors = self.common_divisors(*self.chgcar._grid)
-        self.all_numbers = [self.chop(self.chgcar.chg[0], self.chop_number), self.chop(self.chgcar.chgdiff[0], self.chop_number)]
+        if len(self.chgcar.chgdiff) > 0:
+            self.all_numbers = [self.chop(self.chgcar.chg[0], self.chop_number), self.chop(self.chgcar.chgdiff[0], self.chop_number)]
+        else:
+            self.all_numbers = [self.chop(self.chgcar.chg[0], self.chop_number)]
         self.atoms = self.chgcar.atoms[0]
         self.aug = self.chgcar.aug
         self.aug_diff = self.chgcar.augdiff
