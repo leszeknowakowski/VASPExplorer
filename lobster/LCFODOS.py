@@ -130,6 +130,9 @@ class DosWindow(QMainWindow):
         if not filename:
             return
 
+        checked_entities = self.get_selected_entities()
+        checked_orbitals = set(self.get_selected_orbitals())
+
         if os.path.exists("CONTCAR"):
             struct_file = "CONTCAR"
         elif os.path.exists("POSCAR"):
@@ -144,9 +147,11 @@ class DosWindow(QMainWindow):
         self.clear_dos_threshold_regions()
         self.current_weighted_means = {}
         self.current_dos_threshold_intervals = {}
-        self.populate_checkboxes()
+        self.populate_checkboxes(checked_entities, checked_orbitals)
 
-    def populate_checkboxes(self):
+    def populate_checkboxes(self, checked_entities=None, checked_orbitals=None):
+        checked_entities = set(checked_entities or [])
+        checked_orbitals = set(checked_orbitals or [])
 
         # clear previous
         for box in self.entity_boxes:
@@ -162,6 +167,7 @@ class DosWindow(QMainWindow):
         # entities
         for i in range(len(pdos)):
             box = QCheckBox(self.get_entity_name(i))
+            box.setChecked(i in checked_entities)
             self.entity_layout.addWidget(box)
             self.entity_boxes.append(box)
 
@@ -173,6 +179,7 @@ class DosWindow(QMainWindow):
 
         for orb in orbitals:
             box = QCheckBox(orb)
+            box.setChecked(orb in checked_orbitals)
             self.orbital_layout.addWidget(box)
             self.orbital_boxes.append(box)
 
