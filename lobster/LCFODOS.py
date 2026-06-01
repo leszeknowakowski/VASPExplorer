@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import numpy as np
 from pathlib import Path
@@ -13,6 +14,7 @@ from PyQt5 import QtCore
 import pyqtgraph as pg
 
 from lobster.lobster_outputs import Doscar as DOSCAR
+from pymatgen.core.periodic_table import Element
 from pymatgen.electronic_structure.core import Spin
 from dos_plot_widget import DosPlotWidget
 
@@ -25,6 +27,7 @@ class _DosDataShim:
 
 
 class DosWindow(QMainWindow):
+    Z_ENTITY_PATTERN = re.compile(r"^\s*Z\s*=\s*(\d+)\s*$")
 
     def __init__(self, parent=None):
         super().__init__()
@@ -35,6 +38,7 @@ class DosWindow(QMainWindow):
         self.setWindowTitle("LOBSTER DOS Viewer")
 
         self.doscar = None
+        self.entity_names = []
         self.entity_boxes = []
         self.orbital_boxes = []
         self.weighted_mean_lines = []
@@ -135,6 +139,7 @@ class DosWindow(QMainWindow):
             return
         struct_file = "CONTCAR" if os.path.exists("CONTCAR") else "POSCAR"
         self.doscar = DOSCAR(filename, False, struct_file)
+        self.entity_names = self.build_entity_names(self.doscar.entities, len(self.doscar.pdos))
         self.clear_weighted_mean_lines()
         self.clear_dos_threshold_regions()
         self.current_weighted_means = {}
@@ -156,7 +161,7 @@ class DosWindow(QMainWindow):
 
         # entities
         for i in range(len(pdos)):
-            box = QCheckBox(f"{self.doscar.entities[i]}")
+            box = QCheckBox(self.get_entity_name(i))
             self.entity_layout.addWidget(box)
             self.entity_boxes.append(box)
 
@@ -177,6 +182,35 @@ class DosWindow(QMainWindow):
     def get_selected_orbitals(self):
         return [b.text() for b in self.orbital_boxes if b.isChecked()]
 
+    @classmethod
+    def normalize_entity_base(cls, entity):
+        entity_name = str(entity)
+        match = cls.Z_ENTITY_PATTERN.match(entity_name)
+        if not match:
+            return None
+
+        try:
+            return Element.from_Z(int(match.group(1))).symbol
+        except ValueError:
+            return None
+
+    @classmethod
+    def build_entity_names(cls, entities, count):
+        names = []
+        for index in range(count):
+            entity = entities[index] if index < len(entities) else "Entity"
+            base_name = cls.normalize_entity_base(entity)
+            if base_name is None:
+                names.append(str(entity))
+            else:
+                names.append(f"{base_name}{index + 1}")
+        return names
+
+    def get_entity_name(self, index):
+        if 0 <= index < len(self.entity_names):
+            return self.entity_names[index]
+        return f"Entity{index + 1}"
+
     def plot_selected(self):
 
         if self.doscar is None:
@@ -190,7 +224,6 @@ class DosWindow(QMainWindow):
         self.clear_dos_threshold_regions()
 
         energies = self.doscar.energies
-        entities = self.doscar.entities
         selected_entities = self.get_selected_entities()
         selected_orbitals = self.get_selected_orbitals()
         cmap = pg.colormap.get("turbo")
@@ -213,7 +246,7 @@ class DosWindow(QMainWindow):
                     sum_up += up
 
                     pen = pg.mkPen(picked[orb_num], width=WIDTH)
-                    name = f"{entities[ent]}_{orb}"
+                    name = f"{self.get_entity_name(ent)}_{orb}"
                     full_plot.plot(up, energies, pen=pen, name=name)
                     bounded_plot.plot(up, energies, pen=pen, name=name)
 
@@ -303,7 +336,7 @@ class DosWindow(QMainWindow):
         if not means:
             self.current_weighted_means = {}
             self.weighted_mean_label.setText(
-                f"Weighted mean for {self.doscar.entities[ent]}_{orbital_label}: no DOS weight in selected region"
+                f"Weighted mean for {self.get_entity_name(ent)}_{orbital_label}: no DOS weight in selected region"
             )
             return
 
@@ -315,7 +348,7 @@ class DosWindow(QMainWindow):
                 label_parts.append(f"{spin_label} {means[spin]:.4f} eV")
 
         self.weighted_mean_label.setText(
-            f"Weighted mean for {self.doscar.entities[ent]}_{orbital_label} "
+            f"Weighted mean for {self.get_entity_name(ent)}_{orbital_label} "
             f"({min_energy:.2f} to {max_energy:.2f} eV): " + ", ".join(label_parts)
         )
 
@@ -522,16 +555,17 @@ class DosWindow(QMainWindow):
         data_columns = []
 
         for ent in selected_entities:
+            entity_name = self.get_entity_name(ent)
             for orb in selected_orbitals:
 
                 d = self.doscar.pdos[ent][orb]
 
                 if Spin.up in d:
-                    header.append(f"E{ent}_{orb}_up")
+                    header.append(f"{entity_name}_{orb}_up")
                     data_columns.append(d[Spin.up])
 
                 if Spin.down in d:
-                    header.append(f"E{ent}_{orb}_down")
+                    header.append(f"{entity_name}_{orb}_down")
                     data_columns.append(d[Spin.down])
 
         rows.append(header)
