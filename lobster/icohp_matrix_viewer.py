@@ -1,223 +1,498 @@
-import pyqtgraph as pg
-import numpy as np
-from pyqtgraph import colormap
-from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 import sys
+from pathlib import Path
 
-class ColorHandle(pg.GraphicsObject):
-    sigMoved = QtCore.Signal()
-    sigColorChanged = QtCore.Signal()
+import numpy as np
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtWidgets
+from new_color_bar import EditableColorBarItem
+from pymatgen.electronic_structure.core import Spin
+from pymatgen.io.lobster.outputs import Icohplist
 
-    def __init__(self, pos=0.5, color=(255, 0, 0), horizontal=True):
-        super().__init__()
-        self.color_pos = float(pos)
-        self.color = QtGui.QColor(*color)
-        self.horizontal = horizontal
-        self.size = 10
 
-        self.setFlag(self.GraphicsItemFlag.ItemIsMovable)
-        self.setAcceptedMouseButtons(QtCore.Qt.MouseButton.LeftButton)
-        self.setZValue(2000)
+ICOHPLIST_FILENAME = (
+    r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD"
+    r"\1.spin_up\HSE\1.gas_to_metaloxo\5.o2_2minus\ICOHPLIST.lobster"
+)
+DEFAULT_COLORMAP = "CET-D1A"
+LOCAL_ICOHPLIST_FILENAME = "ICOHPLIST.lobster"
 
-    def boundingRect(self):
-        s = self.size
-        return QtCore.QRectF(-s / 2, -s, s, s)
 
-    def paint(self, painter, option, widget):
-        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+class MatrixImageItem(pg.ImageItem):
+    """Image item that shows the matrix value under the cursor as a tooltip."""
 
-        s = self.size
-        h = s * 0.45
+    def __init__(self, matrix, orbitals_1, orbitals_2, spin_label):
+        super().__init__(matrix)
+        self.matrix = matrix
+        self.orbitals_1 = orbitals_1
+        self.orbitals_2 = orbitals_2
+        self.spin_label = spin_label
+        self.setAcceptHoverEvents(True)
 
-        if self.horizontal:
-            polygon = QtGui.QPolygonF([
-                QtCore.QPointF(0, 0),
-                QtCore.QPointF(-s / 2, -h),
-                QtCore.QPointF(s / 2, -h),
-            ])
-        else:
-            polygon = QtGui.QPolygonF([
-                QtCore.QPointF(0, 0),
-                QtCore.QPointF(h, -s / 2),
-                QtCore.QPointF(h, s / 2),
-            ])
-
-        painter.setPen(pg.mkPen("k", width=2))
-        painter.setBrush(pg.mkBrush(self.color))
-        painter.drawPolygon(polygon)
-
-    def mouseMoveEvent(self, ev):
-        super().mouseMoveEvent(ev)
-
-        parent = self.parentItem()
-        if parent is None:
+    def hoverEvent(self, event):
+        if event.isExit():
+            QtWidgets.QToolTip.hideText()
             return
 
-        p = self.pos()
+        position = event.pos()
+        x_index = int(position.x())
+        y_index = int(position.y())
 
-        if self.horizontal:
-            x = float(np.clip(p.x(), 0, 255))
-            self.setPos(x, -0.08)
-            self.color_pos = x / 255.0
-        else:
-            y = float(np.clip(p.y(), 0, 255))
-            self.setPos(-0.08, y)
-            self.color_pos = y / 255.0
+        if not self._has_value_at(x_index, y_index):
+            QtWidgets.QToolTip.hideText()
+            return
 
-        self.sigMoved.emit()
-        ev.accept()
+        tooltip = (
+            f"{self.spin_label}\n"
+            f"{self.orbitals_1[x_index]} - {self.orbitals_2[y_index]}\n"
+            f"ICOHP: {self.matrix[x_index, y_index]:.4f}"
+        )
+        QtWidgets.QToolTip.showText(event.screenPos().toPoint(), tooltip)
 
-    def mouseDoubleClickEvent(self, ev):
-        color = QtWidgets.QColorDialog.getColor(self.color)
-
-        if color.isValid():
-            self.color = color
-            self.update()
-            self.sigColorChanged.emit()
-
-        ev.accept()
-
-class EditableColorBarItem(pg.ColorBarItem):
-    def __init__(self, *args, editable_cmap=True, **kwargs):
-        self.editable_cmap = editable_cmap
-        self.color_handles = []
-
-        super().__init__(*args, **kwargs)
-
-        if self.editable_cmap:
-            self._initColorHandles()
-
-    def setColorMap(self, colorMap):
-        super().setColorMap(colorMap)
-
-        if getattr(self, "editable_cmap", False):
-            self._initColorHandles()
-
-    def _initColorHandles(self):
-        if self._colorMap is None:
-            self._colorMap = colormap.get("viridis")
-
-        self._clearColorHandles()
-
-        n_handles = 7
-
-        idx = np.linspace(
-            0,
-            len(self._colorMap.pos) - 1,
-            n_handles,
-            dtype=int
+    def _has_value_at(self, x_index, y_index):
+        return (
+            0 <= x_index < self.matrix.shape[0]
+            and 0 <= y_index < self.matrix.shape[1]
         )
 
-        pos = np.asarray(self._colorMap.pos)[idx]
-        colors = np.array(np.asarray(self._colorMap.color)[idx] * 255, dtype=np.ubyte)
 
-        if pos.max() > pos.min():
-            pos = (pos - pos.min()) / (pos.max() - pos.min())
-        else:
-            pos = np.linspace(0.0, 1.0, len(colors))
+class IcohpDataset:
+    """Loads and exposes ICOHPLIST bond data."""
 
-        for p, c in zip(pos, colors):
-            self.addColorHandle(float(p), tuple(c[:4]))
+    def __init__(self, filename):
+        self.filename = filename
+        self.icohp_obj = self._load_icohplist()
+        self.icohplist = self.icohp_obj.icohplist
+        self.bond_keys = list(self.icohplist.keys())
+        self.bond_metadata = self._load_bond_metadata()
 
-    def _clearColorHandles(self):
-        for handle in self.color_handles:
-            self.getViewBox().removeItem(handle)
+        if not self.bond_keys:
+            raise ValueError(f"No bonds found in ICOHPLIST file: {filename}")
 
-        self.color_handles.clear()
-
-    def addColorHandle(self, pos=0.5, color=(255, 0, 0, 255)):
-        handle = ColorHandle(
-            pos=pos,
-            color=color,
-            horizontal=self.horizontal,
+    def _load_icohplist(self):
+        return Icohplist(
+            filename=self.filename,
+            are_coops=False,
         )
 
-        handle.sigMoved.connect(self._colorHandleChanged)
-        handle.sigColorChanged.connect(self._colorHandleChanged)
+    def _load_bond_metadata(self):
+        collection = getattr(self.icohp_obj, "icohpcollection", None)
+        if collection is None:
+            return [
+                {
+                    "atom_pair": str(bond_key),
+                    "total_icohp": {},
+                }
+                for bond_key in self.bond_keys
+            ]
 
-        self.color_handles.append(handle)
-        self.getViewBox().addItem(handle)
-        self._setColorHandlePos(handle)
+        atom1_list = getattr(collection, "_list_atom1", [])
+        atom2_list = getattr(collection, "_list_atom2", [])
+        total_icohp_list = getattr(collection, "_list_icohp", [])
 
-        return handle
+        metadata = []
 
-    def _setColorHandlePos(self, handle):
-        p = float(np.clip(handle.color_pos, 0.0, 1.0))
+        for index, bond_key in enumerate(self.bond_keys):
+            atom1 = self._get_list_value(atom1_list, index, str(bond_key))
+            atom2 = self._get_list_value(atom2_list, index, "")
+            total_icohp = self._get_list_value(total_icohp_list, index, {})
 
-        if self.horizontal:
-            handle.setPos(p * 255.0, -0.08)
-        else:
-            handle.setPos(-0.08, p * 255.0)
+            metadata.append(
+                {
+                    "atom_pair": self._format_atom_pair(atom1, atom2),
+                    "total_icohp": total_icohp,
+                }
+            )
 
-    def _colorHandleChanged(self):
-        handles = sorted(self.color_handles, key=lambda h: h.color_pos)
+        return metadata
 
-        pos = np.array(
-            [np.clip(h.color_pos, 0.0, 1.0) for h in handles],
-            dtype=float,
-        )
+    @staticmethod
+    def _get_list_value(values, index, fallback):
+        if index >= len(values):
+            return fallback
 
-        colors = np.array(
-            [
-                [
-                    h.color.red(),
-                    h.color.green(),
-                    h.color.blue(),
-                    h.color.alpha(),
-                ]
-                for h in handles
-            ],
-            dtype=np.ubyte,
-        )
+        return values[index]
 
-        # avoid duplicated stop positions
-        for i in range(1, len(pos)):
-            if pos[i] <= pos[i - 1]:
-                pos[i] = min(1.0, pos[i - 1] + 1e-6)
+    @staticmethod
+    def _format_atom_pair(atom1, atom2):
+        if atom2:
+            return f"{atom1} - {atom2}"
 
-        self._colorMap = colormap.ColorMap(pos, colors)
-        self._update_items(update_cmap=True)
+        return str(atom1)
 
-class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
+    def bond_count(self):
+        return len(self.bond_keys)
 
-        self.setWindowTitle("Editable ColorBarItem example")
-        self.resize(900, 700)
+    def get_bond(self, index):
+        bond_key = self.bond_keys[index]
+        return bond_key, self.icohplist[bond_key], self.bond_metadata[index]
 
-        self.graphics = pg.GraphicsLayoutWidget()
-        self.setCentralWidget(self.graphics)
 
-        self.plot = self.graphics.addPlot(row=0, col=0)
-        self.plot.setAspectLocked(True)
-        self.plot.invertY(False)
+class OrbitalMatrixBuilder:
+    """Builds orbital-resolved ICOHP matrices for a single bond."""
 
-        data = np.random.normal(size=(200, 200))
-        data += np.hypot(*np.indices(data.shape)) / 80.0
+    @staticmethod
+    def build(bond_data, spin):
+        orbitals_dict = bond_data["orbitals"]
 
-        self.image = pg.ImageItem(data)
-        self.plot.addItem(self.image)
-        self.plot.autoRange()
+        orbitals_1 = []
+        orbitals_2 = []
+        orbital_1_indexes = {}
+        orbital_2_indexes = {}
 
-        levels = (float(np.nanmin(data)), float(np.nanmax(data)))
+        for orbital_key in orbitals_dict:
+            orbital_1, orbital_2 = OrbitalMatrixBuilder._split_orbital_key(
+                orbital_key
+            )
+            OrbitalMatrixBuilder._add_orbital(
+                orbital_1,
+                orbitals_1,
+                orbital_1_indexes,
+            )
+            OrbitalMatrixBuilder._add_orbital(
+                orbital_2,
+                orbitals_2,
+                orbital_2_indexes,
+            )
+
+        matrix = np.zeros((len(orbitals_1), len(orbitals_2)))
+
+        for orbital_key, orbital_data in orbitals_dict.items():
+            orbital_1, orbital_2 = OrbitalMatrixBuilder._split_orbital_key(
+                orbital_key
+            )
+            row = orbital_1_indexes[orbital_1]
+            column = orbital_2_indexes[orbital_2]
+            matrix[row, column] = orbital_data["icohp"].get(spin, 0.0)
+
+        return matrix, orbitals_1, orbitals_2
+
+    @staticmethod
+    def _split_orbital_key(orbital_key):
+        return orbital_key.split("-", maxsplit=1)
+
+    @staticmethod
+    def _add_orbital(orbital, orbitals, indexes):
+        if orbital in indexes:
+            return
+
+        indexes[orbital] = len(orbitals)
+        orbitals.append(orbital)
+
+
+class SpinMatrixPlots:
+    """Owns the pyqtgraph plots for spin-up and spin-down matrices."""
+
+    def __init__(self, graphics):
+        self.graphics = graphics
+
+        self.plot_up = self.graphics.addPlot(title="Spin Up", row=0, col=0)
+        self.plot_down = self.graphics.addPlot(title="Spin Down", row=0, col=1)
 
         self.colorbar = EditableColorBarItem(
-            values=levels,
-            colorMap="viridis",
+            colorMap=self._default_colormap(),
             width=30,
             orientation="vertical",
             interactive=True,
             label="Intensity",
+            colorMapMenu=True,
         )
 
-        self.colorbar.setImageItem(self.image)
-        self.graphics.addItem(self.colorbar, row=0, col=1)
+        self.graphics.addItem(self.colorbar, row=0, col=2)
+
+    def update(self, matrix_up, matrix_down, orbitals_1, orbitals_2):
+        self.plot_up.clear()
+        self.plot_down.clear()
+
+        levels = self._symmetric_levels(matrix_up, matrix_down)
+        colormap = self._current_colormap()
+
+        image_up = self._add_matrix_image(
+            self.plot_up,
+            matrix_up,
+            orbitals_1,
+            orbitals_2,
+            "Spin Up",
+            colormap,
+            levels,
+        )
+        image_down = self._add_matrix_image(
+            self.plot_down,
+            matrix_down,
+            orbitals_1,
+            orbitals_2,
+            "Spin Down",
+            colormap,
+            levels,
+        )
+
+        self.colorbar.setImageItem([image_up, image_down])
+        self.colorbar.setLevels(levels)
+
+        self._configure_axes(orbitals_1, orbitals_2)
+
+    def show_empty(self, message="No ICOHPLIST data loaded"):
+        self.plot_up.clear()
+        self.plot_down.clear()
+
+        for plot in (self.plot_up, self.plot_down):
+            plot.getAxis("bottom").setTicks([])
+            plot.getAxis("left").setTicks([])
+            plot.setAspectLocked(False)
+
+        self._add_empty_text(self.plot_up, message)
+        self._add_empty_text(self.plot_down, message)
+        self.colorbar.setImageItem([])
+        self.colorbar.setLevels((-1.0, 1.0))
+
+    @staticmethod
+    def _add_empty_text(plot, message):
+        text = pg.TextItem(message, anchor=(0.5, 0.5))
+        plot.addItem(text)
+        text.setPos(0.0, 0.0)
+        plot.setRange(xRange=(-1.0, 1.0), yRange=(-1.0, 1.0), padding=0.0)
+
+    @staticmethod
+    def _add_matrix_image(
+        plot,
+        matrix,
+        orbitals_1,
+        orbitals_2,
+        spin_label,
+        colormap,
+        levels,
+    ):
+        image = MatrixImageItem(matrix, orbitals_1, orbitals_2, spin_label)
+        image.setColorMap(colormap)
+        image.setLevels(levels)
+        plot.addItem(image)
+        return image
+
+    def _configure_axes(self, orbitals_1, orbitals_2):
+        bottom_ticks = [(index + 0.5, orbital) for index, orbital in enumerate(orbitals_1)]
+        left_ticks = [(index + 0.5, orbital) for index, orbital in enumerate(orbitals_2)]
+
+        for plot in (self.plot_up, self.plot_down):
+            plot.getAxis("bottom").setTicks([bottom_ticks])
+            plot.getAxis("left").setTicks([left_ticks])
+            plot.setAspectLocked(True)
+
+    @staticmethod
+    def _symmetric_levels(matrix_up, matrix_down):
+        vmax = max(
+            SpinMatrixPlots._abs_max(matrix_up),
+            SpinMatrixPlots._abs_max(matrix_down),
+        )
+
+        if vmax == 0.0:
+            vmax = 1.0
+
+        return -vmax, vmax
+
+    @staticmethod
+    def _abs_max(matrix):
+        if matrix.size == 0:
+            return 0.0
+
+        return float(np.abs(matrix).max())
+
+    @staticmethod
+    def _default_colormap():
+        if DEFAULT_COLORMAP in pg.colormap.listMaps():
+            return DEFAULT_COLORMAP
+
+        return "viridis"
+
+    def _current_colormap(self):
+        if self.colorbar._colorMap is None:
+            self.colorbar.setColorMap(pg.colormap.get(self._default_colormap()))
+
+        return self.colorbar._colorMap
+
+
+class IcohpMatrixViewer(QtWidgets.QWidget):
+    """Main window for browsing orbital-resolved ICOHP matrices."""
+
+    def __init__(self, dataset=None, load_error=None):
+        super().__init__()
+        self.dataset = dataset
+        self.load_error = load_error
+        self.matrix_builder = OrbitalMatrixBuilder()
+        self.current_bond_index = 0
+
+        self._setup_window()
+        self._setup_controls()
+        self._setup_graphics()
+        self._connect_signals()
+        self.update_plot()
+
+    def _setup_window(self):
+        self.resize(1800, 900)
+        self.setWindowTitle("Orbital-resolved ICOHP matrices")
+        self.main_layout = QtWidgets.QVBoxLayout(self)
+
+    def _setup_controls(self):
+        controls_layout = QtWidgets.QHBoxLayout()
+        self.main_layout.addLayout(controls_layout)
+
+        self.open_file_button = QtWidgets.QPushButton("Open file")
+        controls_layout.addWidget(self.open_file_button)
+
+        controls_layout.addStretch()
+
+        self.previous_button = QtWidgets.QPushButton("Previous")
+        controls_layout.addWidget(self.previous_button)
+
+        self.next_button = QtWidgets.QPushButton("Next")
+        controls_layout.addWidget(self.next_button)
+
+        self.info_label = QtWidgets.QLabel()
+        self.main_layout.addWidget(self.info_label)
+
+    def _setup_graphics(self):
+        self.graphics = pg.GraphicsLayoutWidget()
+        self.main_layout.insertWidget(1, self.graphics)
+        self.matrix_plots = SpinMatrixPlots(self.graphics)
+
+    def _connect_signals(self):
+        self.open_file_button.clicked.connect(self.open_file)
+        self.previous_button.clicked.connect(self.previous_bond)
+        self.next_button.clicked.connect(self.next_bond)
+
+    def open_file(self):
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Open ICOHPLIST file",
+            str(Path.cwd()),
+            "ICOHPLIST files (ICOHPLIST.lobster *.lobster);;All files (*)",
+        )
+
+        if not filename:
+            return
+
+        self.load_file(filename)
+
+    def load_file(self, filename):
+        try:
+            dataset = IcohpDataset(filename)
+        except Exception as error:
+            self.dataset = None
+            self.load_error = f"Could not load {filename}: {error}"
+            self.current_bond_index = 0
+            self.update_plot()
+            QtWidgets.QMessageBox.warning(self, "Load failed", self.load_error)
+            return
+
+        self.dataset = dataset
+        self.load_error = None
+        self.current_bond_index = 0
+        self.update_plot()
+
+    def previous_bond(self):
+        self._set_bond_index(self.current_bond_index - 1)
+
+    def next_bond(self):
+        self._set_bond_index(self.current_bond_index + 1)
+
+    def _set_bond_index(self, index):
+        if self.dataset is None:
+            return
+
+        self.current_bond_index = max(
+            0,
+            min(index, self.dataset.bond_count() - 1),
+        )
+        self.update_plot()
+
+    def update_plot(self):
+        if self.dataset is None:
+            self.matrix_plots.show_empty()
+            self._update_empty_info_label()
+            self._update_navigation_buttons()
+            return
+
+        _, bond_data, bond_metadata = self.dataset.get_bond(
+            self.current_bond_index
+        )
+
+        matrix_up, orbitals_1, orbitals_2 = self.matrix_builder.build(
+            bond_data,
+            Spin.up,
+        )
+        matrix_down, _, _ = self.matrix_builder.build(
+            bond_data,
+            Spin.down,
+        )
+
+        self.matrix_plots.update(
+            matrix_up,
+            matrix_down,
+            orbitals_1,
+            orbitals_2,
+        )
+        self._update_info_label(bond_data, bond_metadata)
+        self._update_navigation_buttons()
+
+    def _update_info_label(self, bond_data, bond_metadata):
+        total_icohp = bond_metadata["total_icohp"]
+        self.info_label.setText(
+            f"Bond {bond_metadata['atom_pair']}      "
+            f"Length: {bond_data['length']:.4f} \u00c5      "
+            f"Equivalent bonds: {bond_data['number_of_bonds']}      "
+            f"Total ICOHP up: {self._format_spin_icohp(total_icohp, Spin.up)}      "
+            f"Total ICOHP down: {self._format_spin_icohp(total_icohp, Spin.down)}"
+        )
+
+    def _update_empty_info_label(self):
+        if self.load_error:
+            self.info_label.setText(self.load_error)
+            return
+
+        self.info_label.setText("No ICOHPLIST data loaded")
+
+    @staticmethod
+    def _format_spin_icohp(total_icohp, spin):
+        if not isinstance(total_icohp, dict) or spin not in total_icohp:
+            return "n/a"
+
+        return f"{total_icohp[spin]:.4f}"
+
+    def _update_navigation_buttons(self):
+        if self.dataset is None:
+            self.previous_button.setEnabled(False)
+            self.next_button.setEnabled(False)
+            return
+
+        self.previous_button.setEnabled(self.current_bond_index > 0)
+        self.next_button.setEnabled(
+            self.current_bond_index < self.dataset.bond_count() - 1
+        )
+
+
+def get_initial_icohplist_filename():
+    local_filename = Path.cwd() / LOCAL_ICOHPLIST_FILENAME
+
+    if local_filename.is_file():
+        return str(local_filename)
+
+    return ICOHPLIST_FILENAME
+
+
+def load_initial_dataset():
+    filename = get_initial_icohplist_filename()
+
+    try:
+        return IcohpDataset(filename), None
+    except Exception as error:
+        return None, f"Could not load {filename}: {error}"
+
+
+def main():
+    app = QtWidgets.QApplication(sys.argv)
+    dataset, load_error = load_initial_dataset()
+    window = IcohpMatrixViewer(dataset, load_error)
+    window.show()
+    return app.exec()
 
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
-
-    win = MainWindow()
-    win.show()
-
-    sys.exit(app.exec())
+    sys.exit(main())
