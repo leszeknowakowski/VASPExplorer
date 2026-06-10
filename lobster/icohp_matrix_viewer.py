@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtWidgets
-from new_color_bar import EditableColorBarItem
+from custom_color_bar import EditableColorBarItem
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.io.lobster.outputs import Icohplist
 
