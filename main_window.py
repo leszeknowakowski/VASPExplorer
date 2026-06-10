@@ -229,9 +229,13 @@ class MainWindow(QMainWindow):
         flow_chart_action = QAction("Flow Chart", self)
         flow_chart_action.triggered.connect(self.open_flow_chart)
 
+        icohp_matrix_action = QAction("ICOHP Matrix Viewer", self)
+        icohp_matrix_action.triggered.connect(self.open_icohp_matrix_viewer)
+
         lobster_menu.addAction(mo_action)
         lobster_menu.addAction(lcfo_doscar_action)
         lobster_menu.addAction(flow_chart_action)
+        lobster_menu.addAction(icohp_matrix_action)
 
     def open_mo_diagram(self):
         from lobster.mo_diagram import MODiagramView, MODiagramViewModel
@@ -268,6 +272,19 @@ class MainWindow(QMainWindow):
         self.flow_chart_window.show()
         self.flow_chart_window.raise_()
         self.flow_chart_window.activateWindow()
+
+    def open_icohp_matrix_viewer(self):
+        from lobster.icohp_matrix_viewer import IcohpMatrixViewer
+
+        self.icohp_matrix_viewer_window = IcohpMatrixViewer(default_dir=self.dir)
+        icohplist_file = os.path.join(self.dir, "ICOHPLIST.lobster")
+
+        if os.path.isfile(icohplist_file):
+            self.icohp_matrix_viewer_window.load_file(icohplist_file)
+
+        self.icohp_matrix_viewer_window.show()
+        self.icohp_matrix_viewer_window.raise_()
+        self.icohp_matrix_viewer_window.activateWindow()
 
     def create_python_console(self):
         self.console = PythonConsole(local_vars={'main_window': self})

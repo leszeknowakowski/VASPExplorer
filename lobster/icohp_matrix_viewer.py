@@ -3,10 +3,15 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtWidgets
-from custom_color_bar import EditableColorBarItem
+from pyqtgraph.Qt import QtGui, QtWidgets
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.io.lobster.outputs import Icohplist
+
+try:
+    from lobster.custom_color_bar import EditableColorBarItem
+except ImportError:
+    # Keep direct script execution working: python lobster/icohp_matrix_viewer.py
+    from custom_color_bar import EditableColorBarItem
 
 
 ICOHPLIST_FILENAME = (
@@ -184,6 +189,7 @@ class SpinMatrixPlots:
 
     def __init__(self, graphics):
         self.graphics = graphics
+        self.show_values = False
 
         self.plot_up = self.graphics.addPlot(title="Spin Up", row=0, col=0)
         self.plot_down = self.graphics.addPlot(title="Spin Down", row=0, col=1)
@@ -229,6 +235,13 @@ class SpinMatrixPlots:
         self.colorbar.setLevels(levels)
 
         self._configure_axes(orbitals_1, orbitals_2)
+
+        if self.show_values:
+            self._add_value_labels(self.plot_up, matrix_up, levels)
+            self._add_value_labels(self.plot_down, matrix_down, levels)
+
+    def set_show_values(self, show_values):
+        self.show_values = show_values
 
     def show_empty(self, message="No ICOHPLIST data loaded"):
         self.plot_up.clear()
@@ -276,6 +289,35 @@ class SpinMatrixPlots:
             plot.getAxis("left").setTicks([left_ticks])
             plot.setAspectLocked(True)
 
+    def _add_value_labels(self, plot, matrix, levels):
+        max_abs_level = max(abs(levels[0]), abs(levels[1]), 1.0)
+
+        for x_index in range(matrix.shape[0]):
+            for y_index in range(matrix.shape[1]):
+                value = float(matrix[x_index, y_index])
+                text = pg.TextItem(
+                    text=f"{value:.2f}",
+                    color=self._label_color(value, max_abs_level),
+                    anchor=(0.5, 0.5),
+                )
+                text.setFont(self._label_font())
+                text.setZValue(10)
+                plot.addItem(text)
+                text.setPos(x_index + 0.5, y_index + 0.5)
+
+    @staticmethod
+    def _label_color(value, max_abs_level):
+        if abs(value) / max_abs_level > 0.55:
+            return "w"
+
+        return "k"
+
+    @staticmethod
+    def _label_font():
+        font = QtGui.QFont()
+        font.setPointSize(8)
+        return font
+
     @staticmethod
     def _symmetric_levels(matrix_up, matrix_down):
         vmax = max(
@@ -312,10 +354,11 @@ class SpinMatrixPlots:
 class IcohpMatrixViewer(QtWidgets.QWidget):
     """Main window for browsing orbital-resolved ICOHP matrices."""
 
-    def __init__(self, dataset=None, load_error=None):
-        super().__init__()
+    def __init__(self, dataset=None, load_error=None, parent=None, default_dir=None):
+        super().__init__(parent)
         self.dataset = dataset
         self.load_error = load_error
+        self.default_dir = Path(default_dir or getattr(parent, "dir", Path.cwd()))
         self.matrix_builder = OrbitalMatrixBuilder()
         self.current_bond_index = 0
 
@@ -337,6 +380,10 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.open_file_button = QtWidgets.QPushButton("Open file")
         controls_layout.addWidget(self.open_file_button)
 
+        self.show_values_button = QtWidgets.QPushButton("Show numbers: Off")
+        self.show_values_button.setCheckable(True)
+        controls_layout.addWidget(self.show_values_button)
+
         controls_layout.addStretch()
 
         self.previous_button = QtWidgets.QPushButton("Previous")
@@ -355,14 +402,22 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
 
     def _connect_signals(self):
         self.open_file_button.clicked.connect(self.open_file)
+        self.show_values_button.toggled.connect(self.toggle_value_labels)
         self.previous_button.clicked.connect(self.previous_bond)
         self.next_button.clicked.connect(self.next_bond)
+
+    def toggle_value_labels(self, checked):
+        self.show_values_button.setText(
+            "Show numbers: On" if checked else "Show numbers: Off"
+        )
+        self.matrix_plots.set_show_values(checked)
+        self.update_plot()
 
     def open_file(self):
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Open ICOHPLIST file",
-            str(Path.cwd()),
+            str(self.default_dir),
             "ICOHPLIST files (ICOHPLIST.lobster *.lobster);;All files (*)",
         )
 
