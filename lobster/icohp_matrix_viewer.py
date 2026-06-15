@@ -18,8 +18,32 @@ ICOHPLIST_FILENAME = (
     r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD"
     r"\1.spin_up\HSE\1.gas_to_metaloxo\5.o2_2minus\ICOHPLIST.lobster"
 )
-DEFAULT_COLORMAP = "CET-D1A"
+ICOHP_COLORMAP_NAME = "ICOHP Mathematica"
+DEFAULT_COLORMAP = ICOHP_COLORMAP_NAME
 LOCAL_ICOHPLIST_FILENAME = "ICOHPLIST.lobster"
+
+# Mathematica RGBColor stops scaled to pyqtgraph's expected 8-bit RGBA values.
+ICOHP_COLORMAP_STOPS = (
+    (0.0, (75, 108, 174, 255)),
+    (0.3, (105, 189, 170, 255)),
+    (0.4, (223, 243, 160, 255)),
+    (0.5, (255, 255, 255, 255)),
+    (0.6, (253, 200, 120, 255)),
+    (0.7, (230, 89, 73, 255)),
+    (1.0, (81, 3, 34, 255)),
+)
+
+
+def make_icohp_colormap():
+    positions = np.array(
+        [position for position, _ in ICOHP_COLORMAP_STOPS],
+        dtype=float,
+    )
+    colors = np.array(
+        [color for _, color in ICOHP_COLORMAP_STOPS],
+        dtype=np.ubyte,
+    )
+    return pg.ColorMap(positions, colors, name=ICOHP_COLORMAP_NAME)
 
 
 class MatrixImageItem(pg.ImageItem):
@@ -200,7 +224,7 @@ class SpinMatrixPlots:
             orientation="vertical",
             interactive=True,
             label="Intensity",
-            colorMapMenu=True,
+            colorMapMenu=self._colormap_menu(),
         )
 
         self.graphics.addItem(self.colorbar, row=0, col=2)
@@ -339,14 +363,28 @@ class SpinMatrixPlots:
 
     @staticmethod
     def _default_colormap():
+        if DEFAULT_COLORMAP == ICOHP_COLORMAP_NAME:
+            return make_icohp_colormap()
+
         if DEFAULT_COLORMAP in pg.colormap.listMaps():
             return DEFAULT_COLORMAP
 
         return "viridis"
 
+    @staticmethod
+    def _colormap_menu():
+        return pg.ColorMapMenu(
+            userList=[make_icohp_colormap()],
+            showColorMapSubMenus=True,
+        )
+
     def _current_colormap(self):
         if self.colorbar._colorMap is None:
-            self.colorbar.setColorMap(pg.colormap.get(self._default_colormap()))
+            default_colormap = self._default_colormap()
+            if isinstance(default_colormap, pg.ColorMap):
+                self.colorbar.setColorMap(default_colormap)
+            else:
+                self.colorbar.setColorMap(pg.colormap.get(default_colormap))
 
         return self.colorbar._colorMap
 
