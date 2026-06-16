@@ -13,6 +13,7 @@ class DetachableTabWidget(QtWidgets.QTabWidget):
         self.tabBar.onMoveTabSignal.connect(self.moveTab)
 
         self.setTabBar(self.tabBar)
+        self.setMovable(True)
 
         # Used to keep a reference to detached tabs since their QMainWindow
         # does not have a parent
@@ -29,6 +30,9 @@ class DetachableTabWidget(QtWidgets.QTabWidget):
         @param    fromIndex    the original index location of the tab
         @param    toIndex      the new index location of the tab
         """
+        if fromIndex < 0 or toIndex < 0 or fromIndex == toIndex:
+            return
+
         widget = self.widget(fromIndex)
         icon = self.tabIcon(fromIndex)
         text = self.tabText(fromIndex)
@@ -44,6 +48,9 @@ class DetachableTabWidget(QtWidgets.QTabWidget):
         @param    index    the index location of the tab to be detached
         @param    point    the screen position for creating the new DetachedTab window
         """
+        if index < 0 or index >= self.count():
+            return
+
         # Get the tab content
         name = self.tabText(index)
         icon = self.tabIcon(index)
@@ -56,11 +63,14 @@ class DetachableTabWidget(QtWidgets.QTabWidget):
         except AttributeError:
             return
 
+        self.removeTab(index)
+
         # Create a new detached tab window
         detachedTab = self.DetachedTab(name, contentWidget)
         detachedTab.setWindowModality(QtCore.Qt.NonModal)
         detachedTab.setWindowIcon(icon)
         detachedTab.setGeometry(contentWidgetRect)
+        detachedTab.setStyleSheet(self.window().styleSheet())
         detachedTab.onCloseSignal.connect(self.attachTab)
         detachedTab.onDropSignal.connect(self.tabBar.detachedTabDrop)
         detachedTab.move(point)
@@ -154,6 +164,11 @@ class DetachableTabWidget(QtWidgets.QTabWidget):
         for detachedTab in listOfDetachedTabs:
             detachedTab.close()
 
+    def setDetachedTabsStyleSheet(self, style_sheet):
+        """Apply the active app style to every detached tab window."""
+        for detachedTab in self.detachedTabs.values():
+            detachedTab.setStyleSheet(style_sheet)
+
     ##
     #
     class DetachedTab(QtWidgets.QMainWindow):
@@ -193,6 +208,7 @@ class DetachableTabWidget(QtWidgets.QTabWidget):
         #  @param    event    a close event
         def closeEvent(self, event):
             self.onCloseSignal.emit(self.contentWidget, self.objectName(), self.windowIcon())
+            event.accept()
 
         ##
         #  An event filter class to detect a QMainWindow drop event
@@ -278,7 +294,7 @@ class DetachableTabWidget(QtWidgets.QTabWidget):
 
             # Determine if the current movement is detected as a drag
             if not self.dragStartPos.isNull() and (
-                    (event.pos() - self.dragStartPos).manhattanLength() < QtWidgets.QApplication.startDragDistance()):
+                    (event.pos() - self.dragStartPos).manhattanLength() > QtWidgets.QApplication.startDragDistance()):
                 self.dragInitiated = True
 
             # If the current movement is a drag initiated by the left button
@@ -296,7 +312,11 @@ class DetachableTabWidget(QtWidgets.QTabWidget):
                 drag.setMimeData(mimeData)
 
                 # Create the appearance of dragging the tab content
-                pixmap = self.parentWidget().currentWidget().grab()
+                current_widget = self.parentWidget().currentWidget()
+                if current_widget is None:
+                    return
+
+                pixmap = current_widget.grab()
                 targetPixmap = QtGui.QPixmap(pixmap.size())
                 targetPixmap.fill(QtCore.Qt.transparent)
                 painter = QtGui.QPainter(targetPixmap)

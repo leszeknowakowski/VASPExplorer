@@ -104,10 +104,11 @@ class ChgcarVis(QWidget):
 
         self.chgcar_frame = QGroupBox(self)
         self.chgcar_frame.setTitle("CHGCAR manipulation")
-        self.chgcar_frame.setMaximumHeight(200)
+        self.chgcar_frame.setMinimumHeight(230)
 
         self.chgcar_frame_layout = QVBoxLayout(self.chgcar_frame)
         self.chgcar_frame_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.chgcar_frame_layout.setSpacing(8)
 
         # create buttons
         self.chg_file_button = QPushButton('open CHGCAR')
@@ -122,6 +123,7 @@ class ChgcarVis(QWidget):
             "clear": QPushButton('Clear')
         }
         spin_layout = QHBoxLayout()
+        spin_layout.setSpacing(6)
         for spin_type, btn in self.spin_buttons.items():
             btn.setMinimumWidth(5)
             spin_layout.addWidget(btn)
@@ -134,6 +136,7 @@ class ChgcarVis(QWidget):
 
          # layout for isosurface value slider
         self.eps_layout = QHBoxLayout()
+        self.eps_layout.setSpacing(8)
         self.chg_eps_text = QLabel("isosurface value (eps) :")
         self.chg_eps_value_label = QLabel()
 
@@ -157,6 +160,8 @@ class ChgcarVis(QWidget):
         self.eps_layout.addWidget(self.chg_eps_slider)
 
         self.manipulate_charge_layout = QGridLayout()
+        self.manipulate_charge_layout.setHorizontalSpacing(8)
+        self.manipulate_charge_layout.setVerticalSpacing(8)
         self.add_box_button = QPushButton('Add box')
         self.add_box_button.clicked.connect(self.add_flip_box_widget)
 
@@ -195,7 +200,7 @@ class ChgcarVis(QWidget):
         self.bader_data_loaded = False
         self.bader_frame = QGroupBox(self)
         self.bader_frame.setTitle("Bader charge manipulation")
-        self.bader_frame.setMaximumHeight(150)
+        self.bader_frame.setMinimumHeight(155)
         self.bader_frame_layout = QVBoxLayout(self.bader_frame)
         self.bader_frame_layout.setAlignment(QtCore.Qt.AlignTop)
 
@@ -229,7 +234,7 @@ class ChgcarVis(QWidget):
 
         self.ddec_frame = QGroupBox(self)
         self.ddec_frame.setTitle("Bond order manipulation")
-        self.ddec_frame.setMaximumHeight(150)
+        self.ddec_frame.setMinimumHeight(80)
         self.ddec_frame_layout = QVBoxLayout(self.ddec_frame)
         self.ddec_frame_layout.setAlignment(QtCore.Qt.AlignTop)
 
@@ -243,7 +248,7 @@ class ChgcarVis(QWidget):
         self.volumetric_edit_data = []
         self.vol_edit_frame = QGroupBox(self)
         self.vol_edit_frame.setTitle("Volumetric data editing")
-        self.vol_edit_frame.setMaximumHeight(150)
+        self.vol_edit_frame.setMinimumHeight(80)
         self.vol_edit_frame_layout = QVBoxLayout(self.vol_edit_frame)
 
         self.vol_edit_window_btn = QPushButton("Choose Volumetric editing data")
@@ -255,7 +260,7 @@ class ChgcarVis(QWidget):
     def init_averaging_UI(self):
         self.averaging_frame = QGroupBox(self)
         self.averaging_frame.setTitle("Averaging")
-        self.averaging_frame.setMaximumHeight(150)
+        self.averaging_frame.setMinimumHeight(80)
         self.averaging_frame_layout = QVBoxLayout(self.averaging_frame)
 
         self.averaging_btn = QPushButton("Perform plane or axis averaging")
@@ -263,7 +268,6 @@ class ChgcarVis(QWidget):
         self.averaging_frame_layout.addWidget(self.averaging_btn)
 
         self.averaging_frame_layout.setAlignment(QtCore.Qt.AlignTop)
-        self.averaging_frame_layout.addWidget(self.averaging_frame)
         self.layout.addWidget(self.averaging_frame)
 
     def open_bader_file(self):

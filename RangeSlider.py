@@ -42,17 +42,27 @@ QRangeSlider * {
     border: 0px;
     padding: 0px;
 }
+QRangeSlider {
+    min-height: 20px;
+    max-height: 22px;
+    background: transparent;
+}
 QRangeSlider #Head {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6b6b6b, stop:1 #FFF);
+    background: transparent;
 }
 QRangeSlider #Span {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #282, stop:1 #FFF);
+    background: transparent;
 }
 QRangeSlider #Span:active {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #282, stop:1 #FFF);
+    background: transparent;
 }
 QRangeSlider #Tail {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6b6b6b, stop:1 #FFF);
+    background: transparent;
+}
+
+QRangeSlider > QSplitter::handle {
+    background: transparent;
+    width: 12px;
 }
 
 QRangeSlider > QSplitter::handle:vertical {
@@ -183,6 +193,59 @@ class Handle(Element):
             self.main.setRange(s, e)
 
 
+class RangeSliderOverlay(QtWidgets.QWidget):
+    def __init__(self, main):
+        super().__init__(main)
+        self.main = main
+        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(QtCore.Qt.WA_NoSystemBackground, True)
+
+    def paintEvent(self, event):
+        if self.main.min() is None or self.main.max() is None:
+            return
+        if self.main.start() is None or self.main.end() is None:
+            return
+        if self.main.min() == self.main.max():
+            return
+
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+        handle_radius = 6
+        track_height = 2
+        left = handle_radius
+        right = max(left, self.width() - handle_radius)
+        center_y = self.height() / 2
+
+        track_rect = QtCore.QRectF(left, center_y - track_height / 2, right - left, track_height)
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.setBrush(QtGui.QColor("#26313d"))
+        painter.drawRoundedRect(track_rect, 1, 1)
+
+        start_x = self._value_to_x(self.main.start(), left, right)
+        end_x = self._value_to_x(self.main.end(), left, right)
+        if end_x < start_x:
+            start_x, end_x = end_x, start_x
+
+        span_rect = QtCore.QRectF(start_x, center_y - track_height / 2, max(1, end_x - start_x), track_height)
+        span_gradient = QtGui.QLinearGradient(span_rect.left(), 0, span_rect.right(), 0)
+        span_gradient.setColorAt(0, QtGui.QColor("#5fb3d6"))
+        span_gradient.setColorAt(1, QtGui.QColor("#d4a84f"))
+        painter.setBrush(span_gradient)
+        painter.drawRoundedRect(span_rect, 1, 1)
+
+        handle_pen = QtGui.QPen(QtGui.QColor("#5fb3d6"), 1)
+        handle_brush = QtGui.QBrush(QtGui.QColor("#edf4fa"))
+        painter.setPen(handle_pen)
+        painter.setBrush(handle_brush)
+        for x in (start_x, end_x):
+            painter.drawEllipse(QtCore.QPointF(x, center_y), handle_radius, handle_radius)
+
+    def _value_to_x(self, value, left, right):
+        scaled = scale(value, (self.main.min(), self.main.max()), (left, right))
+        return min(max(scaled, left), right)
+
+
 class QRangeSlider(QtWidgets.QWidget, Ui_Form):
     """
         The QRangeSlider class implements a horizontal range slider widget.
@@ -266,6 +329,7 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
          """
         super(QRangeSlider, self).__init__(parent)
         self.setupUi(self)
+        self._splitter.setHandleWidth(12)
         self.setMouseTracking(False)
         self._splitter.splitterMoved.connect(self._handleMoveSplitter)
         self._head_layout = QtWidgets.QHBoxLayout()
@@ -287,11 +351,29 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
         self._tail.setLayout(self._tail_layout)
         self.tail = Tail(self._tail, main=self)
         self._tail_layout.addWidget(self.tail)
+        self._make_parts_transparent()
+        self._overlay = RangeSliderOverlay(self)
+        self._overlay.setGeometry(self.rect())
+        self._overlay.raise_()
         self.setMin(1)
         self.setMax(100)
         self.setStart(1)
         self.setEnd(100)
-        self.setDrawValues(True)
+        self.setDrawValues(False)
+
+    def _make_parts_transparent(self):
+        for widget in (
+                self._splitter, self._head, self._handle, self._tail,
+                self.head, self.handle, self.tail):
+            widget.setAttribute(QtCore.Qt.WA_TranslucentBackground, True)
+            widget.setAutoFillBackground(False)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "_overlay"):
+            self._overlay.setGeometry(self.rect())
+            self._overlay.raise_()
+            self._overlay.update()
 
     def min(self):
         return getattr(self, '__min', None)
@@ -302,10 +384,12 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
     def setMin(self, value):
         setattr(self, '__min', value)
         self.minValueChanged.emit(value)
+        self._update_overlay()
 
     def setMax(self, value):
         setattr(self, '__max', value)
         self.maxValueChanged.emit(value)
+        self._update_overlay()
 
     def start(self):
         return getattr(self, '__start', None)
@@ -316,6 +400,7 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
     def _setStart(self, value):
         setattr(self, '__start', value)
         self.startValueChanged.emit(value)
+        self._update_overlay()
 
     def setStart(self, value):
         v = self._valueToPos(value)
@@ -327,6 +412,7 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
     def _setEnd(self, value):
         setattr(self, '__end', value)
         self.endValueChanged.emit(value)
+        self._update_overlay()
 
     def setEnd(self, value):
         v = self._valueToPos(value)
@@ -340,6 +426,7 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
 
     def setDrawValues(self, draw):
         setattr(self, '__drawValues', draw)
+        self._update_overlay()
 
     def getRange(self):
         return (self.start(), self.end())
@@ -369,6 +456,10 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
 
     def setSpanStyle(self, style):
         self._handle.setStyleSheet(style)
+
+    def _update_overlay(self):
+        if hasattr(self, "_overlay"):
+            self._overlay.update()
 
     def _valueToPos(self, value):
         return scale(value, (self.min(), self.max()), (0, self.width()))

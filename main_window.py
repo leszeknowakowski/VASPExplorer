@@ -11,7 +11,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'third_party'))
 from config import AppConfig
 AppConfig.load()
 tic = time.perf_counter()
-from PyQt5.QtWidgets import QMainWindow, QSplitter, QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QStyleFactory
+from PyQt5.QtWidgets import (
+    QApplication, QDialog, QDockWidget, QLabel, QMainWindow, QSplitter,
+    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QStyleFactory,
+    QVBoxLayout, QWidget
+)
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 from PyQt5.QtCore import Qt, QTimer, QEvent
 from STYLE_SHEET import *
@@ -60,6 +64,7 @@ class MainWindow(QMainWindow):
         self.blink_timer.timeout.connect(self.toggle_blink)
         self.blink_counter = 0
         self.shift_pressed = False
+        self.dock_widgets = []
         self.initUI()
 
     def initUI(self):
@@ -76,20 +81,28 @@ class MainWindow(QMainWindow):
         self.resize(1400, 1000)
 
         central_widget = QWidget()
+        central_widget.setObjectName("centralWorkspace")
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(0)
 
-        self.horizontal_splitter = QSplitter(Qt.Vertical)
-        self.horizontal_splitter.setStretchFactor(0, 2)
-        self.horizontal_splitter.setStretchFactor(1, 1)
-        main_layout.addWidget(self.horizontal_splitter)
+        self.setDockNestingEnabled(True)
+        self.setDockOptions(
+            QMainWindow.AllowNestedDocks |
+            QMainWindow.AllowTabbedDocks |
+            QMainWindow.AnimatedDocks |
+            QMainWindow.GroupedDragging
+        )
 
-        self.create_main_layout(self.horizontal_splitter)
+        self.create_main_layout(main_layout)
+        self.create_python_console()
         self.create_toolbar()
         self.create_menubar()
-        self.create_python_console()
         self.create_status_bar()
         self.set_styles()
+        self.resizeDocks([self.controls_dock], [430], Qt.Horizontal)
+        self.resizeDocks([self.console_dock], [220], Qt.Vertical)
 
         # add geometry buttons and slider to toolbar
         self.toolbar.addWidget(self.structure_plot_control_tab.start_geometry_button)
@@ -111,7 +124,9 @@ class MainWindow(QMainWindow):
     def create_toolbar(self):
         # Toolbar
         self.toolbar = QToolBar()
-        self.toolbar.setMovable(False)
+        self.toolbar.setObjectName("mainToolbar")
+        self.toolbar.setMovable(True)
+        self.toolbar.setFloatable(True)
         self.addToolBar(self.toolbar)
 
         # Toolbar Actions
@@ -208,6 +223,11 @@ class MainWindow(QMainWindow):
         view_menu.addMenu(actors_menu)
         view_menu.addMenu(camera_menu)
         view_menu.addAction(view_convex_hull_action)
+        view_menu.addSeparator()
+        panels_menu = QMenu("Panels", self)
+        view_menu.addMenu(panels_menu)
+        for dock_widget in self.dock_widgets:
+            panels_menu.addAction(dock_widget.toggleViewAction())
 
         camera_menu.addAction(view_cameras_action)
 
@@ -288,7 +308,21 @@ class MainWindow(QMainWindow):
 
     def create_python_console(self):
         self.console = PythonConsole(local_vars={'main_window': self})
-        self.horizontal_splitter.addWidget(self.console)
+        self.console_dock = self.create_dock_widget("Python Console", self.console, Qt.BottomDockWidgetArea)
+
+    def create_dock_widget(self, title, widget, area):
+        dock_widget = QDockWidget(title, self)
+        dock_widget.setObjectName(f"{title.replace(' ', '')}Dock")
+        dock_widget.setWidget(widget)
+        dock_widget.setAllowedAreas(Qt.AllDockWidgetAreas)
+        dock_widget.setFeatures(
+            QDockWidget.DockWidgetClosable |
+            QDockWidget.DockWidgetMovable |
+            QDockWidget.DockWidgetFloatable
+        )
+        self.addDockWidget(area, dock_widget)
+        self.dock_widgets.append(dock_widget)
+        return dock_widget
 
     def create_main_layout(self, main_layout):
         from dos_plot_widget import DosPlotWidget
@@ -301,14 +335,9 @@ class MainWindow(QMainWindow):
         from chgcar_controls import ChgcarVis
         from deatachedtabs import DetachableTabWidget
 
-        # main layout
-        splitter = QFloatingSplitter()
-        splitter.setStretchFactor(0,2)
-        splitter.setStretchFactor(1,1)
-        main_layout.addWidget(splitter)
-
         # Left tabs for plots
-        left_tab_widget = DetachableTabWidget()
+        self.left_tab_widget = DetachableTabWidget()
+        self.left_tab_widget.setObjectName("plotTabs")
 
         # widget for Density of States plot
         self.dos_plot_widget = DosPlotWidget(self.data)
@@ -317,54 +346,54 @@ class MainWindow(QMainWindow):
         self.structure_plot_interactor_widget = StructureViewer(self.data, self)
         self.structure_plot_interactor_widget.plotter.installEventFilter(self)
 
-        left_tab_widget.addTab(self.dos_plot_widget, "DOS")
-        left_tab_widget.addTab(self.structure_plot_interactor_widget, "Structure")  # Placeholder for future widget
-
-        splitter.addWidget(left_tab_widget)
-        left_tab_widget.setCurrentIndex(1)
+        self.left_tab_widget.addTab(self.dos_plot_widget, "DOS")
+        self.left_tab_widget.addTab(self.structure_plot_interactor_widget, "Structure")
+        self.left_tab_widget.setCurrentIndex(1)
+        main_layout.addWidget(self.left_tab_widget)
 
         # Right tabs for GUI
-        right_tab_widget = QTabWidget()
+        self.controls_tab_widget = DetachableTabWidget()
+        self.controls_tab_widget.setObjectName("controlTabs")
 
         # widget for controling the DOS plot
         self.dos_control_widget = DosControlWidget(self.data, self.dos_plot_widget)
-        right_tab_widget.addTab(self.dos_control_widget, "DOS Parameters")
+        self.controls_tab_widget.addTab(self.dos_control_widget, "DOS Parameters")
 
         # topmost tab widget for all structure plot manipulations
-        structure_tabs = QTabWidget()
+        self.structure_tabs = DetachableTabWidget()
+        self.structure_tabs.setObjectName("structureControlTabs")
 
         #tab for controlling the rendering structure plot
         self.structure_plot_control_tab = StructureControlsWidget(self.structure_plot_interactor_widget, self)
-        structure_tabs.addTab(self.structure_plot_control_tab, "Structure plot control")
+        self.structure_tabs.addTab(self.structure_plot_control_tab, "Structure plot control")
 
         # tab for controlling the crystal structure - position and properties of atoms
         self.structure_variable_control_tab = StructureVariableControls(self.structure_plot_control_tab, self)
-        structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
+        self.structure_tabs.addTab(self.structure_variable_control_tab, "structure variables control")
 
         # tab for controlling the charge density plots
         self.chgcar_control_widget = ChgcarVis(self.structure_variable_control_tab)
         self.chgcar_control_widget.chg_file_path = os.path.join(self.dir, "CHGCAR")
         self.chgcar_control_widget.load_data.connect(self.load_data)
-        structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
+        self.structure_tabs.addTab(self.chgcar_control_widget, "PARCHG/CHGCAR")
 
-        right_tab_widget.addTab(structure_tabs, "Crystal structure")
-        structure_tabs.setCurrentIndex(1)
+        self.controls_tab_widget.addTab(self.structure_tabs, "Crystal structure")
+        self.structure_tabs.setCurrentIndex(1)
 
         # tab for controlling the input parameters
-        input_tab = QTabWidget()
-        right_tab_widget.addTab(input_tab, "Input")
+        self.input_tab = DetachableTabWidget()
+        self.input_tab.setObjectName("inputTabs")
+        self.controls_tab_widget.addTab(self.input_tab, "Input")
 
         kpoint_tab = Kpoints_tab(self.structure_plot_interactor_widget)
-        input_tab.addTab(kpoint_tab, "Kpoints")
+        self.input_tab.addTab(kpoint_tab, "Kpoints")
 
         potcar_tab = Potcar_tab(self.structure_variable_control_tab)
-        input_tab.addTab(potcar_tab, "Potcar")
+        self.input_tab.addTab(potcar_tab, "Potcar")
 
-        right_tab_widget.setCurrentIndex(1)
+        self.controls_tab_widget.setCurrentIndex(1)
 
-        splitter.addWidget(right_tab_widget)
-        splitter.setStretchFactor(0,1)
-        splitter.setStretchFactor(1,1)
+        self.controls_dock = self.create_dock_widget("Controls", self.controls_tab_widget, Qt.RightDockWidgetArea)
 
         # connections
         self.dos_control_widget.statusMessage.connect(self.show_blinking_status)
@@ -489,7 +518,9 @@ class MainWindow(QMainWindow):
 
     def apply_style(self, index):
         """Apply style by index."""
-        self.setStyleSheet(self.styles[index][1])
+        style_sheet = self.styles[index][1]
+        self.setStyleSheet(style_sheet)
+        self.apply_style_to_detached_tabs(style_sheet)
         self.structure_plot_interactor_widget.plotter.set_background(self.plotter_colors[index][1])
         self.console.setBackground(self.plotter_colors[index][1], self.console_font_colors[index][1])
         self.structure_plot_control_tab.energy_plot_widget.setBackground(self.plotter_colors[index][1])
@@ -499,6 +530,16 @@ class MainWindow(QMainWindow):
         self.dos_plot_widget.region.setHoverBrush(self.brush_colors[index][1])
         self.dos_control_widget.checkboxes_widget.setStyleSheet(f"background: {self.plotter_colors[index][1]}")
         self.dos_control_widget.scroll_right_widget.setStyleSheet(f"background: {self.plotter_colors[index][1]}")
+
+    def apply_style_to_detached_tabs(self, style_sheet):
+        detachable_tabs = (
+            self.left_tab_widget,
+            self.controls_tab_widget,
+            self.structure_tabs,
+            self.input_tab,
+        )
+        for tab_widget in detachable_tabs:
+            tab_widget.setDetachedTabsStyleSheet(style_sheet)
 
     def set_working_dir(self):
         """ gets the current working dir. Useful for building"""
