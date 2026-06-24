@@ -74,7 +74,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_frame = None
         self.render_frame_layout = None
         self.renderFrame = None
-        self.bond_threshold = 2.8
+        self.bond_threshold = 2.5
         self.sphere_radius = 0.5
         self.constrains = self.structure_plot_widget.data.constrains
         self.selected_actors = []
@@ -721,7 +721,12 @@ class StructureControlsWidget(QWidget):
             indices, coordinates = self.find_indices_between_planes()
             coords = []
             magnet = []
-            mag = self.structure_plot_widget.data.outcar_data.magnetizations[self.geometry_slider.value()]
+            outcar_data = getattr(self.structure_plot_widget.data, "outcar_data", None)
+            slider_value = self.geometry_slider.value()
+            if outcar_data is not None and slider_value < len(outcar_data.magnetizations):
+                mag = outcar_data.magnetizations[slider_value]
+            else:
+                mag = ["N/A" for _ in self.structure_plot_widget.data.symbols]
             for i in range(len(indices)):
                 coords.append(list(coordinates[indices[i]]))
                 magnet.append(mag[indices[i]])
@@ -952,13 +957,21 @@ class StructureControlsWidget(QWidget):
 
     def max_force(self):
         val = self.geometry_slider.value()
-        f = np.array(self.structure_plot_widget.data.outcar_data.forces[val])
+        outcar_data = getattr(self.structure_plot_widget.data, "outcar_data", None)
+        if outcar_data is None or val >= len(outcar_data.forces):
+            print("No OUTCAR force data available.")
+            return
+        f = np.array(outcar_data.forces[val])
         max = np.max(f)
         print(f"max force: {max}")
 
     def rmse_forces(self):
         val = self.geometry_slider.value()
-        f = np.array(self.structure_plot_widget.data.outcar_data.forces[val])
+        outcar_data = getattr(self.structure_plot_widget.data, "outcar_data", None)
+        if outcar_data is None or val >= len(outcar_data.forces):
+            print("No OUTCAR force data available.")
+            return
+        f = np.array(outcar_data.forces[val])
         rmse = np.sqrt(np.mean(f**2))
         print(f"rmse forces: {rmse}")
 

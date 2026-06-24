@@ -252,10 +252,14 @@ class MainWindow(QMainWindow):
         icohp_matrix_action = QAction("ICOHP Matrix Viewer", self)
         icohp_matrix_action.triggered.connect(self.open_icohp_matrix_viewer)
 
+        cohpcar_action = QAction("COHPCAR Viewer", self)
+        cohpcar_action.triggered.connect(self.open_cohpcar_viewer)
+
         lobster_menu.addAction(mo_action)
         lobster_menu.addAction(lcfo_doscar_action)
         lobster_menu.addAction(flow_chart_action)
         lobster_menu.addAction(icohp_matrix_action)
+        lobster_menu.addAction(cohpcar_action)
 
     def open_mo_diagram(self):
         from lobster.mo_diagram import MODiagramView, MODiagramViewModel
@@ -305,6 +309,14 @@ class MainWindow(QMainWindow):
         self.icohp_matrix_viewer_window.show()
         self.icohp_matrix_viewer_window.raise_()
         self.icohp_matrix_viewer_window.activateWindow()
+
+    def open_cohpcar_viewer(self):
+        from lobster.cohpcar_viewer import open_cohpcar_window
+
+        self.cohpcar_viewer_window = open_cohpcar_window(default_dir=self.dir)
+        self.cohpcar_viewer_window.show()
+        self.cohpcar_viewer_window.raise_()
+        self.cohpcar_viewer_window.activateWindow()
 
     def create_python_console(self):
         self.console = PythonConsole(local_vars={'main_window': self})

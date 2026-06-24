@@ -55,6 +55,7 @@ class MatrixImageItem(pg.ImageItem):
         self.orbitals_1 = orbitals_1
         self.orbitals_2 = orbitals_2
         self.spin_label = spin_label
+        self.double_click_callback = None
         self.setAcceptHoverEvents(True)
 
     def hoverEvent(self, event):
@@ -76,6 +77,22 @@ class MatrixImageItem(pg.ImageItem):
             f"ICOHP: {self.matrix[x_index, y_index]:.4f}"
         )
         QtWidgets.QToolTip.showText(event.screenPos().toPoint(), tooltip)
+
+    def mouseDoubleClickEvent(self, event):
+        position = event.pos()
+        x_index = int(position.x())
+        y_index = int(position.y())
+
+        if self._has_value_at(x_index, y_index):
+            if self.double_click_callback is not None:
+                self.double_click_callback(x_index, y_index)
+            event.accept()
+            return
+
+        super().mouseDoubleClickEvent(event)
+
+    def set_double_click_callback(self, callback):
+        self.double_click_callback = callback
 
     def _has_value_at(self, x_index, y_index):
         return (
@@ -214,6 +231,7 @@ class SpinMatrixPlots:
     def __init__(self, graphics):
         self.graphics = graphics
         self.show_values = False
+        self.interaction_double_click_callback = None
 
         self.plot_up = self.graphics.addPlot(title="Spin Up", row=0, col=0)
         self.plot_down = self.graphics.addPlot(title="Spin Down", row=0, col=1)
@@ -228,6 +246,9 @@ class SpinMatrixPlots:
         )
 
         self.graphics.addItem(self.colorbar, row=0, col=2)
+
+    def set_interaction_double_click_callback(self, callback):
+        self.interaction_double_click_callback = callback
 
     def update(self, matrix_up, matrix_down, orbitals_1, orbitals_2):
         self.plot_up.clear()
@@ -254,6 +275,9 @@ class SpinMatrixPlots:
             colormap,
             levels,
         )
+
+        self._connect_double_click(image_up, orbitals_1, orbitals_2)
+        self._connect_double_click(image_down, orbitals_1, orbitals_2)
 
         self.colorbar.setImageItem([image_up, image_down])
         self.colorbar.setLevels(levels)
@@ -303,6 +327,20 @@ class SpinMatrixPlots:
         image.setLevels(levels)
         plot.addItem(image)
         return image
+
+    def _connect_double_click(self, image, orbitals_1, orbitals_2):
+        image.set_double_click_callback(
+            lambda x_index, y_index: self._interaction_double_clicked(
+                orbitals_1[x_index],
+                orbitals_2[y_index],
+            )
+        )
+
+    def _interaction_double_clicked(self, orbital_1, orbital_2):
+        if self.interaction_double_click_callback is None:
+            return
+
+        self.interaction_double_click_callback(f"{orbital_1}-{orbital_2}")
 
     def _configure_axes(self, orbitals_1, orbitals_2):
         bottom_ticks = [(index + 0.5, orbital) for index, orbital in enumerate(orbitals_1)]
@@ -404,6 +442,7 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self._setup_controls()
         self._setup_graphics()
         self._connect_signals()
+        self.cohpcar_plot_windows = []
         self.update_plot()
 
     def _setup_window(self):
@@ -443,6 +482,9 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.show_values_button.toggled.connect(self.toggle_value_labels)
         self.previous_button.clicked.connect(self.previous_bond)
         self.next_button.clicked.connect(self.next_bond)
+        self.matrix_plots.set_interaction_double_click_callback(
+            self.open_cohpcar_for_interaction
+        )
 
     def toggle_value_labels(self, checked):
         self.show_values_button.setText(
@@ -524,6 +566,27 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         )
         self._update_info_label(bond_data, bond_metadata)
         self._update_navigation_buttons()
+
+    def open_cohpcar_for_interaction(self, interaction_key):
+        if self.dataset is None:
+            return
+
+        bond_key, _, _ = self.dataset.get_bond(self.current_bond_index)
+
+        try:
+            from lobster.cohpcar_viewer import open_cohpcar_window
+        except ImportError:
+            from cohpcar_viewer import open_cohpcar_window
+
+        window = open_cohpcar_window(
+            default_dir=self.default_dir,
+            selected_bond_key=str(bond_key),
+            selected_interactions=[interaction_key],
+        )
+        self.cohpcar_plot_windows.append(window)
+        window.show()
+        window.raise_()
+        window.activateWindow()
 
     def _update_info_label(self, bond_data, bond_metadata):
         total_icohp = bond_metadata["total_icohp"]

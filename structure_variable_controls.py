@@ -661,8 +661,10 @@ class StructureVariableControls(QWidget):
         self.structure_control_widget.structure_plot_widget.data.constrains.insert(pos + 1,  x_constr)
         self.structure_control_widget.structure_plot_widget.data.magmoms.insert(pos + 1, magmom)
         self.structure_control_widget.structure_plot_widget.data.suffixes.insert(pos + 1, suffix)
-        for magnetizations in self.structure_control_widget.structure_plot_widget.data.outcar_data.magnetizations:
-            magnetizations.insert(pos+1, mag)
+        outcar_data = getattr(self.structure_control_widget.structure_plot_widget.data, "outcar_data", None)
+        if outcar_data is not None:
+            for magnetizations in outcar_data.magnetizations:
+                magnetizations.insert(pos+1, mag)
         self.structure_control_widget.structure_plot_widget.data.nums.insert(pos+1, len(self.structure_control_widget.structure_plot_widget.data.symbols)+1)
 
         self.change_table_when_atom_added()
@@ -1037,7 +1039,7 @@ class AtomChooseWindow(QWidget):
         self.periodic_table.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.periodic_table.element_selected.connect(self.update_label)
         self.periodic_table.show()
-        if self.parent == None:
+        if self.parent == None or self.parent.structure_control_widget.selected_actors == []:
             self.x_coord = QTableWidgetItem("0")
             self.y_coord = QTableWidgetItem("0")
             self.z_coord = QTableWidgetItem("0")
@@ -1515,7 +1517,7 @@ class Bonds:
         self.structure_plot_widget = self.structure_control_widget.structure_plot_widget
 
     def add_bond_length(self):
-        coords = self.structure_plot_widget.data.outcar_data.find_coordinates()
+        coords = self.structure_plot_widget.data.outcar_coordinates
         current_coords = coords[self.structure_control_widget.geometry_slider.value()]
         pt1 = current_coords[self.index1]
         pt2 = current_coords[self.index2]
