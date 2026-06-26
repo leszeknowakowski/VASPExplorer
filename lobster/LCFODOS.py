@@ -16,7 +16,7 @@ import pyqtgraph as pg
 from lobster.lobster_outputs import Doscar as DOSCAR
 from pymatgen.core.periodic_table import Element
 from pymatgen.electronic_structure.core import Spin
-from dos_plot_widget import DosPlotWidget
+from dos_plot_widget import DosPlotWidget, MergedPlotDataItem
 
 
 class _DosDataShim:
@@ -50,6 +50,9 @@ class DosWindow(QMainWindow):
         self.updating_overlay_spans = False
         self.show_weighted_mean_on_plot = True
         self.show_dos_threshold_regions = True
+        self.saved_plots = []
+        self.last_merged_plot = None
+        self.saved_plots_window = None
 
         self.dos_plot = DosPlotWidget(_DosDataShim(e_fermi=0.0))
         self.dos_plot.full_range_plot.addLegend()
@@ -73,6 +76,21 @@ class DosWindow(QMainWindow):
         self.dos_threshold_toggle.setCheckable(True)
         self.dos_threshold_toggle.setChecked(True)
         self.dos_threshold_toggle.clicked.connect(self.toggle_dos_threshold_regions)
+
+        self.color_button = pg.ColorButton()
+        self.color_button.setColor("r")
+
+        plot_merged_button = QPushButton("Plot merged")
+        plot_merged_button.clicked.connect(self.plot_merged)
+
+        save_merged_button = QPushButton("Save merged")
+        save_merged_button.clicked.connect(self.save_merged_plot)
+
+        show_saved_button = QPushButton("Show saved")
+        show_saved_button.clicked.connect(self.show_saved_plots)
+
+        clear_merged_button = QPushButton("Clear merged")
+        clear_merged_button.clicked.connect(self.clear_merged_plots)
 
         export_csv = QPushButton("Export CSV")
         export_csv.clicked.connect(self.export_csv)
@@ -140,6 +158,14 @@ class DosWindow(QMainWindow):
         overlay_controls_layout.addWidget(self.dos_threshold_toggle)
         left_layout.addLayout(overlay_controls_layout)
 
+        merged_controls_layout = QGridLayout()
+        merged_controls_layout.addWidget(self.color_button, 0, 0)
+        merged_controls_layout.addWidget(plot_merged_button, 0, 1)
+        merged_controls_layout.addWidget(save_merged_button, 0, 2)
+        merged_controls_layout.addWidget(show_saved_button, 1, 0)
+        merged_controls_layout.addWidget(clear_merged_button, 1, 1, 1, 2)
+        left_layout.addLayout(merged_controls_layout)
+
         left_layout.addWidget(export_csv)
         left_layout.addWidget(export_pdf)
 
@@ -185,6 +211,11 @@ class DosWindow(QMainWindow):
         struct_file = "CONTCAR" if os.path.exists("CONTCAR") else "POSCAR"
         self.doscar = DOSCAR(filename, False, struct_file)
         self.entity_names = self.build_entity_names(self.doscar.entities, len(self.doscar.pdos))
+        self.saved_plots = []
+        self.last_merged_plot = None
+        if self.saved_plots_window is not None:
+            self.saved_plots_window.rebuild()
+        self.clear_dos_plot_items(keep_merged=False)
         self.clear_weighted_mean_lines()
         self.clear_dos_threshold_regions()
         self.current_weighted_means = {}
@@ -312,6 +343,9 @@ class DosWindow(QMainWindow):
                 lambda checked=False, group_indexes=indexes: self.toggle_entity_group(group_indexes),
             )
 
+        if self.entity_boxes:
+            self.add_toggle_button(self.entity_button_layout, "Select from 3D", self.select_entities_from_3d)
+
         if self.orbital_boxes:
             self.add_toggle_button(self.orbital_button_layout, "All orbitals", self.toggle_all_orbitals)
 
@@ -333,6 +367,20 @@ class DosWindow(QMainWindow):
     def toggle_entity_group(self, indexes):
         boxes = [self.entity_boxes[index] for index in indexes if index < len(self.entity_boxes)]
         self.toggle_boxes(boxes)
+
+    def select_entities_from_3d(self):
+        if self.parent is None or not hasattr(self.parent, "structure_variable_control_tab"):
+            QMessageBox.warning(self, "Select from 3D", "No 3D structure selector is available.")
+            return
+
+        selected_rows = self.parent.structure_variable_control_tab.get_selected_rows()
+        if not selected_rows:
+            QMessageBox.information(self, "Select from 3D", "No atoms are selected in the 3D viewer.")
+            return
+
+        selected_indexes = set(selected_rows)
+        for index, box in enumerate(self.entity_boxes):
+            box.setChecked(index in selected_indexes)
 
     def toggle_all_orbitals(self):
         self.toggle_boxes(self.orbital_boxes)
@@ -368,8 +416,8 @@ class DosWindow(QMainWindow):
 
         full_plot = self.dos_plot.full_range_plot
         bounded_plot = self.dos_plot.bounded_plot
-        self.dos_plot.clear_plot_data(full_plot)
-        self.dos_plot.clear_plot_data(bounded_plot)
+        self.clear_dos_plot_items(keep_merged=False)
+        self.last_merged_plot = None
         self.clear_weighted_mean_lines()
         self.clear_dos_threshold_regions()
 
@@ -421,6 +469,176 @@ class DosWindow(QMainWindow):
         self.refresh_weighted_mean()
         self.update_dos_threshold_regions(selected_entities, selected_orbitals)
         self.dos_plot.update_bounded_plot_y_range()
+
+    def plot_merged(self):
+        if self.doscar is None:
+            return
+
+        selected_entities = self.get_selected_entities()
+        selected_orbitals = self.get_selected_orbitals()
+        if not selected_entities or not selected_orbitals:
+            QMessageBox.warning(self, "Plot merged", "Select at least one entity and one orbital.")
+            return
+
+        energies = self.doscar.energies
+        data_up, data_down = self.sum_selected_dos(selected_entities, selected_orbitals)
+        label = self.create_merged_label(selected_entities, selected_orbitals)
+        color = pg.mkColor(self.color_button.color())
+
+        self.clear_dos_plot_items(keep_merged=True)
+        self.clear_weighted_mean_lines()
+        self.clear_dos_threshold_regions()
+        self.add_merged_curve(data_up, data_down, energies, label, color)
+        self.last_merged_plot = (data_up.copy(), None if data_down is None else data_down.copy(), label, color)
+
+        self.refresh_weighted_mean()
+        self.update_dos_threshold_regions(selected_entities, selected_orbitals)
+        self.dos_plot.update_bounded_plot_y_range()
+        self.color_button.setColor(np.random.random(3) * 255)
+
+    def save_merged_plot(self):
+        if self.last_merged_plot is None:
+            QMessageBox.warning(self, "Save merged", "Plot a merged DOS first.")
+            return
+
+        data_up, data_down, label, color = self.last_merged_plot
+        self.saved_plots.append((data_up.copy(), None if data_down is None else data_down.copy(), label, pg.mkColor(color)))
+        if self.saved_plots_window is not None:
+            self.saved_plots_window.rebuild()
+
+    def show_saved_plots(self):
+        if not self.saved_plots:
+            QMessageBox.information(self, "Saved plots", "No merged plots have been saved.")
+            return
+
+        if self.saved_plots_window is None:
+            self.saved_plots_window = SavedMergedPlotsWindow(self)
+        self.saved_plots_window.rebuild()
+        self.saved_plots_window.show()
+        self.saved_plots_window.raise_()
+
+    def delete_saved_plot(self, index):
+        if 0 <= index < len(self.saved_plots):
+            del self.saved_plots[index]
+        if self.saved_plots_window is not None:
+            self.saved_plots_window.rebuild()
+
+    def clear_merged_plots(self):
+        self.clear_dos_plot_items(keep_merged=False)
+        self.last_merged_plot = None
+        self.clear_weighted_mean_lines()
+        self.clear_dos_threshold_regions()
+
+    def clear_dos_plot_items(self, keep_merged=False):
+        for plot in [self.dos_plot.full_range_plot, self.dos_plot.bounded_plot]:
+            for item in list(plot.listDataItems()):
+                if keep_merged and isinstance(item, MergedPlotDataItem):
+                    continue
+                plot.removeItem(item)
+
+    def add_merged_curve(self, data_up, data_down, energies, label, color):
+        pen = pg.mkPen(color, width=2.5)
+        full_up = MergedPlotDataItem(data_up, energies, pen=pen)
+        bounded_up = MergedPlotDataItem(data_up, energies, pen=pen)
+
+        self.dos_plot.full_range_plot.addItem(full_up)
+        self.dos_plot.bounded_plot.addItem(bounded_up)
+
+        if data_down is not None:
+            full_down = MergedPlotDataItem(data_down, energies, pen=pen)
+            bounded_down = MergedPlotDataItem(data_down, energies, pen=pen)
+            self.dos_plot.full_range_plot.addItem(full_down)
+            self.dos_plot.bounded_plot.addItem(bounded_down)
+
+        for plot, item in [
+            (self.dos_plot.full_range_plot, full_up),
+            (self.dos_plot.bounded_plot, bounded_up),
+        ]:
+            legend = plot.getPlotItem().legend
+            if legend is None:
+                legend = plot.addLegend()
+            legend.addItem(item, label)
+
+    def sum_selected_dos(self, selected_entities, selected_orbitals):
+        energies = self.doscar.energies
+        data_up = np.zeros_like(energies, dtype=float)
+        data_down = np.zeros_like(energies, dtype=float) if self.doscar.is_spin_polarized else None
+
+        for ent in selected_entities:
+            pdos = self.doscar.pdos[ent]
+            for orbital in selected_orbitals:
+                orbital_data = pdos.get(orbital)
+                if orbital_data is None:
+                    continue
+                if Spin.up in orbital_data:
+                    data_up += orbital_data[Spin.up]
+                if data_down is not None and Spin.down in orbital_data:
+                    data_down -= orbital_data[Spin.down]
+
+        return data_up, data_down
+
+    def create_merged_label(self, selected_entities, selected_orbitals):
+        entity_label = self.compact_entity_labels([self.get_entity_name(index) for index in selected_entities])
+        orbital_label = self.compact_orbital_labels(selected_orbitals)
+        label_parts = [part for part in [entity_label, orbital_label] if part]
+        return " ".join(label_parts) if label_parts else "Merged DOS"
+
+    @classmethod
+    def compact_entity_labels(cls, entity_names):
+        grouped = {}
+        fallback = []
+        for name in entity_names:
+            match = re.match(r"^\s*([A-Z][a-z]?)(\d+)\s*$", str(name))
+            if match:
+                grouped.setdefault(match.group(1), []).append(int(match.group(2)))
+            else:
+                fallback.append(str(name))
+
+        labels = []
+        for symbol, indexes in grouped.items():
+            labels.append(f"{symbol}{cls.format_number_ranges(sorted(indexes))}")
+        labels.extend(fallback)
+        return " ".join(labels)
+
+    @classmethod
+    def compact_orbital_labels(cls, orbitals):
+        grouped = cls.group_orbitals_by_family(orbitals)
+        labels = []
+        used = set()
+        expected_counts = {"s": 1, "p": 3, "d": 5, "f": 7}
+
+        for family in cls.ORBITAL_FAMILIES:
+            family_orbitals = grouped.get(family, [])
+            used.update(family_orbitals)
+            if len(family_orbitals) == expected_counts[family]:
+                labels.append(family)
+            elif family == "d" and len(family_orbitals) > 2:
+                labels.append("many d")
+            elif family == "f" and len(family_orbitals) > 3:
+                labels.append("many f")
+            else:
+                labels.extend(family_orbitals)
+
+        labels.extend([orbital for orbital in orbitals if orbital not in used])
+        return " ".join(labels)
+
+    @staticmethod
+    def format_number_ranges(numbers):
+        if not numbers:
+            return ""
+
+        ranges = []
+        start = end = numbers[0]
+        for value in numbers[1:]:
+            if value == end + 1:
+                end = value
+                continue
+            ranges.append(f"{start}" if start == end else f"{start}-{end}")
+            start = end = value
+        ranges.append(f"{start}" if start == end else f"{start}-{end}")
+
+        result = ",".join(ranges)
+        return "many" if len(result) > 20 else result
 
     def toggle_weighted_mean_on_plot(self, checked=None):
         self.show_weighted_mean_on_plot = self.weighted_mean_toggle.isChecked()
@@ -741,6 +959,67 @@ class DosWindow(QMainWindow):
         with open(filename, "w") as f:
             for r in rows:
                 f.write(",".join(map(str, r)) + "\n")
+
+
+class SavedMergedPlotsWindow(QWidget):
+    def __init__(self, owner):
+        super().__init__()
+        self.owner = owner
+        self.setWindowTitle("Saved LCFO DOS Plots")
+        self.resize(900, 650)
+
+        self.scroll_widget = QWidget()
+        self.scroll_layout = QVBoxLayout(self.scroll_widget)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.scroll_widget)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(scroll_area)
+
+    def rebuild(self):
+        DosWindow.clear_layout(self.scroll_layout)
+
+        if not self.owner.saved_plots:
+            self.scroll_layout.addWidget(QLabel("No saved merged plots."))
+            return
+
+        energies = self.owner.doscar.energies if self.owner.doscar is not None else []
+        for index, (data_up, data_down, label, color) in enumerate(self.owner.saved_plots):
+            plot_widget = pg.PlotWidget()
+            plot_widget.setBackground("w")
+
+            for axis in ["left", "bottom"]:
+                plot_widget.getPlotItem().getAxis(axis).setPen(pg.mkPen("black"))
+                plot_widget.getPlotItem().getAxis(axis).setTextPen(pg.mkPen("black"))
+
+            up_item = plot_widget.plot(data_up, energies, pen=pg.mkPen(color), name=label)
+            if data_down is not None:
+                plot_widget.plot(data_down, energies, pen=pg.mkPen(color))
+
+            legend = plot_widget.addLegend()
+            legend.addItem(up_item, label)
+            plot_widget.setMinimumHeight(240)
+
+            delete_button = QPushButton("Delete")
+            delete_button.clicked.connect(lambda checked=False, plot_index=index: self.owner.delete_saved_plot(plot_index))
+
+            header_layout = QHBoxLayout()
+            header_layout.addWidget(QLabel(label))
+            header_layout.addStretch(1)
+            header_layout.addWidget(delete_button)
+
+            item_layout = QVBoxLayout()
+            item_layout.addLayout(header_layout)
+            item_layout.addWidget(plot_widget)
+
+            item_widget = QWidget()
+            item_widget.setLayout(item_layout)
+            self.scroll_layout.addWidget(item_widget)
+
+        self.scroll_layout.addStretch(1)
+
 
 if __name__ == "__main__":
 
