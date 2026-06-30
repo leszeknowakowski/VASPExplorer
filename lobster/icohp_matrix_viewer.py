@@ -1,5 +1,6 @@
 import sys
 import re
+import os
 from pathlib import Path
 
 import numpy as np
@@ -477,7 +478,7 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         default_dir=None,
         levels=None,
         main_window=None,
-        show_structure=True,
+        show_structure="auto",
     ):
         super().__init__(parent)
         owner = main_window or parent
@@ -489,7 +490,7 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.current_bond_index = 0
         self.manual_color_levels = self._normalize_levels(levels)
         self.structure_highlight_actors = []
-        self.show_structure = show_structure
+        self.show_structure = self._resolve_show_structure(show_structure)
         self.standalone_structure_viewer = None
         self.standalone_structure_control = None
         self.standalone_structure_container = None
@@ -844,6 +845,13 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
             return parent
 
         return None
+
+    @staticmethod
+    def _resolve_show_structure(show_structure):
+        if show_structure == "auto":
+            return os.environ.get("QT_QPA_PLATFORM", "").lower() != "offscreen"
+
+        return bool(show_structure)
 
     def _load_standalone_structure(self, directory=None):
         if (
