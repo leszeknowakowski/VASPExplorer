@@ -489,6 +489,7 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.standalone_structure_container = None
         self.standalone_structure_layout = None
         self.plot_splitter = None
+        self.plot_label_splitter = None
         self.shift_pressed = False
 
         self._setup_window()
@@ -539,7 +540,10 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         controls_layout.addWidget(self.next_button)
 
         self.info_label = QtWidgets.QLabel()
-        self.main_layout.addWidget(self.info_label)
+        self.info_label.setWordWrap(True)
+        self.info_label.setMinimumHeight(28)
+        if self.main_window is not None:
+            self.main_layout.addWidget(self.info_label)
 
     def _setup_graphics(self):
         self.graphics = pg.GraphicsLayoutWidget()
@@ -558,9 +562,20 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
             self.plot_splitter.setStretchFactor(0, 2)
             self.plot_splitter.setStretchFactor(1, 1)
             self.standalone_structure_container.hide()
-            self.main_layout.insertWidget(1, self.plot_splitter)
+            plot_area = self.plot_splitter
         else:
-            self.main_layout.insertWidget(1, self.graphics)
+            plot_area = self.graphics
+
+        if self.main_window is None:
+            self.plot_label_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+            self.plot_label_splitter.addWidget(plot_area)
+            self.plot_label_splitter.addWidget(self.info_label)
+            self.plot_label_splitter.setStretchFactor(0, 1)
+            self.plot_label_splitter.setStretchFactor(1, 0)
+            self.plot_label_splitter.setSizes([820, 60])
+            self.main_layout.insertWidget(1, self.plot_label_splitter)
+        else:
+            self.main_layout.insertWidget(1, plot_area)
 
         self.matrix_plots = SpinMatrixPlots(self.graphics)
         self._load_standalone_structure()
