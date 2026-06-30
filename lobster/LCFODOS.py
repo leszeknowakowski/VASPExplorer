@@ -664,21 +664,26 @@ class DosWindow(QMainWindow):
 
     def clear_weighted_mean_lines(self):
         for line, plot in self.weighted_mean_lines:
-            plot.removeItem(line)
+            try:
+                plot.removeItem(line)
+            except RuntimeError:
+                pass
         self.weighted_mean_lines = []
 
     def clear_dos_threshold_regions(self):
         for region, plot in self.dos_threshold_regions:
-            plot.removeItem(region)
+            try:
+                plot.removeItem(region)
+            except RuntimeError:
+                pass
         self.dos_threshold_regions = []
 
     def update_weighted_mean(self, selected_entities, selected_orbitals):
-        if len(selected_entities) != 1 or not selected_orbitals:
+        if not selected_entities or not selected_orbitals:
             self.current_weighted_means = {}
-            self.weighted_mean_label.setText("Weighted mean: select one entity and at least one orbital")
+            self.weighted_mean_label.setText("Weighted mean: select at least one entity and at least one orbital")
             return
 
-        ent = selected_entities[0]
         energies = self.doscar.energies
         min_energy, max_energy = sorted(self.dos_plot.region.getRegion())
         region_energies = self.get_region_energies(energies, min_energy, max_energy)
@@ -689,17 +694,20 @@ class DosWindow(QMainWindow):
 
         spin_weights = {}
 
-        for orb in selected_orbitals:
-            data = self.doscar.pdos[ent][orb]
-            for spin in [Spin.up, Spin.down]:
-                if spin not in data:
+        for ent in selected_entities:
+            for orb in selected_orbitals:
+                data = self.doscar.pdos[ent].get(orb)
+                if data is None:
                     continue
-                if spin not in spin_weights:
-                    spin_weights[spin] = np.zeros_like(energies, dtype=float)
-                spin_weights[spin] += data[spin]
+                for spin in [Spin.up, Spin.down]:
+                    if spin not in data:
+                        continue
+                    if spin not in spin_weights:
+                        spin_weights[spin] = np.zeros_like(energies, dtype=float)
+                    spin_weights[spin] += data[spin]
 
         integrate = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
-        orbital_label = "+".join(selected_orbitals)
+        selection_label = self.create_merged_label(selected_entities, selected_orbitals)
         means = {}
 
         for spin, weights in spin_weights.items():
@@ -712,7 +720,7 @@ class DosWindow(QMainWindow):
         if not means:
             self.current_weighted_means = {}
             self.weighted_mean_label.setText(
-                f"Weighted mean for {self.get_entity_name(ent)}_{orbital_label}: no DOS weight in selected region"
+                f"Weighted mean for {selection_label}: no DOS weight in selected region"
             )
             return
 
@@ -724,7 +732,7 @@ class DosWindow(QMainWindow):
                 label_parts.append(f"{spin_label} {means[spin]:.4f} eV")
 
         self.weighted_mean_label.setText(
-            f"Weighted mean for {self.get_entity_name(ent)}_{orbital_label} "
+            f"Weighted mean for {selection_label} "
             f"({min_energy:.2f} to {max_energy:.2f} eV): " + ", ".join(label_parts)
         )
 
@@ -813,22 +821,24 @@ class DosWindow(QMainWindow):
 
     def update_dos_threshold_regions(self, selected_entities, selected_orbitals):
         self.clear_dos_threshold_regions()
-        if len(selected_entities) != 1 or not selected_orbitals:
+        if not selected_entities or not selected_orbitals:
             self.current_dos_threshold_intervals = {}
             return
 
-        ent = selected_entities[0]
         energies = self.doscar.energies
         spin_intensities = {}
 
-        for orb in selected_orbitals:
-            data = self.doscar.pdos[ent][orb]
-            for spin in [Spin.up, Spin.down]:
-                if spin not in data:
+        for ent in selected_entities:
+            for orb in selected_orbitals:
+                data = self.doscar.pdos[ent].get(orb)
+                if data is None:
                     continue
-                if spin not in spin_intensities:
-                    spin_intensities[spin] = np.zeros_like(energies, dtype=float)
-                spin_intensities[spin] += data[spin]
+                for spin in [Spin.up, Spin.down]:
+                    if spin not in data:
+                        continue
+                    if spin not in spin_intensities:
+                        spin_intensities[spin] = np.zeros_like(energies, dtype=float)
+                    spin_intensities[spin] += data[spin]
 
         intervals_by_spin = {}
         for spin, intensity in spin_intensities.items():
@@ -980,6 +990,7 @@ class SavedMergedPlotsWindow(QWidget):
 
     def rebuild(self):
         DosWindow.clear_layout(self.scroll_layout)
+        self.plot_widgets = []
 
         if not self.owner.saved_plots:
             self.scroll_layout.addWidget(QLabel("No saved merged plots."))
@@ -989,6 +1000,7 @@ class SavedMergedPlotsWindow(QWidget):
         for index, (data_up, data_down, label, color) in enumerate(self.owner.saved_plots):
             plot_widget = pg.PlotWidget()
             plot_widget.setBackground("w")
+            plot_widget.getViewBox().sigXRangeChanged.connect(self.owner.update_overlay_spans)
 
             for axis in ["left", "bottom"]:
                 plot_widget.getPlotItem().getAxis(axis).setPen(pg.mkPen("black"))
@@ -1017,6 +1029,12 @@ class SavedMergedPlotsWindow(QWidget):
             item_widget = QWidget()
             item_widget.setLayout(item_layout)
             self.scroll_layout.addWidget(item_widget)
+            self.plot_widgets.append(plot_widget)
+
+        self.owner.update_overlay_spans()
+
+    def current_plot_widgets(self):
+        return [plot for plot in getattr(self, "plot_widgets", []) if plot is not None]
 
         self.scroll_layout.addStretch(1)
 
