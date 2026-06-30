@@ -300,7 +300,7 @@ class MainWindow(QMainWindow):
     def open_icohp_matrix_viewer(self):
         from lobster.icohp_matrix_viewer import IcohpMatrixViewer
 
-        self.icohp_matrix_viewer_window = IcohpMatrixViewer(default_dir=self.dir)
+        self.icohp_matrix_viewer_window = IcohpMatrixViewer(default_dir=self.dir, main_window=self)
         icohplist_file = os.path.join(self.dir, "ICOHPLIST.lobster")
 
         if os.path.isfile(icohplist_file):

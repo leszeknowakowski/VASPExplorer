@@ -1,9 +1,11 @@
 import sys
+import re
 from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui, QtWidgets
+from vtk import vtkActor, vtkLineSource, vtkPolyDataMapper, vtkSphereSource
+from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.io.lobster.outputs import Icohplist
 
@@ -127,6 +129,9 @@ class IcohpDataset:
             return [
                 {
                     "atom_pair": str(bond_key),
+                    "atom1": None,
+                    "atom2": None,
+                    "translation": (0, 0, 0),
                     "total_icohp": {},
                 }
                 for bond_key in self.bond_keys
@@ -134,6 +139,7 @@ class IcohpDataset:
 
         atom1_list = getattr(collection, "_list_atom1", [])
         atom2_list = getattr(collection, "_list_atom2", [])
+        translation_list = getattr(collection, "_list_translation", [])
         total_icohp_list = getattr(collection, "_list_icohp", [])
 
         metadata = []
@@ -141,11 +147,15 @@ class IcohpDataset:
         for index, bond_key in enumerate(self.bond_keys):
             atom1 = self._get_list_value(atom1_list, index, str(bond_key))
             atom2 = self._get_list_value(atom2_list, index, "")
+            translation = self._get_list_value(translation_list, index, (0, 0, 0))
             total_icohp = self._get_list_value(total_icohp_list, index, {})
 
             metadata.append(
                 {
                     "atom_pair": self._format_atom_pair(atom1, atom2),
+                    "atom1": atom1,
+                    "atom2": atom2,
+                    "translation": translation,
                     "total_icohp": total_icohp,
                 }
             )
@@ -460,19 +470,32 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         parent=None,
         default_dir=None,
         levels=None,
+        main_window=None,
+        show_structure=True,
     ):
         super().__init__(parent)
+        owner = main_window or parent
         self.dataset = dataset
         self.load_error = load_error
-        self.default_dir = Path(default_dir or getattr(parent, "dir", Path.cwd()))
+        self.main_window = main_window or self._main_window_from_parent(parent)
+        self.default_dir = Path(default_dir or getattr(owner, "dir", Path.cwd()))
         self.matrix_builder = OrbitalMatrixBuilder()
         self.current_bond_index = 0
         self.manual_color_levels = self._normalize_levels(levels)
+        self.structure_highlight_actors = []
+        self.show_structure = show_structure
+        self.standalone_structure_viewer = None
+        self.standalone_structure_control = None
+        self.standalone_structure_container = None
+        self.standalone_structure_layout = None
+        self.plot_splitter = None
+        self.shift_pressed = False
 
         self._setup_window()
         self._setup_controls()
         self._setup_graphics()
         self._connect_signals()
+        self._connect_structure_signals()
         self.cohpcar_plot_windows = []
         self._sync_level_inputs()
         self.update_plot()
@@ -520,8 +543,27 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
 
     def _setup_graphics(self):
         self.graphics = pg.GraphicsLayoutWidget()
-        self.main_layout.insertWidget(1, self.graphics)
+
+        if self.main_window is None and self.show_structure:
+            self.plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+            self.plot_splitter.addWidget(self.graphics)
+
+            self.standalone_structure_container = QtWidgets.QWidget()
+            self.standalone_structure_layout = QtWidgets.QVBoxLayout(
+                self.standalone_structure_container
+            )
+            self.standalone_structure_layout.setContentsMargins(0, 0, 0, 0)
+            self.standalone_structure_layout.setSpacing(0)
+            self.plot_splitter.addWidget(self.standalone_structure_container)
+            self.plot_splitter.setStretchFactor(0, 2)
+            self.plot_splitter.setStretchFactor(1, 1)
+            self.standalone_structure_container.hide()
+            self.main_layout.insertWidget(1, self.plot_splitter)
+        else:
+            self.main_layout.insertWidget(1, self.graphics)
+
         self.matrix_plots = SpinMatrixPlots(self.graphics)
+        self._load_standalone_structure()
 
     def _connect_signals(self):
         self.open_file_button.clicked.connect(self.open_file)
@@ -533,6 +575,14 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.matrix_plots.set_interaction_double_click_callback(
             self.open_cohpcar_for_interaction
         )
+
+    def _connect_structure_signals(self):
+        if self.main_window is None:
+            return
+
+        slider = self._structure_geometry_slider()
+        if slider is not None:
+            slider.valueChanged.connect(lambda _value: self.refresh_structure_highlight())
 
     @staticmethod
     def _create_level_input():
@@ -570,6 +620,8 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
             self.dataset = None
             self.load_error = f"Could not load {filename}: {error}"
             self.current_bond_index = 0
+            if self.main_window is None:
+                self._clear_standalone_structure()
             self.update_plot()
             QtWidgets.QMessageBox.warning(self, "Load failed", self.load_error)
             return
@@ -577,6 +629,9 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.dataset = dataset
         self.load_error = None
         self.current_bond_index = 0
+        if self.main_window is None:
+            self.default_dir = Path(filename).resolve().parent
+            self._load_standalone_structure(self.default_dir)
         if self.manual_color_levels is None:
             self._sync_level_inputs()
         self.update_plot()
@@ -624,6 +679,7 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
     def update_plot(self):
         if self.dataset is None:
             self.matrix_plots.show_empty()
+            self._clear_structure_highlight()
             self._update_empty_info_label()
             self._update_navigation_buttons()
             return
@@ -650,6 +706,7 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         )
         self._update_info_label(bond_data, bond_metadata)
         self._update_navigation_buttons()
+        self._update_structure_highlight(bond_metadata)
 
     def _current_color_levels(self):
         if self.manual_color_levels is not None:
@@ -678,6 +735,303 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
             raise ValueError("Minimum color level must be smaller than maximum color level.")
 
         return minimum, maximum
+
+    def refresh_structure_highlight(self):
+        if self.dataset is None:
+            self._clear_structure_highlight()
+            return
+
+        _, _, bond_metadata = self.dataset.get_bond(self.current_bond_index)
+        self._update_structure_highlight(bond_metadata)
+
+    def _update_structure_highlight(self, bond_metadata):
+        self._clear_structure_highlight(render=False)
+
+        structure_viewer = self._structure_viewer()
+        if structure_viewer is None:
+            return
+
+        coordinates = self._current_structure_coordinates(structure_viewer)
+        atom_indexes = self._bond_atom_indexes(bond_metadata, structure_viewer.data)
+        if coordinates is None or atom_indexes is None:
+            self._render_structure_plot(structure_viewer.plotter)
+            return
+
+        atom1_index, atom2_index = atom_indexes
+        if atom1_index >= len(coordinates) or atom2_index >= len(coordinates):
+            self._render_structure_plot(structure_viewer.plotter)
+            return
+
+        point1 = np.asarray(coordinates[atom1_index], dtype=float)
+        point2 = np.asarray(coordinates[atom2_index], dtype=float)
+        point2 = point2 + self._translation_vector(bond_metadata, structure_viewer.data)
+
+        radius = self._highlight_sphere_radius()
+        actors = [
+            self._create_highlight_sphere(point1, radius),
+            self._create_highlight_sphere(point2, radius),
+            self._create_highlight_bond(point1, point2),
+        ]
+
+        for actor in actors:
+            structure_viewer.plotter.renderer.AddActor(actor)
+
+        self.structure_highlight_actors = actors
+        self._render_structure_plot(structure_viewer.plotter)
+
+    def _clear_structure_highlight(self, render=True):
+        structure_viewer = self._structure_viewer()
+        plotter = getattr(structure_viewer, "plotter", None)
+        renderer = getattr(plotter, "renderer", None)
+
+        if renderer is not None:
+            for actor in self.structure_highlight_actors:
+                try:
+                    renderer.RemoveActor(actor)
+                except RuntimeError:
+                    pass
+
+        self.structure_highlight_actors = []
+
+        if render and plotter is not None:
+            self._render_structure_plot(plotter)
+
+    def _structure_viewer(self):
+        if self.main_window is not None:
+            return getattr(self.main_window, "structure_plot_interactor_widget", None)
+
+        return self.standalone_structure_viewer
+
+    def _structure_geometry_slider(self):
+        if self.main_window is not None:
+            return getattr(
+                getattr(self.main_window, "structure_plot_control_tab", None),
+                "geometry_slider",
+                None,
+            )
+
+        return getattr(self.standalone_structure_control, "geometry_slider", None)
+
+    @staticmethod
+    def _main_window_from_parent(parent):
+        if hasattr(parent, "structure_plot_interactor_widget"):
+            return parent
+
+        return None
+
+    def _load_standalone_structure(self, directory=None):
+        if (
+            self.main_window is not None
+            or not self.show_structure
+            or self.standalone_structure_container is None
+        ):
+            return
+
+        structure_dir = Path(directory or self._standalone_structure_dir())
+        if not self._has_structure_file(structure_dir):
+            self._clear_standalone_structure()
+            return
+
+        self._clear_standalone_structure()
+
+        try:
+            from structure_controls import StructureControlsWidget
+            from structure_plot import StructureViewer
+            from vasp_data import VaspData
+
+            data = VaspData(str(structure_dir), parse_doscar=False)
+            structure_viewer = StructureViewer(data, parent=self)
+            structure_control = StructureControlsWidget(structure_viewer, parent=self)
+        except Exception as error:
+            print(f"Could not load standalone structure view: {error}")
+            return
+
+        structure_control.hide()
+        self.standalone_structure_viewer = structure_viewer
+        self.standalone_structure_control = structure_control
+        self.standalone_structure_layout.addWidget(structure_viewer)
+        self.standalone_structure_container.show()
+        self.plot_splitter.setSizes([1200, 600])
+
+        slider = self._structure_geometry_slider()
+        if slider is not None:
+            slider.valueChanged.connect(lambda _value: self.refresh_structure_highlight())
+
+    def _clear_standalone_structure(self):
+        if self.standalone_structure_viewer is None:
+            return
+
+        self._clear_structure_highlight(render=False)
+
+        self.standalone_structure_layout.removeWidget(self.standalone_structure_viewer)
+        self.standalone_structure_viewer.setParent(None)
+        self.standalone_structure_viewer.deleteLater()
+
+        if self.standalone_structure_control is not None:
+            self.standalone_structure_control.setParent(None)
+            self.standalone_structure_control.deleteLater()
+
+        self.standalone_structure_viewer = None
+        self.standalone_structure_control = None
+
+        if self.standalone_structure_container is not None:
+            self.standalone_structure_container.hide()
+
+    def _standalone_structure_dir(self):
+        if self.dataset is not None and getattr(self.dataset, "filename", None):
+            return Path(self.dataset.filename).resolve().parent
+
+        return self.default_dir
+
+    @staticmethod
+    def _has_structure_file(directory):
+        directory = Path(directory)
+        return any((directory / filename).is_file() for filename in ("CONTCAR", "POSCAR"))
+
+    def _current_structure_coordinates(self, structure_viewer):
+        data = structure_viewer.data
+        coordinates_by_step = getattr(data, "outcar_coordinates", None)
+
+        if coordinates_by_step is not None and len(coordinates_by_step) > 0:
+            slider = self._structure_geometry_slider()
+            index = slider.value() if slider is not None else 0
+            index = max(0, min(index, len(coordinates_by_step) - 1))
+            return np.asarray(coordinates_by_step[index], dtype=float)
+
+        for attribute in ("coordinates", "init_coordinates"):
+            coordinates = getattr(data, attribute, None)
+            if coordinates is not None:
+                return np.asarray(coordinates, dtype=float)
+
+        return None
+
+    def _bond_atom_indexes(self, bond_metadata, data):
+        atom_labels = getattr(data, "atoms_symb_and_num", [])
+        atom1_index = self._atom_index_from_label(bond_metadata.get("atom1"), atom_labels)
+        atom2_index = self._atom_index_from_label(bond_metadata.get("atom2"), atom_labels)
+
+        if atom1_index is None or atom2_index is None:
+            return None
+
+        return atom1_index, atom2_index
+
+    @staticmethod
+    def _atom_index_from_label(atom_label, atom_labels):
+        if atom_label is None:
+            return None
+
+        if isinstance(atom_label, (int, np.integer)):
+            if 1 <= atom_label <= len(atom_labels):
+                return atom_label - 1
+            if 0 <= atom_label < len(atom_labels):
+                return atom_label
+            return None
+
+        label = str(atom_label).strip().replace(" ", "")
+        if not label:
+            return None
+
+        normalized_labels = {
+            str(atom).strip().replace(" ", ""): index
+            for index, atom in enumerate(atom_labels)
+        }
+        if label in normalized_labels:
+            return normalized_labels[label]
+
+        lower_labels = {atom.lower(): index for atom, index in normalized_labels.items()}
+        if label.lower() in lower_labels:
+            return lower_labels[label.lower()]
+
+        match = re.search(r"(\d+)$", label)
+        if match is None:
+            return None
+
+        atom_index = int(match.group(1)) - 1
+        if 0 <= atom_index < len(atom_labels):
+            return atom_index
+
+        return None
+
+    @staticmethod
+    def _translation_vector(bond_metadata, data):
+        translation = bond_metadata.get("translation", (0, 0, 0))
+        try:
+            translation = np.asarray(translation, dtype=float)
+        except (TypeError, ValueError):
+            return np.zeros(3, dtype=float)
+
+        if translation.shape != (3,):
+            return np.zeros(3, dtype=float)
+
+        vectors = getattr(data, "unit_cell_vectors", None)
+        if callable(vectors):
+            vectors = vectors()
+        if vectors is None and getattr(data, "poscar", None) is not None:
+            vectors = data.poscar.unit_cell_vectors()
+
+        if vectors is None:
+            return np.zeros(3, dtype=float)
+
+        try:
+            return translation @ np.asarray(vectors, dtype=float)
+        except ValueError:
+            return np.zeros(3, dtype=float)
+
+    def _highlight_sphere_radius(self):
+        structure_control = getattr(self.main_window, "structure_plot_control_tab", None)
+        radius = getattr(structure_control, "sphere_radius", None)
+        if radius is None:
+            structure_viewer = self._structure_viewer()
+            radius = getattr(structure_viewer, "sphere_radius", 0.5)
+
+        return max(float(radius) * 1.45, 0.2)
+
+    @staticmethod
+    def _create_highlight_sphere(point, radius):
+        sphere_source = vtkSphereSource()
+        sphere_source.SetRadius(radius)
+        sphere_source.SetCenter(float(point[0]), float(point[1]), float(point[2]))
+        sphere_source.SetThetaResolution(32)
+        sphere_source.SetPhiResolution(32)
+        sphere_source.Update()
+
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputConnection(sphere_source.GetOutputPort())
+
+        actor = vtkActor()
+        actor.SetMapper(mapper)
+        prop = actor.GetProperty()
+        prop.SetColor(0.0, 0.9, 0.0)
+        prop.SetSpecular(0.45)
+        prop.SetSpecularPower(18)
+        prop.SetAmbient(0.35)
+        prop.SetDiffuse(0.7)
+        prop.SetInterpolationToPhong()
+        return actor
+
+    @staticmethod
+    def _create_highlight_bond(point1, point2):
+        line_source = vtkLineSource()
+        line_source.SetPoint1(float(point1[0]), float(point1[1]), float(point1[2]))
+        line_source.SetPoint2(float(point2[0]), float(point2[1]), float(point2[2]))
+        line_source.Update()
+
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputConnection(line_source.GetOutputPort())
+
+        actor = vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(0.0, 0.9, 0.0)
+        actor.GetProperty().SetLineWidth(10)
+        return actor
+
+    @staticmethod
+    def _render_structure_plot(plotter):
+        if hasattr(plotter, "render"):
+            plotter.render()
+            return
+
+        plotter.renderer.Render()
 
     def open_cohpcar_for_interaction(self, interaction_key):
         if self.dataset is None:
@@ -734,6 +1088,10 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.next_button.setEnabled(
             self.current_bond_index < self.dataset.bond_count() - 1
         )
+
+    def closeEvent(self, event):
+        self._clear_structure_highlight()
+        super().closeEvent(event)
 
 
 def get_initial_icohplist_filename():
