@@ -110,6 +110,7 @@ class IcohpDataset:
         self.icohplist = self.icohp_obj.icohplist
         self.bond_keys = list(self.icohplist.keys())
         self.bond_metadata = self._load_bond_metadata()
+        self.color_levels = self._calculate_color_levels()
 
         if not self.bond_keys:
             raise ValueError(f"No bonds found in ICOHPLIST file: {filename}")
@@ -171,6 +172,24 @@ class IcohpDataset:
     def get_bond(self, index):
         bond_key = self.bond_keys[index]
         return bond_key, self.icohplist[bond_key], self.bond_metadata[index]
+
+    def _calculate_color_levels(self):
+        values = []
+
+        for bond_data in self.icohplist.values():
+            for orbital_data in (bond_data.get("orbitals") or {}).values():
+                icohp_by_spin = orbital_data.get("icohp", {})
+                values.extend(float(value) for value in icohp_by_spin.values())
+
+        if not values:
+            return -1.0, 1.0
+
+        minimum = min(values)
+        maximum = max(values)
+        if minimum == maximum:
+            return minimum - 1.0, maximum + 1.0
+
+        return minimum, maximum
 
 
 class OrbitalMatrixBuilder:
@@ -250,11 +269,12 @@ class SpinMatrixPlots:
     def set_interaction_double_click_callback(self, callback):
         self.interaction_double_click_callback = callback
 
-    def update(self, matrix_up, matrix_down, orbitals_1, orbitals_2):
+    def update(self, matrix_up, matrix_down, orbitals_1, orbitals_2, levels=None):
         self.plot_up.clear()
         self.plot_down.clear()
 
-        levels = self._symmetric_levels(matrix_up, matrix_down)
+        if levels is None:
+            levels = self._symmetric_levels(matrix_up, matrix_down)
         colormap = self._current_colormap()
 
         image_up = self._add_matrix_image(
@@ -430,19 +450,28 @@ class SpinMatrixPlots:
 class IcohpMatrixViewer(QtWidgets.QWidget):
     """Main window for browsing orbital-resolved ICOHP matrices."""
 
-    def __init__(self, dataset=None, load_error=None, parent=None, default_dir=None):
+    def __init__(
+        self,
+        dataset=None,
+        load_error=None,
+        parent=None,
+        default_dir=None,
+        levels=None,
+    ):
         super().__init__(parent)
         self.dataset = dataset
         self.load_error = load_error
         self.default_dir = Path(default_dir or getattr(parent, "dir", Path.cwd()))
         self.matrix_builder = OrbitalMatrixBuilder()
         self.current_bond_index = 0
+        self.manual_color_levels = self._normalize_levels(levels)
 
         self._setup_window()
         self._setup_controls()
         self._setup_graphics()
         self._connect_signals()
         self.cohpcar_plot_windows = []
+        self._sync_level_inputs()
         self.update_plot()
 
     def _setup_window(self):
@@ -460,6 +489,20 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.show_values_button = QtWidgets.QPushButton("Show numbers: Off")
         self.show_values_button.setCheckable(True)
         controls_layout.addWidget(self.show_values_button)
+
+        controls_layout.addWidget(QtWidgets.QLabel("Min level"))
+        self.min_level_input = self._create_level_input()
+        controls_layout.addWidget(self.min_level_input)
+
+        controls_layout.addWidget(QtWidgets.QLabel("Max level"))
+        self.max_level_input = self._create_level_input()
+        controls_layout.addWidget(self.max_level_input)
+
+        self.apply_levels_button = QtWidgets.QPushButton("Apply levels")
+        controls_layout.addWidget(self.apply_levels_button)
+
+        self.auto_levels_button = QtWidgets.QPushButton("Auto levels")
+        controls_layout.addWidget(self.auto_levels_button)
 
         controls_layout.addStretch()
 
@@ -480,11 +523,22 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
     def _connect_signals(self):
         self.open_file_button.clicked.connect(self.open_file)
         self.show_values_button.toggled.connect(self.toggle_value_labels)
+        self.apply_levels_button.clicked.connect(self.apply_color_levels)
+        self.auto_levels_button.clicked.connect(self.reset_color_levels)
         self.previous_button.clicked.connect(self.previous_bond)
         self.next_button.clicked.connect(self.next_bond)
         self.matrix_plots.set_interaction_double_click_callback(
             self.open_cohpcar_for_interaction
         )
+
+    @staticmethod
+    def _create_level_input():
+        level_input = QtWidgets.QDoubleSpinBox()
+        level_input.setRange(-1.0e9, 1.0e9)
+        level_input.setDecimals(4)
+        level_input.setSingleStep(0.1)
+        level_input.setKeyboardTracking(False)
+        return level_input
 
     def toggle_value_labels(self, checked):
         self.show_values_button.setText(
@@ -520,6 +574,32 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.dataset = dataset
         self.load_error = None
         self.current_bond_index = 0
+        if self.manual_color_levels is None:
+            self._sync_level_inputs()
+        self.update_plot()
+
+    def apply_color_levels(self):
+        levels = (
+            self.min_level_input.value(),
+            self.max_level_input.value(),
+        )
+
+        try:
+            self.manual_color_levels = self._normalize_levels(levels)
+        except ValueError as error:
+            QtWidgets.QMessageBox.warning(self, "Invalid levels", str(error))
+            return
+
+        self.update_plot()
+
+    def reset_color_levels(self):
+        self.manual_color_levels = None
+        self._sync_level_inputs()
+        self.update_plot()
+
+    def set_color_levels(self, levels):
+        self.manual_color_levels = self._normalize_levels(levels)
+        self._sync_level_inputs()
         self.update_plot()
 
     def previous_bond(self):
@@ -563,9 +643,38 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
             matrix_down,
             orbitals_1,
             orbitals_2,
+            levels=self._current_color_levels(),
         )
         self._update_info_label(bond_data, bond_metadata)
         self._update_navigation_buttons()
+
+    def _current_color_levels(self):
+        if self.manual_color_levels is not None:
+            return self.manual_color_levels
+
+        if self.dataset is not None:
+            return self.dataset.color_levels
+
+        return -1.0, 1.0
+
+    def _sync_level_inputs(self):
+        minimum, maximum = self._current_color_levels()
+        self.min_level_input.setValue(minimum)
+        self.max_level_input.setValue(maximum)
+
+    @staticmethod
+    def _normalize_levels(levels):
+        if levels is None:
+            return None
+
+        if len(levels) != 2:
+            raise ValueError("Color levels must contain exactly two values.")
+
+        minimum, maximum = (float(levels[0]), float(levels[1]))
+        if not minimum < maximum:
+            raise ValueError("Minimum color level must be smaller than maximum color level.")
+
+        return minimum, maximum
 
     def open_cohpcar_for_interaction(self, interaction_key):
         if self.dataset is None:
