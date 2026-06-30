@@ -186,6 +186,9 @@ class IcohpDataset:
 
         minimum = min(values)
         maximum = max(values)
+        biggest = max(abs(minimum), abs(maximum))
+        minimum = - biggest
+        maximum = biggest
         if minimum == maximum:
             return minimum - 1.0, maximum + 1.0
 
