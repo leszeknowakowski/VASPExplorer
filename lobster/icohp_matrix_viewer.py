@@ -321,6 +321,8 @@ class SpinMatrixPlots:
             self._add_value_labels(self.plot_up, matrix_up, levels)
             self._add_value_labels(self.plot_down, matrix_down, levels)
 
+        self.view_all()
+
     def set_show_values(self, show_values):
         self.show_values = show_values
 
@@ -337,6 +339,10 @@ class SpinMatrixPlots:
         self._add_empty_text(self.plot_down, message)
         self.colorbar.setImageItem([])
         self.colorbar.setLevels((-1.0, 1.0))
+
+    def view_all(self):
+        for plot in (self.plot_up, self.plot_down):
+            plot.getViewBox().autoRange()
 
     @staticmethod
     def _add_empty_text(plot, message):
@@ -500,6 +506,10 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.cohpcar_plot_windows = []
         self._sync_level_inputs()
         self.update_plot()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        QtCore.QTimer.singleShot(0, self.matrix_plots.view_all)
 
     def _setup_window(self):
         self.resize(1800, 900)
@@ -722,6 +732,7 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self._update_info_label(bond_data, bond_metadata)
         self._update_navigation_buttons()
         self._update_structure_highlight(bond_metadata)
+        QtCore.QTimer.singleShot(0, self.matrix_plots.view_all)
 
     def _current_color_levels(self):
         if self.manual_color_levels is not None:
