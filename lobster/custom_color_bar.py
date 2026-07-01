@@ -78,6 +78,8 @@ class ColorHandle(pg.GraphicsObject):
         ev.accept()
 
 class EditableColorBarItem(pg.ColorBarItem):
+    sigColorHandlesChanged = QtCore.Signal()
+
     def __init__(self, *args, editable_cmap=True, **kwargs):
         self.editable_cmap = editable_cmap
         self.color_handles = []
@@ -141,6 +143,14 @@ class EditableColorBarItem(pg.ColorBarItem):
 
         return handle
 
+    def setColorHandlePosition(self, handle, pos):
+        if handle not in self.color_handles:
+            return
+
+        handle.color_pos = float(np.clip(pos, 0.0, 1.0))
+        self._setColorHandlePos(handle)
+        self._colorHandleChanged()
+
     def _setColorHandlePos(self, handle):
         p = float(np.clip(handle.color_pos, 0.0, 1.0))
 
@@ -177,6 +187,7 @@ class EditableColorBarItem(pg.ColorBarItem):
 
         self._colorMap = colormap.ColorMap(pos, colors)
         self._update_items(update_cmap=True)
+        self.sigColorHandlesChanged.emit()
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):

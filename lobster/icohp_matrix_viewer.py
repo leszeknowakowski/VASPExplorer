@@ -17,6 +17,8 @@ except ImportError:
     from custom_color_bar import EditableColorBarItem
 
 
+ACTION_CLASS = getattr(QtWidgets, "QAction", None) or QtGui.QAction
+
 ICOHPLIST_FILENAME = (
     r"D:\syncme\modelowanie DFT\co3o4_new_new\9.deep_o2_reduction\GOOD"
     r"\1.spin_up\HSE\1.gas_to_metaloxo\5.o2_2minus\ICOHPLIST.lobster"
@@ -467,6 +469,181 @@ class SpinMatrixPlots:
         return self.colorbar._colorMap
 
 
+class ColorHandleSwatch(QtWidgets.QFrame):
+    sigDoubleClicked = QtCore.Signal(object)
+
+    def __init__(self, handle, parent=None):
+        super().__init__(parent)
+        self.handle = handle
+        self.setFixedSize(36, 18)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        self.setToolTip("Double-click to edit color")
+        self.set_color(handle.color)
+
+    def set_color(self, color):
+        self.setStyleSheet(
+            "QFrame {"
+            f"background-color: #{color.red():02x}{color.green():02x}{color.blue():02x};"
+            "border: 1px solid #444;"
+            "}"
+        )
+
+    def mouseDoubleClickEvent(self, event):
+        self.sigDoubleClicked.emit(self.handle)
+        event.accept()
+
+
+class ColorHandlePositionsDialog(QtWidgets.QDialog):
+    """Numeric editor for the color bar handle positions."""
+
+    def __init__(self, colorbar, parent=None):
+        super().__init__(parent)
+        self.colorbar = colorbar
+        self.spinboxes = []
+        self._loading_positions = False
+        self._applying_position = False
+        self._applying_color = False
+
+        self.setWindowTitle("Color handle positions")
+        self.resize(360, 260)
+        self._setup_ui()
+        self._connect_colorbar_signal()
+        self.refresh_from_colorbar()
+
+    def _setup_ui(self):
+        layout = QtWidgets.QVBoxLayout(self)
+
+        self.positions_layout = QtWidgets.QGridLayout()
+        self.positions_layout.setColumnStretch(2, 1)
+        layout.addLayout(self.positions_layout)
+
+        close_button_type = self._dialog_button_type("Close")
+        button_box = QtWidgets.QDialogButtonBox(close_button_type)
+        close_button = button_box.button(close_button_type)
+        if close_button is not None:
+            close_button.clicked.connect(self.close)
+        else:
+            button_box.rejected.connect(self.close)
+        layout.addWidget(button_box)
+
+    def _connect_colorbar_signal(self):
+        signal = getattr(self.colorbar, "sigColorHandlesChanged", None)
+        if signal is not None:
+            signal.connect(self.refresh_from_colorbar)
+
+    def refresh_from_colorbar(self):
+        if self._applying_position or self._applying_color:
+            return
+
+        self._loading_positions = True
+        self._clear_position_widgets()
+
+        handles = self._sorted_handles()
+        if not handles:
+            self.positions_layout.addWidget(
+                QtWidgets.QLabel("No color handles"),
+                0,
+                0,
+                1,
+                3,
+            )
+            self._loading_positions = False
+            return
+
+        for column, label in enumerate(("Handle", "Color", "Position")):
+            self.positions_layout.addWidget(QtWidgets.QLabel(label), 0, column)
+
+        for row, handle in enumerate(handles, start=1):
+            self.positions_layout.addWidget(QtWidgets.QLabel(str(row)), row, 0)
+            self.positions_layout.addWidget(self._create_color_swatch(handle), row, 1)
+
+            position_input = self._create_position_input(handle.color_pos)
+            position_input.valueChanged.connect(
+                lambda value, handle=handle: self._handle_position_changed(
+                    handle,
+                    value,
+                )
+            )
+            self.positions_layout.addWidget(position_input, row, 2)
+            self.spinboxes.append(position_input)
+
+        self._loading_positions = False
+
+    def _clear_position_widgets(self):
+        self.spinboxes = []
+        while self.positions_layout.count():
+            item = self.positions_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def _sorted_handles(self):
+        return sorted(
+            getattr(self.colorbar, "color_handles", []),
+            key=lambda handle: handle.color_pos,
+        )
+
+    def _create_color_swatch(self, handle):
+        swatch = ColorHandleSwatch(handle)
+        swatch.sigDoubleClicked.connect(self._edit_handle_color)
+        return swatch
+
+    def _edit_handle_color(self, handle):
+        color = QtWidgets.QColorDialog.getColor(handle.color, self)
+        if not color.isValid():
+            return
+
+        self._applying_color = True
+        try:
+            handle.color = color
+            handle.update()
+            handle.sigColorChanged.emit()
+        finally:
+            self._applying_color = False
+
+        self.refresh_from_colorbar()
+
+    @staticmethod
+    def _create_position_input(value):
+        position_input = QtWidgets.QDoubleSpinBox()
+        position_input.setRange(0.0, 1.0)
+        position_input.setDecimals(4)
+        position_input.setSingleStep(0.01)
+        position_input.setKeyboardTracking(False)
+        position_input.setAccelerated(True)
+        position_input.setValue(float(value))
+        return position_input
+
+    def _handle_position_changed(self, handle, value):
+        if self._loading_positions:
+            return
+
+        self._applying_position = True
+        try:
+            self._set_handle_position(handle, value)
+        finally:
+            self._applying_position = False
+
+    def _set_handle_position(self, handle, value):
+        setter = getattr(self.colorbar, "setColorHandlePosition", None)
+        if setter is not None:
+            setter(handle, value)
+            return
+
+        handle.color_pos = float(np.clip(value, 0.0, 1.0))
+        self.colorbar._setColorHandlePos(handle)
+        self.colorbar._colorHandleChanged()
+
+    @staticmethod
+    def _dialog_button_type(name):
+        button_box = QtWidgets.QDialogButtonBox
+        button_type = getattr(button_box, name, None)
+        if button_type is not None:
+            return button_type
+
+        return getattr(button_box.StandardButton, name)
+
+
 class IcohpMatrixViewer(QtWidgets.QWidget):
     """Main window for browsing orbital-resolved ICOHP matrices."""
 
@@ -498,8 +675,10 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.plot_splitter = None
         self.plot_label_splitter = None
         self.shift_pressed = False
+        self.color_handle_dialog = None
 
         self._setup_window()
+        self._setup_menus()
         self._setup_controls()
         self._setup_graphics()
         self._connect_signals()
@@ -517,12 +696,26 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self.setWindowTitle("Orbital-resolved ICOHP matrices")
         self.main_layout = QtWidgets.QVBoxLayout(self)
 
+    def _setup_menus(self):
+        self.menu_bar = QtWidgets.QMenuBar(self)
+        self.menu_bar.setNativeMenuBar(False)
+        self.main_layout.setMenuBar(self.menu_bar)
+
+        file_menu = self.menu_bar.addMenu("File")
+        self.open_file_action = ACTION_CLASS("Open...", self)
+        self.open_file_action.setShortcut("Ctrl+O")
+        file_menu.addAction(self.open_file_action)
+
+        color_map_menu = self.menu_bar.addMenu("Color Map")
+        self.color_handle_positions_action = ACTION_CLASS(
+            "Handle positions...",
+            self,
+        )
+        color_map_menu.addAction(self.color_handle_positions_action)
+
     def _setup_controls(self):
         controls_layout = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(controls_layout)
-
-        self.open_file_button = QtWidgets.QPushButton("Open file")
-        controls_layout.addWidget(self.open_file_button)
 
         self.show_values_button = QtWidgets.QPushButton("Show numbers: Off")
         self.show_values_button.setCheckable(True)
@@ -592,7 +785,10 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         self._load_standalone_structure()
 
     def _connect_signals(self):
-        self.open_file_button.clicked.connect(self.open_file)
+        self.open_file_action.triggered.connect(self.open_file)
+        self.color_handle_positions_action.triggered.connect(
+            self.show_color_handle_positions_dialog
+        )
         self.show_values_button.toggled.connect(self.toggle_value_labels)
         self.apply_levels_button.clicked.connect(self.apply_color_levels)
         self.auto_levels_button.clicked.connect(self.reset_color_levels)
@@ -618,6 +814,43 @@ class IcohpMatrixViewer(QtWidgets.QWidget):
         level_input.setSingleStep(0.1)
         level_input.setKeyboardTracking(False)
         return level_input
+
+    def show_color_handle_positions_dialog(self):
+        if self.color_handle_dialog is not None:
+            self.color_handle_dialog.refresh_from_colorbar()
+            self.color_handle_dialog.show()
+            self.color_handle_dialog.raise_()
+            self.color_handle_dialog.activateWindow()
+            return
+
+        self.color_handle_dialog = ColorHandlePositionsDialog(
+            self.matrix_plots.colorbar,
+            self,
+        )
+        delete_on_close = self._qt_attribute("WA_DeleteOnClose")
+        if delete_on_close is not None:
+            self.color_handle_dialog.setAttribute(delete_on_close, True)
+        self.color_handle_dialog.destroyed.connect(
+            self._color_handle_dialog_destroyed
+        )
+        self.color_handle_dialog.show()
+        self.color_handle_dialog.raise_()
+        self.color_handle_dialog.activateWindow()
+
+    def _color_handle_dialog_destroyed(self, *_args):
+        self.color_handle_dialog = None
+
+    @staticmethod
+    def _qt_attribute(name):
+        attribute = getattr(QtCore.Qt, name, None)
+        if attribute is not None:
+            return attribute
+
+        widget_attribute = getattr(QtCore.Qt, "WidgetAttribute", None)
+        if widget_attribute is None:
+            return None
+
+        return getattr(widget_attribute, name, None)
 
     def toggle_value_labels(self, checked):
         self.show_values_button.setText(
