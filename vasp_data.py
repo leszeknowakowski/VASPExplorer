@@ -1,4 +1,5 @@
 import time
+from types import SimpleNamespace
 
 tic = time.perf_counter()
 try:
@@ -14,13 +15,18 @@ from exceptions import EmptyFile
 
 
 class VaspData():
-    def __init__(self, dir, parse_doscar=True):
-        outcar = self.parse_outcar(dir)
+    def __init__(self, dir, parse_doscar=True, parse_outcar=True):
+        if parse_outcar:
+            self.parse_outcar(dir)
+        else:
+            self.outcar_file = False
         poscar = self.parse_poscar(dir)
         if parse_doscar:
             doscar = self.parse_doscar(dir)
             self.process_doscar(doscar)
         self.process_poscar(poscar)
+        if not parse_doscar:
+            self.initialize_empty_dos_data()
         self.nums = list(range(1, self.number_of_atoms+1))
 
 
@@ -94,8 +100,13 @@ class VaspData():
 
         if self.xdatcar_file:
             if not self.outcar_file:
-                self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
-                xdatcar_file_exists = self.xdatcar.xdatcar_file_exists
+                try:
+                    self.xdatcar = self.parse_xdatcar(dir, self.xdatcar_file)
+                    xdatcar_file_exists = self.xdatcar.xdatcar_file_exists
+                except Exception as exc:
+                    print(f"Failed to parse XDATCAR ({exc}). Falling back to POSCAR/CONTCAR.")
+                    self.xdatcar_file = False
+                    xdatcar_file_exists = False
                 if xdatcar_file_exists:
                     if os.path.getsize(self.xdatcar_file) > 0:
                         self.poscar = PoscarParser(self.xdatcar_file)
@@ -191,6 +202,26 @@ class VaspData():
 
         self.partition_atoms(atoms_underline_number)
         self.end_coords_line_number = self.poscar.end_coords_line_number
+
+    def initialize_empty_dos_data(self):
+        """
+        Lightweight DOS placeholders used during fast startup. Real DOS data is
+        populated later when full parsing is requested.
+        """
+        self.orbital_types = self.orb_types
+        self.orbitals = [orb for group in self.orb_types for orb in group]
+        self.e_fermi = 0.0
+        self.nedos = 1
+
+        n_atoms = max(1, self.number_of_atoms)
+        n_orbitals = len(self.orbitals)
+        zeros = [[[0.0] for _ in range(n_orbitals)] for _ in range(n_atoms)]
+
+        self.data_up = zeros
+        self.data_down = [[[0.0] for _ in range(n_orbitals)] for _ in range(n_atoms)]
+        self.total_alfa = [0.0]
+        self.total_beta = [0.0]
+        self.doscar = SimpleNamespace(total_dos_energy=[0.0])
 
     def partition_atoms(self, atom_underline_number):
         self.partitioned_lists = [[] for _ in range(len(self.atomic_symbols))]

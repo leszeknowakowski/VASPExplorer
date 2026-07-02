@@ -57,7 +57,8 @@ class MainWindow(QMainWindow):
         self.__version__ = "0.0.1"
         #self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
         self.dir = self.set_working_dir()
-        self.create_data()
+        self._full_data_loaded = False
+        self.create_data(parse_doscar=False, parse_outcar=False)
         self.qmainwindow = QMainWindow()
         self.exec_dir = os.path.dirname(os.path.abspath(__file__))
         self.blink_timer = QTimer()
@@ -103,6 +104,7 @@ class MainWindow(QMainWindow):
         self.set_styles()
         self.resizeDocks([self.controls_dock], [430], Qt.Horizontal)
         self.resizeDocks([self.console_dock], [220], Qt.Vertical)
+        QTimer.singleShot(0, self.load_full_data_after_startup)
 
         # add geometry buttons and slider to toolbar
         self.toolbar.addWidget(self.structure_plot_control_tab.start_geometry_button)
@@ -466,11 +468,21 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error logging launch: {e}")
 
-    def create_data(self):
+    def create_data(self, parse_doscar=True, parse_outcar=True):
         self.splash.showMessage("loading data...",Qt.AlignBottom | Qt.AlignCenter, Qt.black)
         from vasp_data import VaspData
         dir = self.set_working_dir()
-        self.data = VaspData(dir)
+        self.data = VaspData(dir, parse_doscar=parse_doscar, parse_outcar=parse_outcar)
+
+    def load_full_data_after_startup(self):
+        """
+        Parse full DOS/OUTCAR data after initial paint to improve perceived startup.
+        """
+        if self._full_data_loaded:
+            return
+        self.splash.showMessage("Loading full data...", Qt.AlignBottom | Qt.AlignCenter, Qt.black)
+        self.load_data(self.dir, parse_doscar=True, parse_outcar=True)
+        self._full_data_loaded = True
 
     def set_window_title(self, path):
         abs_path = os.path.abspath(path)
@@ -491,12 +503,12 @@ class MainWindow(QMainWindow):
             return  # user cancelled
         return selected_dir
 
-    def load_data(self, selected_dir):
+    def load_data(self, selected_dir, parse_doscar=True, parse_outcar=True):
         from vasp_data import VaspData
         #try:
         if True:
             # Load new data
-            self.data = VaspData(selected_dir)
+            self.data = VaspData(selected_dir, parse_doscar=parse_doscar, parse_outcar=parse_outcar)
 
             # Update widgets
             self.dos_plot_widget.update_data(self.data)
