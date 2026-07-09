@@ -55,7 +55,6 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
         super().__init__(parent)
         self.__version__ = "0.0.1"
-        #self.setStyleSheet("QMainWindow {background-color:#1e1f22;}")
         self.dir = self.set_working_dir()
         self._full_data_loaded = False
         self.create_data(parse_doscar=False, parse_outcar=False)
