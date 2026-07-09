@@ -12,9 +12,9 @@ from config import AppConfig
 AppConfig.load()
 tic = time.perf_counter()
 from PyQt5.QtWidgets import (
-    QApplication, QDialog, QDockWidget, QLabel, QMainWindow, QSplitter,
+    QDockWidget, QMainWindow, QSplitter,
     QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QStyleFactory,
-    QVBoxLayout, QWidget
+
 )
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 from PyQt5.QtCore import Qt, QTimer, QEvent
