@@ -416,12 +416,17 @@ class DosControlWidget(QWidget):
 
     def save_merged_plot(self):
         """save merged plot to a save list"""
-        plot_items = int(len(self.plot_widget.bounded_plot.plotItem.curves))
         data_up = self.plot_widget.bounded_plot.plotItem.curves[-2].getData()[0]
         data_down = self.plot_widget.bounded_plot.plotItem.curves[-1].getData()[0]
         lbl = self.saved_labels[-1]
         color = self.saved_colors[-1]
-        self.saved_plots.append((data_up, data_down, lbl, color))
+        mean_values = self.plot_widget.calculate_spin_weighted_means(
+            data_up,
+            data_down,
+            self.data.doscar.total_dos_energy,
+            self.plot_widget.region.getRegion(),
+        )
+        self.saved_plots.append((data_up, data_down, lbl, color, mean_values))
 
     def show_saved_plot(self):
         """show saved plots"""
