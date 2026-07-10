@@ -11,7 +11,7 @@ from PyQt5.QtGui import QIcon, QCursor
 from scipy.spatial.distance import pdist, squareform
 
 from RangeSlider import QRangeSlider
-from vtk import vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, \
+from vtk import vtkNamedColors, vtkPlaneSource, vtkActor, vtkLineSource, vtkSphereSource, vtkTubeFilter, \
     vtkPolyDataMapper, vtkArrowSource, \
 vtkTransformPolyDataFilter, vtkTransform
 from vtkmodules.vtkCommonCore import (
@@ -67,6 +67,8 @@ class StructureControlsWidget(QWidget):
         self.mag_cb = None
         self.bond_threshold_label = None
         self.bond_threshold_slider = None
+        self.bond_style_menu = None
+        self.bond_cylinder_radius_spinbox = None
         self.sphere_radius_label = None
         self.sphere_radius_slider = None
         self.planes_frame_layout = None
@@ -76,6 +78,8 @@ class StructureControlsWidget(QWidget):
         self.render_frame_layout = None
         self.renderFrame = None
         self.bond_threshold = 2.5
+        self.bond_render_mode = "lines"
+        self.bond_cylinder_radius = 0.12
         self.sphere_radius = 0.5
         self.constrains = self.structure_plot_widget.data.constrains
         self.selected_actors = []
@@ -182,10 +186,26 @@ class StructureControlsWidget(QWidget):
         self.bond_threshold_slider.valueChanged.connect(self.add_bonds)
         self.bond_threshold_slider.valueChanged.connect(self.update_bond_threshold_label)
 
+        self.bond_style_menu = QtWidgets.QComboBox()
+        self.bond_style_menu.addItems(["lines", "cylinders"])
+        self.bond_style_menu.currentTextChanged.connect(self.set_bond_render_mode)
+
+        self.bond_cylinder_radius_spinbox = QtWidgets.QDoubleSpinBox()
+        self.bond_cylinder_radius_spinbox.setRange(0.01, 2.0)
+        self.bond_cylinder_radius_spinbox.setSingleStep(0.01)
+        self.bond_cylinder_radius_spinbox.setDecimals(2)
+        self.bond_cylinder_radius_spinbox.setValue(self.bond_cylinder_radius)
+        self.bond_cylinder_radius_spinbox.setEnabled(False)
+        self.bond_cylinder_radius_spinbox.valueChanged.connect(self.set_bond_cylinder_radius)
+
         bond_layaout = QHBoxLayout()
         bond_layaout.addWidget(self.bonds_cb)
         bond_layaout.addWidget(self.bond_threshold_label)
         bond_layaout.addWidget(self.bond_threshold_slider)
+        bond_layaout.addWidget(QLabel("style:"))
+        bond_layaout.addWidget(self.bond_style_menu)
+        bond_layaout.addWidget(QLabel("radius:"))
+        bond_layaout.addWidget(self.bond_cylinder_radius_spinbox)
         self.render_frame_layout.addLayout(bond_layaout)
 
         # ############ unit cell part #####################
@@ -643,30 +663,37 @@ class StructureControlsWidget(QWidget):
 
     def add_bonds(self, show_all=True):
         """
-        render bonds as lines. First calculate all pairs, which distance is less than threshold,
-        and then uses vtkLine to create a bond. For unknown reason, function doesn't work with
+        render bonds as bicolor lines or cylinders. First calculate all pairs,
+        which distance is less than threshold, and then uses vtkLine to create a bond.
+        For unknown reason, function doesn't work with
         connect signal when self.bond_threshold is passed as argument, so it has to be implemen-
         ted in this module. So does all functions which depend on slider/checkbox variables
         """
-        if self.bond_visibility == 0:
-            return
+        if not isinstance(show_all, bool):
+            show_all = True
+
         bond_threshold = self.bond_threshold
         geometry_slider_value = self.geometry_slider.value()
-        coord_pairs = []
-        if len(self.structure_plot_widget.data.outcar_coordinates) == 1:
-            coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value]
-        else:
-            coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value]
+        coordinates = self.structure_plot_widget.data.outcar_coordinates[geometry_slider_value]
+
         if self.structure_plot_widget.bond_actors is not None:
             for actor in self.structure_plot_widget.bond_actors:
                 self.structure_plot_widget.plotter.renderer.RemoveActor(actor)
 
         self.structure_plot_widget.bond_actors = []
         self.structure_plot_widget.coord_pairs = []
+        if not self.bond_visibility:
+            self.structure_plot_widget.plotter.renderer.Render()
+            return
 
         visibility_mask = self.get_spheres_visibility()
+        atom_color_indices = list(range(len(coordinates)))
         if not show_all:
-            coordinates = [e for e,v in zip(coordinates, visibility_mask) if v==1]
+            atom_color_indices = [i for i, v in enumerate(visibility_mask) if v == 1]
+            coordinates = [coordinates[i] for i in atom_color_indices]
+        if len(coordinates) < 2:
+            self.structure_plot_widget.plotter.renderer.Render()
+            return
         # Calculate pairwise distances
         distances = squareform(pdist(coordinates))
 
@@ -675,27 +702,57 @@ class StructureControlsWidget(QWidget):
 
         # Find pairs with distance less than threshold (excluding distances between the same point pairs)
         pairs = np.argwhere((upper_triangle < bond_threshold) & (upper_triangle > 0))
-        colors = vtkNamedColors()
         for pair in pairs:
             point1, point2 = pair
             coord1 = coordinates[point1]
             coord2 = coordinates[point2]
-            coord_pairs.append([coord1, coord2])
-        for pair in coord_pairs:
-            if True:  # self.master_bond_visibility == 2:
-                line_source = vtkLineSource()
-                line_source.SetPoint1(pair[0])
-                line_source.SetPoint2(pair[1])
-                mapper = vtkPolyDataMapper()
-                mapper.SetInputConnection(line_source.GetOutputPort())
-                actor = vtkActor()
-                actor.SetMapper(mapper)
-                actor.GetProperty().SetLineWidth(5)
-                actor.GetProperty().SetColor(colors.GetColor3d('Black'))
-
+            color1 = self.structure_plot_widget.atom_colors[atom_color_indices[point1]]
+            color2 = self.structure_plot_widget.atom_colors[atom_color_indices[point2]]
+            self.structure_plot_widget.coord_pairs.append([coord1, coord2])
+            for actor in self._create_bicolor_bond(coord1, coord2, color1, color2):
                 self.structure_plot_widget.plotter.renderer.AddActor(actor)
                 self.structure_plot_widget.bond_actors.append(actor)
+        self.structure_plot_widget.plotter.renderer.Render()
         return
+
+    def _create_bicolor_bond(self, coord1, coord2, color1, color2):
+        coord1 = np.array(coord1, dtype=float)
+        coord2 = np.array(coord2, dtype=float)
+        midpoint = (coord1 + coord2) / 2
+        return [
+            self._create_bond_segment(coord1, midpoint, color1),
+            self._create_bond_segment(midpoint, coord2, color2),
+        ]
+
+    def _create_bond_segment(self, start, end, color):
+        line_source = vtkLineSource()
+        line_source.SetPoint1(start.tolist())
+        line_source.SetPoint2(end.tolist())
+
+        mapper = vtkPolyDataMapper()
+        if self.bond_render_mode == "cylinders":
+            tube_filter = vtkTubeFilter()
+            tube_filter.SetInputConnection(line_source.GetOutputPort())
+            tube_filter.SetRadius(self.bond_cylinder_radius)
+            tube_filter.SetNumberOfSides(24)
+            tube_filter.CappingOn()
+            mapper.SetInputConnection(tube_filter.GetOutputPort())
+        else:
+            mapper.SetInputConnection(line_source.GetOutputPort())
+
+        actor = vtkActor()
+        actor.SetMapper(mapper)
+        if self.bond_render_mode == "lines":
+            actor.GetProperty().SetLineWidth(5)
+        actor.GetProperty().SetColor(self._normalized_rgb(color))
+        return actor
+
+    @staticmethod
+    def _normalized_rgb(color):
+        rgb = np.array(color, dtype=float)[:3]
+        if np.max(rgb) > 1:
+            rgb = rgb / 255
+        return rgb.tolist()
 
     def toggle_unit_cell(self, flag):
         """ switches on and off unit cell visibility"""
@@ -875,13 +932,27 @@ class StructureControlsWidget(QWidget):
         self.structure_plot_widget.symb_actor.SetVisibility(False)
 
     def toggle_bonds(self, flag):
-        self.bond_visibility = flag
+        self.bond_visibility = bool(flag)
+        if self.bond_visibility and not self.structure_plot_widget.bond_actors:
+            self.add_bonds()
+            return
         for actor in self.structure_plot_widget.bond_actors:
-            actor.SetVisibility(flag)
+            actor.SetVisibility(self.bond_visibility)
+        self.structure_plot_widget.plotter.renderer.Render()
 
     def set_bond_threshold(self, value):
         """ setter of the bond_threshold_value"""
         self.bond_threshold = value / 100
+
+    def set_bond_render_mode(self, mode):
+        self.bond_render_mode = mode
+        self.bond_cylinder_radius_spinbox.setEnabled(mode == "cylinders")
+        self.add_bonds()
+
+    def set_bond_cylinder_radius(self, value):
+        self.bond_cylinder_radius = value
+        if self.bond_render_mode == "cylinders":
+            self.add_bonds()
 
     def update_bond_threshold_label(self):
         """ updates the label indicating current bond visibility value"""
