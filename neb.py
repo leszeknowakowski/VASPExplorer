@@ -7,7 +7,7 @@ import json
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QHBoxLayout,
                              QSlider, QSplitter, QTableWidget, QTableWidgetItem, QHeaderView,
                              QPushButton, QCheckBox)
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QIcon
 from PyQt5 import QtCore
 from scipy.spatial.distance import pdist, squareform
 import numpy as np
@@ -93,6 +93,7 @@ class NebWindow(QMainWindow):
         self.neb = ReadNebData(self.dir)
 
         script_dir = os.path.dirname(__file__)
+        self.icon_path = os.path.join(script_dir, 'icons')
         colors_file = os.path.join(script_dir, 'elementColorSchemes.json')
         with open(colors_file, 'r') as file:
             self.color_data = json.load(file)
@@ -236,12 +237,48 @@ class NebWindow(QMainWindow):
         self.slider_count_label = QLabel()
         self.slider_count_label.setText(f"Steps: {self.geo_slider.value()}")
 
+        self.start_geometry_button = QPushButton()
+        self.start_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "start.png")))
+        self.start_geometry_button.setFixedWidth(30)
+        self.start_geometry_button.clicked.connect(self.start_geometry)
+
+        self.back_geometry_button = QPushButton()
+        self.back_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "back.png")))
+        self.back_geometry_button.setFixedWidth(30)
+        self.back_geometry_button.clicked.connect(self.back_geometry)
+
+        self.next_geometry_button = QPushButton()
+        self.next_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "next.png")))
+        self.next_geometry_button.setFixedWidth(30)
+        self.next_geometry_button.clicked.connect(self.next_geometry)
+
+        self.end_geometry_button = QPushButton()
+        self.end_geometry_button.setIcon(QIcon(os.path.join(self.icon_path, "end.png")))
+        self.end_geometry_button.setFixedWidth(30)
+        self.end_geometry_button.clicked.connect(self.end_geometry)
+
         self.sliderLayout.addWidget(self.slider_count_label)
         self.sliderLayout.addWidget(self.geo_slider)
+        self.sliderLayout.addWidget(self.start_geometry_button)
+        self.sliderLayout.addWidget(self.back_geometry_button)
+        self.sliderLayout.addWidget(self.next_geometry_button)
+        self.sliderLayout.addWidget(self.end_geometry_button)
         slider_widget=QWidget()
         slider_widget.setLayout(self.sliderLayout)
 
         self.splitter.addWidget(slider_widget)
+
+    def start_geometry(self):
+        self.geo_slider.setValue(self.geo_slider.minimum())
+
+    def back_geometry(self):
+        self.geo_slider.setValue(self.geo_slider.value() - self.geo_slider.singleStep())
+
+    def next_geometry(self):
+        self.geo_slider.setValue(self.geo_slider.value() + self.geo_slider.singleStep())
+
+    def end_geometry(self):
+        self.geo_slider.setValue(self.geo_slider.maximum())
 
     def add_plotters(self):
         self.plotters = []
