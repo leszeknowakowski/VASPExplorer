@@ -160,6 +160,7 @@ class TableWidgetDragRows(QTableWidget):
                     new_list = self.sort_by_mapping(list, mapping)
                     new_all_lists.append(new_list)
                 setattr(self.plot.data, attr, new_all_lists)
+        self.control.update_geometry_status()
 
     def sort_by_mapping(self, list, mapping):
         reordered = [None] * len(list)
@@ -753,6 +754,7 @@ class StructureVariableControls(QWidget):
         self.block_and_update_table()
         self.structure_control_widget.add_bonds()
         self.update_bonds()
+        self.structure_control_widget.update_geometry_status()
 
     def block_and_update_table(self):
         self.tableWidget.blockSignals(True)

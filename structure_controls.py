@@ -40,6 +40,7 @@ class StructureControlsWidget(QWidget):
         like atoms, bonds, and planes, along with managing display and interaction properties.
     """
     selected_actors_changed = QtCore.pyqtSignal(list)
+    geometry_status_changed = QtCore.pyqtSignal(str)
 
     def __init__(self, structure_plot_widget, parent=None):
         super().__init__()
@@ -102,6 +103,7 @@ class StructureControlsWidget(QWidget):
         self.add_line_plot()
         self.add_scatter_plot()
         self.update_scatter()
+        self.update_geometry_status()
 
     def initUI(self):
         self.vlayout = QVBoxLayout(self)
@@ -268,6 +270,7 @@ class StructureControlsWidget(QWidget):
         self.geometry_slider.valueChanged.connect(self.toggle_symbols_between_planes)
         self.geometry_slider.valueChanged.connect(self.update_scatter)
         self.geometry_slider.valueChanged.connect(self.create_forces_arrows)
+        self.geometry_slider.valueChanged.connect(self.update_geometry_status)
 
         self.geometry_value_label = QtWidgets.QLabel()
         self.geometry_value_label.setText(f"Geometry: {self.geometry_slider.value()}")
@@ -442,6 +445,86 @@ class StructureControlsWidget(QWidget):
         self.moveable_scatter_plot_item.addPoints([current_x], [current_y])
         self.energy_plot_widget.addItem(self.moveable_scatter_plot_item)
 
+    def update_geometry_status(self, *args):
+        """Emit a one-line summary for the geometry currently shown in the structure viewer."""
+        self.geometry_status_changed.emit(self.current_geometry_status_text())
+
+    def current_geometry_status_text(self):
+        index = self.geometry_slider.value()
+        max_index = self.geometry_slider.maximum()
+        energy = self._current_total_energy(index)
+        total_magnetization = self._current_total_magnetization(index)
+        max_force = self._current_max_force(index)
+
+        parts = [
+            f"Geometry {index}/{max_index}",
+            f"E = {self._format_status_number(energy)} eV",
+            f"M = {self._format_status_number(total_magnetization)} muB",
+        ]
+        if max_force is not None:
+            parts.append(f"max |F| = {self._format_status_number(max_force)} eV/A")
+        return " | ".join(parts)
+
+    def _current_total_energy(self, index):
+        return self._value_at_index(getattr(self.structure_plot_widget.data, "outcar_energies", None), index)
+
+    def _current_total_magnetization(self, index):
+        outcar_data = getattr(self.structure_plot_widget.data, "outcar_data", None)
+        if outcar_data is None:
+            return None
+
+        total_magnetization = self._value_at_index(getattr(outcar_data, "total_magnetizations", None), index)
+        if total_magnetization is not None:
+            return total_magnetization
+
+        magnetizations = self._value_at_index(getattr(outcar_data, "magnetizations", None), index)
+        if magnetizations is None:
+            return None
+        try:
+            return np.sum(np.array(magnetizations, dtype=float))
+        except (TypeError, ValueError):
+            return None
+
+    def _current_max_force(self, index):
+        outcar_data = getattr(self.structure_plot_widget.data, "outcar_data", None)
+        if outcar_data is None:
+            return None
+
+        forces = self._value_at_index(getattr(outcar_data, "forces", None), index)
+        if forces is None:
+            return None
+        try:
+            forces = np.array(forces, dtype=float)
+        except (TypeError, ValueError):
+            return None
+        if forces.size == 0:
+            return None
+        if forces.ndim == 1:
+            return np.max(np.abs(forces))
+        return np.max(np.linalg.norm(forces, axis=1))
+
+    @staticmethod
+    def _value_at_index(values, index):
+        if values is None:
+            return None
+        try:
+            if index < 0 or index >= len(values):
+                return None
+            return values[index]
+        except TypeError:
+            return None
+
+    @staticmethod
+    def _format_status_number(value):
+        if value is None:
+            return "N/A"
+        if isinstance(value, bytes):
+            value = value.decode(errors="replace")
+        try:
+            return f"{float(value):.6g}"
+        except (TypeError, ValueError):
+            return str(value)
+
     def toggle_spheres(self, flag):
         """switches on and off spheres visibility"""
         for actor in self.structure_plot_widget.sphere_actors:
@@ -493,6 +576,7 @@ class StructureControlsWidget(QWidget):
             self.plotter.renderer.RemoveActor(actor)
         self.structure_plot_widget.sphere_actors = []
         coordinates = self.structure_plot_widget.data.outcar_coordinates[self.geometry_slider.value()]
+        self.update_geometry_status()
         self.structure_plot_widget.assign_missing_colors()
         for idx, (coord, col) in enumerate(zip(coordinates, self.structure_plot_widget.atom_colors)):
             actor, source = self._create_vtk_sphere(coord, col)

@@ -13,7 +13,7 @@ AppConfig.load()
 tic = time.perf_counter()
 from PyQt5.QtWidgets import (
     QDockWidget, QMainWindow, QSplitter,
-    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QStyleFactory,
+    QToolBar, QAction, QFileDialog, QMenu, QSplashScreen, QStyleFactory, QLabel,
 
 )
 from PyQt5.QtGui import QIcon, QPixmap, QFont
@@ -416,8 +416,18 @@ class MainWindow(QMainWindow):
     def create_status_bar(self):
         self.status_bar = self.statusBar()
 
+        self.geometry_status_label = QLabel()
+        self.geometry_status_label.setObjectName("geometryStatusLabel")
+        self.status_bar.addWidget(self.geometry_status_label, 1)
+
         self.blinking_label = QLabel()
         self.status_bar.addPermanentWidget(self.blinking_label)
+
+        self.structure_plot_control_tab.geometry_status_changed.connect(self.update_geometry_status_label)
+        self.structure_plot_control_tab.update_geometry_status()
+
+    def update_geometry_status_label(self, message):
+        self.geometry_status_label.setText(message)
 
     def show_blinking_status(self, message):
         self.blinking_label.setText(message)
